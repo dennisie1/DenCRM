@@ -1,10 +1,9 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import WorldClock from './components/WorldClock'
-import './styles/WorldClock.css'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./crm-app.jsx";
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <WorldClock />
-  </React.StrictMode>,
-)
+    <App />
+  </React.StrictMode>
+);
