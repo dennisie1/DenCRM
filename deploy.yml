@@ -1,0 +1,105 @@
+name: DenCRM – Versie & Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:          # Handmatig uitvoeren via GitHub UI
+
+# ─── Permissies ───────────────────────────────────────────────────────────────
+permissions:
+  contents: write             # Nodig voor auto-commit van versie-tag
+  pages: write                # Nodig voor GitHub Pages deploy
+  id-token: write
+
+# ─── Één deploy tegelijk ──────────────────────────────────────────────────────
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # JOB 1: Bouwen
+  # ───────────────────────────────────────────────────────────────────────────
+  build:
+    name: Bouwen & bundelen
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Code ophalen
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # Volledige history voor versiebeheer
+
+      - name: 🟢 Node.js instellen
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: 📦 Dependencies installeren
+        run: npm ci
+
+      - name: 🔨 Applicatie bouwen
+        run: npm run build
+
+      # Versienummer bepalen op basis van git tags
+      - name: 🏷️ Versienummer bepalen
+        id: versie
+        run: |
+          # Haal het laatste tag op, of begin bij v1.0.0
+          LAATSTE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+          echo "laatste_tag=$LAATSTE_TAG" >> $GITHUB_OUTPUT
+          echo "Laatste versie: $LAATSTE_TAG"
+
+          # Timestamp voor README
+          TIJDSTIP=$(TZ="Europe/Amsterdam" date "+%Y-%m-%d %H:%M")
+          echo "tijdstip=$TIJDSTIP" >> $GITHUB_OUTPUT
+          echo "Tijdstip: $TIJDSTIP"
+
+      # README bijwerken met nieuwe timestamp
+      - name: 📝 README tijdstip bijwerken
+        run: |
+          TIJDSTIP="${{ steps.versie.outputs.tijdstip }}"
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -1)
+
+          # Vervang de "Laatste update" regel onderaan de README
+          sed -i "s|^.*Laatste update:.*|*Laatste update: $TIJDSTIP*|" README.md
+
+          # Voeg nieuwe regel toe aan wijzigingslog als de commit geen [skip-log] bevat
+          if [[ "$COMMIT_MSG" != *"[skip-log]"* && "$COMMIT_MSG" != *"Auto-commit"* ]]; then
+            VERSIE="${{ steps.versie.outputs.laatste_tag }}"
+            # Voeg rij in na de tabelheader (regel met "Versie |")
+            NIEUWE_RIJ="| auto | $TIJDSTIP | $COMMIT_MSG |"
+            sed -i "/^| Versie | Datum/a $NIEUWE_RIJ" README.md
+            echo "Wijzigingslog bijgewerkt: $NIEUWE_RIJ"
+          fi
+
+      - name: 💾 Wijzigingen auto-committen
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "📝 Auto-commit: README bijgewerkt [skip-log]"
+          file_pattern: "README.md"
+          commit_user_name: "DenCRM Bot"
+          commit_user_email: "dencrm-bot@users.noreply.github.com"
+
+      - name: 📤 Build-artefact uploaden
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./dist"        # Vite bouwt standaard naar ./dist
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # JOB 2: Deployen naar GitHub Pages
+  # ───────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deployen naar GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: 🚀 Deployen
+        id: deployment
+        uses: actions/deploy-pages@v4
