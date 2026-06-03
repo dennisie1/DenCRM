@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./crm-app.jsx";
+import App from "./crm-app";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
