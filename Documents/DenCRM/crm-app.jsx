@@ -722,9 +722,9 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex",
             alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem", overflowY:"auto" }}
             onClick={e=>e.target===e.currentTarget&&setKlantDetailModal(null)}>
-            <div style={{ background:"var(--color-background-primary)", borderRadius:16,
-              border:"0.5px solid var(--color-border-tertiary)", width:"100%", maxWidth:560,
-              boxShadow:"0 16px 48px rgba(0,0,0,0.2)", overflow:"hidden" }}>
+            <div style={{ background:"#ffffff", color:"#1a1a1a", borderRadius:16,
+              border:"1px solid #d0d0d0", width:"100%", maxWidth:560,
+              boxShadow:"0 16px 48px rgba(0,0,0,0.25)", overflow:"hidden" }}>
               {/* Header */}
               <div style={{ background:kleur.hoofd, padding:"1.25rem 1.5rem", display:"flex", alignItems:"center", gap:14 }}>
                 <Avatar naam={k.naam} size={48} kleur={{licht:"rgba(255,255,255,0.2)",donker:"#fff"}} />
@@ -746,27 +746,27 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
               <div style={{ padding:"1.25rem 1.5rem", display:"flex", flexDirection:"column", gap:16, maxHeight:"65vh", overflowY:"auto" }}>
                 {/* Contact */}
                 <div>
-                  <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>CONTACTGEGEVENS</p>
+                  <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"#888", letterSpacing:"0.05em" }}>CONTACTGEGEVENS</p>
                   {[{l:"Telefoon",v:k.telefoon},{l:"Adres",v:k.adres}].map(r=>(
                     <div key={r.l} style={{ display:"flex", gap:8, marginBottom:4 }}>
-                      <span style={{ fontSize:fs-1, color:"var(--color-text-secondary)", minWidth:70 }}>{r.l}</span>
+                      <span style={{ fontSize:fs-1, color:"#888", minWidth:70 }}>{r.l}</span>
                       <span style={{ fontSize:fs-1 }}>{r.v||"—"}</span>
                     </div>
                   ))}
                 </div>
                 {/* Producten */}
                 <div>
-                  <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>PRODUCTEN ({k.producten.length})</p>
-                  {k.producten.length===0 ? <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>Geen producten gekoppeld.</p> : (
+                  <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"#888", letterSpacing:"0.05em" }}>PRODUCTEN ({k.producten.length})</p>
+                  {k.producten.length===0 ? <p style={{ fontSize:fs-1, color:"#888" }}>Geen producten gekoppeld.</p> : (
                     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                       {k.producten.map(pid=>{const p=producten.find(x=>x.id===pid);if(!p)return null;return(
                         <div key={pid} style={{ display:"flex", justifyContent:"space-between", padding:"7px 10px",
-                          background:"var(--color-background-secondary)", borderRadius:8 }}>
+                          background:"#f5f5f5", borderRadius:8 }}>
                           <span style={{ fontSize:fs-1 }}>{p.naam}</span>
                           <span style={{ fontSize:fs-1, fontWeight:500, color:kleur.hoofd }}>€{p.prijs.toLocaleString("nl-NL",{minimumFractionDigits:2})}</span>
                         </div>
                       );})}
-                      <div style={{ textAlign:"right", fontSize:fs-1, color:"var(--color-text-secondary)", marginTop:4 }}>
+                      <div style={{ textAlign:"right", fontSize:fs-1, color:"#888", marginTop:4 }}>
                         Totaal: <strong>€{k.producten.reduce((s,pid)=>s+(producten.find(p=>p.id===pid)?.prijs||0),0).toLocaleString("nl-NL",{minimumFractionDigits:2})}</strong>
                       </div>
                     </div>
@@ -775,7 +775,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
                 {/* Aankomende afspraken */}
                 {kAfspraken.filter(a=>a.datum>=nu).length>0&&(
                   <div>
-                    <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>AANKOMENDE AFSPRAKEN</p>
+                    <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"#888", letterSpacing:"0.05em" }}>AANKOMENDE AFSPRAKEN</p>
                     {kAfspraken.filter(a=>a.datum>=nu).map(a=>(
                       <div key={a.id} style={{ display:"flex", gap:10, padding:"7px 10px",
                         background:kleur.licht, borderRadius:8, borderLeft:`3px solid ${kleur.hoofd}`, marginBottom:6 }}>
@@ -790,13 +790,13 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
                 {/* Offertes */}
                 {(k.offertes||[]).length>0&&(
                   <div>
-                    <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>OFFERTES ({k.offertes.length})</p>
+                    <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"#888", letterSpacing:"0.05em" }}>OFFERTES ({k.offertes.length})</p>
                     {k.offertes.map(o=>(
                       <div key={o.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                        padding:"7px 10px", background:"var(--color-background-secondary)", borderRadius:8, marginBottom:6 }}>
+                        padding:"7px 10px", background:"#f5f5f5", borderRadius:8, marginBottom:6 }}>
                         <div>
                           <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>{o.referentie}</p>
-                          <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>{o.datum}</p>
+                          <p style={{ margin:0, fontSize:fs-3, color:"#888" }}>{o.datum}</p>
                         </div>
                         <span style={{ fontSize:fs-1, fontWeight:500, color:kleur.hoofd }}>€{o.totaalInclBtw?.toLocaleString("nl-NL",{minimumFractionDigits:2})}</span>
                       </div>
