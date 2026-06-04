@@ -478,6 +478,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
   const [form, setForm] = useState({ naam:"", email:"", telefoon:"", adres:"", producten:[], offertes:[] });
   const [tabblad, setTabblad] = useState("info"); // "info" | "afspraken" | "offertes"
   const [openOfferte, setOpenOfferte] = useState(null);
+  const [klantDetailModal, setKlantDetailModal] = useState(null); // klant voor popup
 
   const filtered = klanten.filter(k=>
     k.naam.toLowerCase().includes(zoek.toLowerCase()) ||
@@ -518,7 +519,10 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {filtered.length===0&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>Geen klanten gevonden.</p>}
           {filtered.map(k=>(
-            <div key={k.id} onClick={()=>selectKlant(k)} style={{ background:"var(--color-background-primary)",
+            <div key={k.id} onClick={()=>selectKlant(k)}
+              onDoubleClick={()=>{ selectKlant(k); setKlantDetailModal(k); }}
+              title="Klik om te selecteren · Dubbelklik voor popup"
+              style={{ background:"var(--color-background-primary)",
               border:sel?.id===k.id?`1.5px solid ${kleur.hoofd}`:"0.5px solid var(--color-border-tertiary)",
               borderRadius:12, padding:"12px 16px", cursor:"pointer", display:"flex", alignItems:"center", gap:12 }}>
               <Avatar naam={k.naam} kleur={kleur} />
@@ -707,17 +711,114 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
           </div>
         </div>
       )}
+
+      {/* Klant detail popup (dubbelklik) */}
+      {klantDetailModal&&(()=>{
+        const k = klantDetailModal;
+        const kAfspraken = agenda.filter(a=>a.klantId===k.id).sort((a,b)=>(a.datum+a.tijd).localeCompare(b.datum+b.tijd));
+        const nu = new Date().toISOString().slice(0,10);
+        return (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex",
+            alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem", overflowY:"auto" }}
+            onClick={e=>e.target===e.currentTarget&&setKlantDetailModal(null)}>
+            <div style={{ background:"var(--color-background-primary)", borderRadius:16,
+              border:"0.5px solid var(--color-border-tertiary)", width:"100%", maxWidth:560,
+              boxShadow:"0 16px 48px rgba(0,0,0,0.2)", overflow:"hidden" }}>
+              {/* Header */}
+              <div style={{ background:kleur.hoofd, padding:"1.25rem 1.5rem", display:"flex", alignItems:"center", gap:14 }}>
+                <Avatar naam={k.naam} size={48} kleur={{licht:"rgba(255,255,255,0.2)",donker:"#fff"}} />
+                <div style={{ flex:1 }}>
+                  <h2 style={{ margin:0, fontSize:fs+4, fontWeight:600, color:"#fff" }}>{k.naam}</h2>
+                  <p style={{ margin:0, fontSize:fs-1, color:"rgba(255,255,255,0.8)" }}>{k.email}</p>
+                </div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={()=>{ openBewerk(k); setKlantDetailModal(null); }}
+                    style={{ padding:"6px 12px", borderRadius:8, background:"rgba(255,255,255,0.2)",
+                      color:"#fff", border:"1px solid rgba(255,255,255,0.4)", cursor:"pointer", fontSize:fs-1 }}>
+                    ✎ Bewerken
+                  </button>
+                  <button onClick={()=>setKlantDetailModal(null)}
+                    style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.7)", fontSize:22, lineHeight:1, padding:"0 4px" }}>×</button>
+                </div>
+              </div>
+              {/* Content */}
+              <div style={{ padding:"1.25rem 1.5rem", display:"flex", flexDirection:"column", gap:16, maxHeight:"65vh", overflowY:"auto" }}>
+                {/* Contact */}
+                <div>
+                  <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>CONTACTGEGEVENS</p>
+                  {[{l:"Telefoon",v:k.telefoon},{l:"Adres",v:k.adres}].map(r=>(
+                    <div key={r.l} style={{ display:"flex", gap:8, marginBottom:4 }}>
+                      <span style={{ fontSize:fs-1, color:"var(--color-text-secondary)", minWidth:70 }}>{r.l}</span>
+                      <span style={{ fontSize:fs-1 }}>{r.v||"—"}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Producten */}
+                <div>
+                  <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>PRODUCTEN ({k.producten.length})</p>
+                  {k.producten.length===0 ? <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>Geen producten gekoppeld.</p> : (
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      {k.producten.map(pid=>{const p=producten.find(x=>x.id===pid);if(!p)return null;return(
+                        <div key={pid} style={{ display:"flex", justifyContent:"space-between", padding:"7px 10px",
+                          background:"var(--color-background-secondary)", borderRadius:8 }}>
+                          <span style={{ fontSize:fs-1 }}>{p.naam}</span>
+                          <span style={{ fontSize:fs-1, fontWeight:500, color:kleur.hoofd }}>€{p.prijs.toLocaleString("nl-NL",{minimumFractionDigits:2})}</span>
+                        </div>
+                      );})}
+                      <div style={{ textAlign:"right", fontSize:fs-1, color:"var(--color-text-secondary)", marginTop:4 }}>
+                        Totaal: <strong>€{k.producten.reduce((s,pid)=>s+(producten.find(p=>p.id===pid)?.prijs||0),0).toLocaleString("nl-NL",{minimumFractionDigits:2})}</strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* Aankomende afspraken */}
+                {kAfspraken.filter(a=>a.datum>=nu).length>0&&(
+                  <div>
+                    <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>AANKOMENDE AFSPRAKEN</p>
+                    {kAfspraken.filter(a=>a.datum>=nu).map(a=>(
+                      <div key={a.id} style={{ display:"flex", gap:10, padding:"7px 10px",
+                        background:kleur.licht, borderRadius:8, borderLeft:`3px solid ${kleur.hoofd}`, marginBottom:6 }}>
+                        <span style={{ fontSize:fs-1, fontWeight:500, color:kleur.donker, minWidth:80 }}>
+                          {new Date(a.datum+"T12:00:00").toLocaleDateString("nl-NL",{day:"numeric",month:"short"})} {a.tijd}
+                        </span>
+                        <span style={{ fontSize:fs-1 }}>{a.notitie||"—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Offertes */}
+                {(k.offertes||[]).length>0&&(
+                  <div>
+                    <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>OFFERTES ({k.offertes.length})</p>
+                    {k.offertes.map(o=>(
+                      <div key={o.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                        padding:"7px 10px", background:"var(--color-background-secondary)", borderRadius:8, marginBottom:6 }}>
+                        <div>
+                          <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>{o.referentie}</p>
+                          <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>{o.datum}</p>
+                        </div>
+                        <span style={{ fontSize:fs-1, fontWeight:500, color:kleur.hoofd }}>€{o.totaalInclBtw?.toLocaleString("nl-NL",{minimumFractionDigits:2})}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
-
-// ── PRODUCTEN ────────────────────────────────────────────────────────────────
 function ProductenPage({ producten, setProducten, kleur, fs }) {
   const [modal, setModal] = useState(false);
+  const [catModal, setCatModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
-  const [form, setForm] = useState({ naam:"", prijs:"", beschrijving:"", categorie:"" });
+  const [form, setForm] = useState({ naam:"", prijs:"", beschrijving:"", categorie:"", voorraad:"", inkoopprijs:"" });
   const [activeCat, setActiveCat] = useState("Alle");
   const [zoek, setZoek] = useState("");
+  const [toonInkoop, setToonInkoop] = useState(false);
+  const [nieuweCategorie, setNieuweCategorie] = useState("");
 
   const cats = [...new Set(producten.map(p=>p.categorie).filter(Boolean))].sort();
   const alleCats = ["Alle", ...cats];
@@ -728,39 +829,86 @@ function ProductenPage({ producten, setProducten, kleur, fs }) {
     return catOk && zoekOk;
   });
 
-  function openNieuw() { setForm({ naam:"", prijs:"", beschrijving:"", categorie: activeCat !== "Alle" ? activeCat : "" }); setEditProduct(null); setModal(true); }
-  function openEdit(p) { setForm({ naam:p.naam, prijs:String(p.prijs), beschrijving:p.beschrijving||"", categorie:p.categorie||"" }); setEditProduct(p); setModal(true); }
+  function openNieuw() {
+    setForm({ naam:"", prijs:"", beschrijving:"", categorie: activeCat !== "Alle" ? activeCat : "", voorraad:"", inkoopprijs:"" });
+    setEditProduct(null); setToonInkoop(false); setModal(true);
+  }
+  function openEdit(p) {
+    setForm({ naam:p.naam, prijs:String(p.prijs), beschrijving:p.beschrijving||"",
+      categorie:p.categorie||"", voorraad:p.voorraad!=null?String(p.voorraad):"",
+      inkoopprijs:p.inkoopprijs!=null?String(p.inkoopprijs):"" });
+    setEditProduct(p); setToonInkoop(false); setModal(true);
+  }
 
   function save() {
     if(!form.naam||!form.prijs) return;
+    const extra = {
+      voorraad: form.voorraad !== "" ? parseInt(form.voorraad) : null,
+      inkoopprijs: form.inkoopprijs !== "" ? parseFloat(form.inkoopprijs) : null,
+    };
     if (editProduct) {
-      setProducten(prev => prev.map(p => p.id === editProduct.id ? {...p, ...form, prijs:parseFloat(form.prijs)} : p));
+      setProducten(prev => prev.map(p => p.id === editProduct.id ? {...p, ...form, prijs:parseFloat(form.prijs), ...extra} : p));
     } else {
-      setProducten(p=>[...p,{...form,id:"p"+uid(),prijs:parseFloat(form.prijs)}]);
+      setProducten(p=>[...p,{...form,id:"p"+uid(),prijs:parseFloat(form.prijs),...extra}]);
     }
     setModal(false);
   }
 
   function del(id) { if(confirm("Product verwijderen?")) setProducten(p=>p.filter(x=>x.id!==id)); }
 
+  function voegCatToe() {
+    const naam = nieuweCategorie.trim();
+    if (!naam || cats.includes(naam)) return;
+    // Categorie bestaat alleen als er een product mee is — we tonen een hint
+    setNieuweCategorie("");
+    // Voeg een lege categorie toe door activeCat te zetten en modal te openen
+    setActiveCat(naam);
+    setForm(f=>({...f, categorie:naam}));
+    setEditProduct(null); setToonInkoop(false); setModal(true);
+    setCatModal(false);
+  }
+
+  function verwijderCategorie(cat) {
+    if (!confirm(`Categorie "${cat}" verwijderen? Producten in deze categorie krijgen geen categorie meer.`)) return;
+    setProducten(prev => prev.map(p => p.categorie === cat ? {...p, categorie:""} : p));
+    if (activeCat === cat) setActiveCat("Alle");
+  }
+
   return (
     <div>
-      {/* Categorieën tabs */}
+      {/* Categorieën tabs + beheer */}
       <div style={{ display:"flex", gap:6, marginBottom:"1rem", flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ display:"flex", gap:4, flex:1, flexWrap:"wrap" }}>
           {alleCats.map(cat=>(
-            <button key={cat} onClick={()=>setActiveCat(cat)} style={{
-              padding:"6px 14px", borderRadius:99, border:"none", cursor:"pointer",
-              fontSize:fs-1, fontWeight:500, transition:"all 0.15s",
-              background: activeCat===cat ? kleur.hoofd : "var(--color-background-secondary)",
-              color: activeCat===cat ? "#fff" : "var(--color-text-secondary)",
-            }}>
-              {cat}
-              <span style={{ marginLeft:6, fontSize:fs-3, opacity:0.75 }}>
-                {cat==="Alle" ? producten.length : producten.filter(p=>p.categorie===cat).length}
-              </span>
-            </button>
+            <div key={cat} style={{ display:"flex", alignItems:"center", gap:0 }}>
+              <button onClick={()=>setActiveCat(cat)} style={{
+                padding:"6px 14px", borderRadius: cat==="Alle" ? 99 : "99px 0 0 99px",
+                border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:500, transition:"all 0.15s",
+                background: activeCat===cat ? kleur.hoofd : "var(--color-background-secondary)",
+                color: activeCat===cat ? "#fff" : "var(--color-text-secondary)",
+                paddingRight: cat!=="Alle" ? 8 : 14,
+              }}>
+                {cat}
+                <span style={{ marginLeft:6, fontSize:fs-3, opacity:0.75 }}>
+                  {cat==="Alle" ? producten.length : producten.filter(p=>p.categorie===cat).length}
+                </span>
+              </button>
+              {cat!=="Alle" && (
+                <button onClick={()=>verwijderCategorie(cat)} title={`Categorie "${cat}" verwijderen`}
+                  style={{ padding:"6px 8px", borderRadius:"0 99px 99px 0", border:"none", cursor:"pointer",
+                    fontSize:fs-2, transition:"all 0.15s",
+                    background: activeCat===cat ? kleur.donker : "var(--color-background-secondary)",
+                    color: activeCat===cat ? "#fff" : "#aaa" }}>✕</button>
+              )}
+            </div>
           ))}
+          {/* Categorie toevoegen knop */}
+          <button onClick={()=>{ setNieuweCategorie(""); setCatModal(true); }}
+            style={{ padding:"6px 12px", borderRadius:99, border:`1.5px dashed ${kleur.hoofd}`,
+              cursor:"pointer", fontSize:fs-2, fontWeight:500,
+              background:"transparent", color:kleur.hoofd }}>
+            + Categorie
+          </button>
         </div>
         <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Zoeken…"
           style={{ padding:"6px 12px", borderRadius:8, border:"0.5px solid var(--color-border-secondary)",
@@ -768,7 +916,7 @@ function ProductenPage({ producten, setProducten, kleur, fs }) {
         <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuw product</Btn>
       </div>
 
-      {/* Productenlijst — verticaal zoals klanten */}
+      {/* Productenlijst */}
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {gefilterd.length===0&&(
           <div style={{ padding:"2rem", textAlign:"center", color:"var(--color-text-secondary)", fontSize:fs-1,
@@ -780,13 +928,13 @@ function ProductenPage({ producten, setProducten, kleur, fs }) {
           <div key={p.id} style={{ background:"var(--color-background-primary)",
             border:"0.5px solid var(--color-border-tertiary)", borderRadius:12,
             padding:"12px 16px", display:"flex", alignItems:"center", gap:14 }}>
-            {/* Kleur-indicator op basis van categorie */}
             <div style={{ width:4, alignSelf:"stretch", borderRadius:4, flexShrink:0,
               background: cats.length ? kleur.hoofd : "#ccc", opacity: p.categorie ? 1 : 0.3 }} />
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
                 <p style={{ margin:0, fontWeight:500, fontSize:fs, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.naam}</p>
                 {p.categorie&&<Badge kleur={kleur}>{p.categorie}</Badge>}
+                {p.voorraad!=null&&<span style={{ fontSize:fs-3, color:"var(--color-text-secondary)" }}>Voorraad: {p.voorraad}</span>}
               </div>
               {p.beschrijving&&<p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.beschrijving}</p>}
             </div>
@@ -801,18 +949,84 @@ function ProductenPage({ producten, setProducten, kleur, fs }) {
         ))}
       </div>
 
+      {/* Product modal */}
       {modal&&(
         <Modal title={editProduct?"Product bewerken":"Nieuw product"} onClose={()=>setModal(false)} fs={fs}>
           <FF label="Productnaam" fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label="Prijs (€)" fs={fs}><input type="number" value={form.prijs} onChange={e=>setForm(f=>({...f,prijs:e.target.value}))} style={iSt(fs)} /></FF>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label="Verkoopprijs (€)" fs={fs}><input type="number" value={form.prijs} onChange={e=>setForm(f=>({...f,prijs:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label="Inkoopprijs (€)" fs={fs}>
+              <div style={{ position:"relative" }}>
+                <input type={toonInkoop?"number":"password"} value={form.inkoopprijs}
+                  onChange={e=>setForm(f=>({...f,inkoopprijs:e.target.value}))}
+                  placeholder="Verborgen"
+                  style={{...iSt(fs), paddingRight:36}} />
+                <button onClick={()=>setToonInkoop(t=>!t)}
+                  style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)",
+                    background:"none", border:"none", cursor:"pointer", color:"#aaa", fontSize:16 }}>
+                  {toonInkoop?"🙈":"👁"}
+                </button>
+              </div>
+            </FF>
+          </div>
           <FF label="Beschrijving" fs={fs}><textarea value={form.beschrijving} onChange={e=>setForm(f=>({...f,beschrijving:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
           <FF label="Categorie" fs={fs}>
             <input value={form.categorie} onChange={e=>setForm(f=>({...f,categorie:e.target.value}))} list="prod-cats" style={iSt(fs)} placeholder="Bijv. Web, Marketing, Design…" />
             <datalist id="prod-cats">{cats.map(c=><option key={c} value={c}/>)}</datalist>
           </FF>
+          {/* Voorraad */}
+          <div style={{ borderTop:"0.5px solid var(--color-border-tertiary)", paddingTop:"1rem", marginTop:"0.25rem" }}>
+            <p style={{ margin:"0 0 8px", fontSize:fs-1, fontWeight:500, color:"var(--color-text-secondary)", letterSpacing:"0.04em" }}>VOORRAAD</p>
+            <FF label="Aantal op voorraad" fs={fs}>
+              <input type="number" min="0" value={form.voorraad} onChange={e=>setForm(f=>({...f,voorraad:e.target.value}))}
+                placeholder="Laat leeg indien niet van toepassing" style={iSt(fs)} />
+            </FF>
+          </div>
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
             <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
             <Btn variant="primary" onClick={save} kleur={kleur} fs={fs}>Opslaan</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* Categorie beheer modal */}
+      {catModal&&(
+        <Modal title="Categorie toevoegen" onClose={()=>setCatModal(false)} fs={fs}>
+          <p style={{ fontSize:fs-1, color:"#555", margin:"0 0 1rem" }}>
+            Bestaande categorieën kun je verwijderen via het ✕-knopje naast de categorieknop.
+          </p>
+          {cats.length > 0 && (
+            <div style={{ marginBottom:"1.25rem" }}>
+              <p style={{ fontSize:fs-2, color:"#888", margin:"0 0 8px", fontWeight:500 }}>HUIDIGE CATEGORIEËN</p>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                {cats.map(c=>(
+                  <div key={c} style={{ display:"flex", alignItems:"center", gap:4, background:kleur.licht,
+                    color:kleur.donker, borderRadius:99, padding:"4px 12px", fontSize:fs-1 }}>
+                    <span>{c}</span>
+                    <span style={{ fontSize:fs-3, color:"var(--color-text-secondary)" }}>
+                      ({producten.filter(p=>p.categorie===c).length})
+                    </span>
+                    <button onClick={()=>{ verwijderCategorie(c); }} style={{ background:"none",border:"none",cursor:"pointer",color:kleur.donker,fontSize:13,padding:"0 0 0 4px",lineHeight:1 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <FF label="Nieuwe categorie naam" fs={fs}>
+            <input value={nieuweCategorie} onChange={e=>setNieuweCategorie(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&voegCatToe()}
+              placeholder="Bijv. Diensten, Hardware, Licenties…"
+              style={iSt(fs)} />
+          </FF>
+          {cats.includes(nieuweCategorie.trim()) && (
+            <p style={{ fontSize:fs-2, color:"#a32d2d", margin:"-0.5rem 0 0.5rem" }}>Deze categorie bestaat al.</p>
+          )}
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setCatModal(false)} fs={fs}>Sluiten</Btn>
+            <Btn variant="primary" onClick={voegCatToe} kleur={kleur} fs={fs}
+              disabled={!nieuweCategorie.trim() || cats.includes(nieuweCategorie.trim())}>
+              + Toevoegen & nieuw product
+            </Btn>
           </div>
         </Modal>
       )}
@@ -834,35 +1048,26 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
     .sort((a,b)=>(a.datum+a.tijd).localeCompare(b.datum+b.tijd));
 
   function openNieuw(tijd="09:00") {
-    // Bereken een uur later als eindtijd
-    const [h, m] = tijd.split(":").map(Number);
+    const [h,m] = tijd.split(":").map(Number);
     const tijdTot = `${String(Math.min(h+1,23)).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
     setForm({ klantId:"", datum:filterDatum||new Date().toISOString().slice(0,10), tijd, tijdTot, notitie:"" });
-    setEditId(null);
-    setModal(true);
+    setEditId(null); setModal(true);
   }
 
   function openEdit(a) {
     setForm({ klantId:a.klantId, datum:a.datum, tijd:a.tijd, tijdTot:a.tijdTot||"", notitie:a.notitie||"" });
-    setEditId(a.id);
-    setModal(true);
+    setEditId(a.id); setModal(true);
   }
 
   function save() {
     if(!form.klantId||!form.datum||!form.tijd) return;
-    if (editId) {
-      setAgenda(p=>p.map(a=>a.id===editId?{...a,...form}:a));
-    } else {
-      setAgenda(p=>[...p,{...form,id:"a"+uid()}]);
-    }
+    if (editId) setAgenda(p=>p.map(a=>a.id===editId?{...a,...form}:a));
+    else setAgenda(p=>[...p,{...form,id:"a"+uid()}]);
     setModal(false);
   }
 
   function del(id) {
-    if(confirm("Afspraak verwijderen?")) {
-      setAgenda(p=>p.filter(a=>a.id!==id));
-      if(editId===id) setModal(false);
-    }
+    if(confirm("Afspraak verwijderen?")) { setAgenda(p=>p.filter(a=>a.id!==id)); if(editId===id) setModal(false); }
   }
 
   const groups = {};
@@ -870,11 +1075,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
 
   const dagAfsp = agenda.filter(a=>a.datum===filterDatum);
   function afspVoorUur(uur) { return dagAfsp.filter(a=>a.tijd.startsWith(uur.slice(0,2))); }
-
-  function tijdLabel(a) {
-    if (a.tijdTot) return `${a.tijd} – ${a.tijdTot}`;
-    return a.tijd;
-  }
+  function tijdLabel(a) { return a.tijdTot ? `${a.tijd} – ${a.tijdTot}` : a.tijd; }
 
   return (
     <div>
@@ -948,11 +1149,9 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
                   <div style={{ flex:1, padding:"4px 8px", display:"flex", flexDirection:"column", gap:4 }}>
                     {afspraken.length===0&&isH&&<span style={{ fontSize:fs-2, color:kleur.donker, padding:"4px 0" }}>+ Klik om afspraak toe te voegen</span>}
                     {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId);return(
-                      <div key={a.id}
-                        onClick={e=>{e.stopPropagation();openEdit(a);}}
+                      <div key={a.id} onClick={e=>{e.stopPropagation();openEdit(a);}}
                         style={{ background:kleur.hoofd, color:"#fff", borderRadius:6,
-                          padding:"5px 10px", display:"flex", justifyContent:"space-between", alignItems:"center",
-                          cursor:"pointer" }}>
+                          padding:"5px 10px", display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
                         <div>
                           <span style={{ fontSize:fs-1, fontWeight:500 }}>{tijdLabel(a)} — {k?.naam||"?"}</span>
                           {a.notitie&&<p style={{ margin:"1px 0 0", fontSize:fs-3, opacity:0.85 }}>{a.notitie}</p>}
@@ -980,20 +1179,12 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
             <input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
           </FF>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <FF label="Vanaf" fs={fs}>
-              <input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} />
-            </FF>
-            <FF label="Tot" fs={fs}>
-              <input type="time" value={form.tijdTot} onChange={e=>setForm(f=>({...f,tijdTot:e.target.value}))} style={iSt(fs)} />
-            </FF>
+            <FF label="Vanaf" fs={fs}><input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label="Tot" fs={fs}><input type="time" value={form.tijdTot} onChange={e=>setForm(f=>({...f,tijdTot:e.target.value}))} style={iSt(fs)} /></FF>
           </div>
-          <FF label="Notitie" fs={fs}>
-            <textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} />
-          </FF>
+          <FF label="Notitie" fs={fs}><textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
           <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginTop:"1rem" }}>
-            {editId && (
-              <Btn variant="danger" onClick={()=>del(editId)} fs={fs}>Verwijderen</Btn>
-            )}
+            {editId && <Btn variant="danger" onClick={()=>del(editId)} fs={fs}>Verwijderen</Btn>}
             <div style={{ display:"flex", gap:8, marginLeft:"auto" }}>
               <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
               <Btn variant="primary" onClick={save} kleur={kleur} fs={fs} disabled={!form.klantId}>Opslaan</Btn>
