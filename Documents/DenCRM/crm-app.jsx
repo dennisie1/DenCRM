@@ -151,11 +151,12 @@ function Avatar({ naam, size=40, kleur }) {
 function Modal({ title, onClose, children, fs }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex",
-      alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem" }}
+      alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem", overflowY:"auto" }}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ backgroundColor:"#ffffff", color:"#1a1a1a", borderRadius:12,
         border:"1px solid #d0d0d0", padding:"1.5rem", width:"100%", maxWidth:560,
-        maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 32px rgba(0,0,0,0.18)", fontSize:fs }}>
+        boxShadow:"0 8px 32px rgba(0,0,0,0.18)", fontSize:fs,
+        margin:"auto" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
           <h2 style={{ margin:0, fontSize:fs+4, fontWeight:500, color:"#1a1a1a" }}>{title}</h2>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:22, color:"#666", padding:"4px 8px", lineHeight:1 }}>×</button>
@@ -1713,18 +1714,24 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs }) {
             <option key={k.id} value={k.id}>{k.naam}</option>
           ))}
         </select>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>Van</span>
+        <label style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 14px",
+          borderRadius:8, border:`1.5px solid ${kleur.hoofd}`,
+          background:"var(--color-background-primary)", cursor:"pointer",
+          boxShadow:`0 0 0 3px ${kleur.hoofd}22` }}>
+          <span style={{ fontSize:fs-2, color:kleur.hoofd, fontWeight:500 }}>📅 Van:</span>
           <input type="date" value={filterVan} onChange={e => setFilterVan(e.target.value)}
-            style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
-              background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: fs - 1 }} />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>Tot</span>
+            style={{ border:"none", background:"transparent", color:"var(--color-text-primary)",
+              fontSize:fs-1, cursor:"pointer", outline:"none", fontWeight:500 }} />
+        </label>
+        <label style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 14px",
+          borderRadius:8, border:`1.5px solid ${kleur.hoofd}`,
+          background:"var(--color-background-primary)", cursor:"pointer",
+          boxShadow:`0 0 0 3px ${kleur.hoofd}22` }}>
+          <span style={{ fontSize:fs-2, color:kleur.hoofd, fontWeight:500 }}>📅 Tot:</span>
           <input type="date" value={filterTot} onChange={e => setFilterTot(e.target.value)}
-            style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
-              background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: fs - 1 }} />
-        </div>
+            style={{ border:"none", background:"transparent", color:"var(--color-text-primary)",
+              fontSize:fs-1, cursor:"pointer", outline:"none", fontWeight:500 }} />
+        </label>
         <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${kleur.hoofd}` }}>
           {[{ id: "alle", label: "Alle" }, { id: "open", label: "Openstaand" }, { id: "betaald", label: "Betaald" }].map(v => (
             <button key={v.id} onClick={() => setFilterBetaald(v.id)} style={{
