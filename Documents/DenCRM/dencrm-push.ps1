@@ -86,7 +86,7 @@ if ($LASTEXITCODE -eq 0) {
     Schrijf-Succes "✓ GitHub Actions bouwt nu automatisch de nieuwe versie."
     Write-Host ""
     Write-Host "Je app is straks live op:" -ForegroundColor White
-    Write-Host "https://dennisie1.github.io/dencrm/" -ForegroundColor Cyan
+    Write-Host "https://dennisie1.github.io/DenCRM/" -ForegroundColor Cyan
 } else {
     Write-Host ""
     Schrijf-Fout "Push mislukt. Mogelijke oorzaken:"

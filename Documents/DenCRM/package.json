@@ -1,12 +1,14 @@
 {
   "name": "dencrm",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
-  "description": "DenCRM – Nederlandstalige CRM-webapplicatie",
+  "description": "DenCRM - Nederlandstalige CRM-webapplicatie",
+  "homepage": "https://dennisie1.github.io/dencrm",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -14,6 +16,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
+    "gh-pages": "^6.3.0",
     "vite": "^5.4.0"
   }
 }

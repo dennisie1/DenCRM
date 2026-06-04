@@ -1,10 +1,23 @@
 import { useState, useRef, useEffect } from "react";
 
+// Betere hash dan de vorige (nog steeds client-side demo, geen vervanging voor echte backend auth)
 function simpleHash(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-  return h.toString(16);
+  // djb2a variant — beter dan de vorige maar nog steeds NIET productie-veilig
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) + h) ^ str.charCodeAt(i);
+    h = h >>> 0; // unsigned 32-bit
+  }
+  // Extra ronden voor meer verspreiding
+  for (let r = 0; r < 3; r++) {
+    for (let i = 0; i < str.length; i++) {
+      h = ((h << 5) + h) ^ (str.charCodeAt(i) * 0x9e3779b9);
+      h = h >>> 0;
+    }
+  }
+  return h.toString(16).padStart(8,"0");
 }
+// ⚠️ Wachtwoorden zijn gehashed maar nog steeds client-side. Voor productie: gebruik een echte backend met bcrypt/argon2.
 
 const INIT_USERS = [
   { id:"u1", username:"dennis.goosen", passHash:simpleHash("Tijdelijk1"), isAdmin:true,  naam:"Dennis Goosen"  },
@@ -197,62 +210,276 @@ function Toggle({ aan, onToggle, label, fs }) {
 }
 
 // ── LOGIN ────────────────────────────────────────────────────────────────────
-function LoginPage({ users, onLogin, onDemo, kleur }) {
+function LoginPage({ users, setUsers, onLogin, onDemo, kleur }) {
   const [un, setUn] = useState(""); const [pw, setPw] = useState("");
   const [err, setErr] = useState(""); const [toon, setToon] = useState(false);
+  const [regModal, setRegModal] = useState(false);
+  const [regForm, setRegForm] = useState({ naam:"", bedrijf:"", email:"" });
+  const [regErr, setRegErr] = useState("");
+  const [regOk, setRegOk] = useState(false);
+
   function doLogin() {
     const u = users.find(x=>x.username===un && x.passHash===simpleHash(pw));
     if (u) { setErr(""); onLogin(u); } else setErr("Gebruikersnaam of wachtwoord onjuist.");
   }
+
+  function doRegistreer() {
+    setRegErr("");
+    if (!regForm.naam) { setRegErr("Naam is verplicht."); return; }
+    if (!regForm.email || !regForm.email.includes("@")) { setRegErr("Vul een geldig e-mailadres in."); return; }
+    if (users.find(u => u.username === regForm.email)) { setRegErr("Dit e-mailadres is al geregistreerd."); return; }
+    // Account aanmaken met tijdelijk wachtwoord (activatie via mail volgt later)
+    const nieuweUser = {
+      id: "u"+uid(),
+      username: regForm.email,
+      passHash: simpleHash("WachtwoordInstellen!"), // tijdelijk — activatiemail volgt
+      isAdmin: false,
+      naam: regForm.naam,
+      bedrijf: regForm.bedrijf,
+      email: regForm.email,
+      actief: false, // wacht op activatie
+    };
+    setUsers(prev => [...prev, nieuweUser]);
+    // [MAIL VOORBEREIDING] Hier komt de activatiemail met wachtwoordlink
+    console.log(`[MAIL VOORBEREIDING] Activatiemail naar ${regForm.email} voor ${regForm.naam}`);
+    setRegOk(true);
+  }
+
   return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
-      background:"linear-gradient(135deg,#e8f0fb 0%,#f5f5f5 100%)" }}>
-      <div style={{ background:"#fff", borderRadius:16, border:"1px solid #e0e0e0",
-        padding:"2.5rem 2rem", width:360, boxShadow:"0 8px 40px rgba(0,0,0,0.10)" }}>
+      background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)" }}>
+      <div style={{ background:"#fff", borderRadius:24, border:"1px solid #e0e0e0",
+        padding:"3rem 3rem 2.5rem", width:"100%", maxWidth:480,
+        boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
+
+        {/* Logo */}
         <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-          <div style={{ width:52, height:52, borderRadius:"50%", background:kleur.licht,
-            display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 1rem", fontSize:24 }}>🏢</div>
-          <h1 style={{ margin:0, fontSize:22, fontWeight:600, color:"#1a1a1a" }}>DenCRM</h1>
-          <p style={{ margin:"4px 0 0", fontSize:13, color:"#888" }}>Log in om verder te gaan</p>
+          <img src="afbeeldingen/dencrm.png" alt="DenCRM logo"
+            style={{ height:160, objectFit:"contain", marginBottom:"0.5rem" }}
+            onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="block"; }} />
+          <div style={{ display:"none", textAlign:"center" }}>
+            <div style={{ width:72, height:72, borderRadius:"50%", background:kleur.licht,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              margin:"0 auto 0.75rem", fontSize:32 }}>🏢</div>
+            <h1 style={{ margin:0, fontSize:28, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
+          </div>
+          <p style={{ margin:"0.5rem 0 0", fontSize:14, color:"#888" }}>Klanten & Offertes Beheer</p>
         </div>
-        <div style={{ marginBottom:"1rem" }}>
-          <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4 }}>Gebruikersnaam</label>
+
+        <div style={{ marginBottom:"1.25rem" }}>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Gebruikersnaam</label>
           <input value={un} onChange={e=>setUn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
-            style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #ccc",
-              background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
+            placeholder="Vul je gebruikersnaam in"
+            style={{ width:"100%", padding:"13px 16px", borderRadius:10, border:"1.5px solid #ddd",
+              background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box" }} />
         </div>
-        <div style={{ marginBottom:"1.5rem" }}>
-          <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4 }}>Wachtwoord</label>
+        <div style={{ marginBottom:"1.75rem" }}>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Wachtwoord</label>
           <div style={{ position:"relative" }}>
             <input type={toon?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
-              style={{ width:"100%", padding:"10px 40px 10px 12px", borderRadius:8, border:"1px solid #ccc",
-                background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
-            <button onClick={()=>setToon(t=>!t)} style={{ position:"absolute", right:10, top:"50%",
-              transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#888", fontSize:16 }}>
+              placeholder="Vul je wachtwoord in"
+              style={{ width:"100%", padding:"13px 48px 13px 16px", borderRadius:10, border:"1.5px solid #ddd",
+                background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box" }} />
+            <button onClick={()=>setToon(t=>!t)} style={{ position:"absolute", right:14, top:"50%",
+              transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#aaa", fontSize:18 }}>
               {toon?"🙈":"👁"}
             </button>
           </div>
         </div>
-        {err && <p style={{ color:"#A32D2D", fontSize:13, marginBottom:"1rem", background:"#FCEBEB", padding:"8px 12px", borderRadius:6 }}>{err}</p>}
-        <button onClick={doLogin} style={{ width:"100%", padding:"11px", borderRadius:8,
-          background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:15, fontWeight:500 }}>
+
+        {err && <p style={{ color:"#A32D2D", fontSize:14, marginBottom:"1.25rem", background:"#FCEBEB",
+          padding:"10px 14px", borderRadius:8 }}>{err}</p>}
+
+        <button onClick={doLogin} style={{ width:"100%", padding:"14px", borderRadius:10,
+          background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
+          fontSize:16, fontWeight:600, letterSpacing:"0.02em",
+          boxShadow:`0 4px 16px ${kleur.hoofd}55` }}>
           Inloggen
         </button>
 
-        <div style={{ marginTop:"1.5rem" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1rem" }}>
-            <div style={{ flex:1, height:"0.5px", background:"#e0e0e0" }} />
-            <span style={{ fontSize:12, color:"#bbb" }}>of</span>
-            <div style={{ flex:1, height:"0.5px", background:"#e0e0e0" }} />
+        <div style={{ marginTop:"1.25rem", display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ flex:1, height:"0.5px", background:"#e8e8e8" }} />
+            <span style={{ fontSize:13, color:"#bbb" }}>of</span>
+            <div style={{ flex:1, height:"0.5px", background:"#e8e8e8" }} />
           </div>
-          <button onClick={onDemo} style={{ width:"100%", padding:"11px 16px", borderRadius:8,
+
+          {/* Account aanmaken */}
+          <button onClick={()=>{ setRegModal(true); setRegOk(false); setRegErr(""); setRegForm({naam:"",bedrijf:"",email:""}); }}
+            style={{ width:"100%", padding:"13px 16px", borderRadius:10,
+              background:"#f0f4ff", color:"#2a4ab5", border:"1.5px solid #c5d0f5",
+              cursor:"pointer", fontSize:14, fontWeight:500,
+              display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+            <span style={{ fontSize:18 }}>✉</span> Maak een account aan
+          </button>
+
+          {/* Demo modus */}
+          <button onClick={onDemo} style={{ width:"100%", padding:"13px 16px", borderRadius:10,
             background:"#fffbf0", color:"#7a5800", border:"1.5px dashed #e8c44a",
-            cursor:"pointer", fontSize:14, fontWeight:400,
-            display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-            <span style={{ fontSize:18 }}>🧪</span>
+            cursor:"pointer", fontSize:14,
+            display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
+            <span style={{ fontSize:20 }}>🧪</span>
             <div style={{ textAlign:"left" }}>
-              <div style={{ fontWeight:500 }}>Probeer de applicatie</div>
-              <div style={{ fontSize:11, color:"#a07820", marginTop:1 }}>Demo modus — wijzigingen worden niet opgeslagen</div>
+              <div style={{ fontWeight:600, fontSize:14 }}>Probeer de applicatie</div>
+              <div style={{ fontSize:12, color:"#a07820", marginTop:2 }}>Demo modus — wijzigingen worden niet opgeslagen</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Account aanmaken modal */}
+      {regModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex",
+          alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem" }}
+          onClick={e=>e.target===e.currentTarget&&setRegModal(false)}>
+          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:440,
+            boxShadow:"0 12px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
+              <h2 style={{ margin:0, fontSize:20, fontWeight:600, color:"#1a1a1a" }}>Account aanmaken</h2>
+              <button onClick={()=>setRegModal(false)} style={{ background:"none",border:"none",cursor:"pointer",fontSize:22,color:"#666" }}>×</button>
+            </div>
+
+            {regOk ? (
+              <div style={{ textAlign:"center", padding:"1rem 0" }}>
+                <div style={{ fontSize:48, marginBottom:"1rem" }}>✉</div>
+                <h3 style={{ margin:"0 0 0.5rem", color:"#1a1a1a" }}>Aanvraag ontvangen!</h3>
+                <p style={{ color:"#666", fontSize:14, lineHeight:1.6 }}>
+                  Zodra de mailserver gekoppeld is ontvangt <strong>{regForm.email}</strong> een activatiemail
+                  met een link om een wachtwoord in te stellen.
+                </p>
+                <p style={{ color:"#999", fontSize:12, marginTop:"1rem" }}>[MAIL VOORBEREIDING — wordt actief na koppeling mailserver]</p>
+                <button onClick={()=>setRegModal(false)} style={{ marginTop:"1.5rem", padding:"10px 24px",
+                  borderRadius:8, background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:14 }}>
+                  Sluiten
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom:"1rem" }}>
+                  <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
+                    Naam <span style={{ color:"#a32d2d" }}>*</span>
+                  </label>
+                  <input value={regForm.naam} onChange={e=>setRegForm(f=>({...f,naam:e.target.value}))}
+                    placeholder="Uw volledige naam"
+                    style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #ddd",
+                      background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
+                </div>
+                <div style={{ marginBottom:"1rem" }}>
+                  <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
+                    Bedrijfsnaam <span style={{ color:"#bbb", fontWeight:400 }}>(optioneel)</span>
+                  </label>
+                  <input value={regForm.bedrijf} onChange={e=>setRegForm(f=>({...f,bedrijf:e.target.value}))}
+                    placeholder="Uw bedrijfsnaam"
+                    style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #ddd",
+                      background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
+                </div>
+                <div style={{ marginBottom:"1.5rem" }}>
+                  <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
+                    E-mailadres <span style={{ color:"#a32d2d" }}>*</span>
+                  </label>
+                  <input type="email" value={regForm.email} onChange={e=>setRegForm(f=>({...f,email:e.target.value}))}
+                    placeholder="uw@emailadres.nl"
+                    style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #ddd",
+                      background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
+                </div>
+                {regErr && <p style={{ color:"#a32d2d", fontSize:13, background:"#fcebeb",
+                  padding:"8px 12px", borderRadius:6, marginBottom:"1rem" }}>{regErr}</p>}
+                <p style={{ fontSize:12, color:"#aaa", marginBottom:"1.25rem", lineHeight:1.5 }}>
+                  Na registratie ontvangt u een e-mail met een link om uw wachtwoord in te stellen.
+                </p>
+                <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                  <button onClick={()=>setRegModal(false)} style={{ padding:"10px 16px", borderRadius:8,
+                    background:"#f5f5f5", color:"#333", border:"none", cursor:"pointer", fontSize:14 }}>
+                    Annuleren
+                  </button>
+                  <button onClick={doRegistreer} style={{ padding:"10px 20px", borderRadius:8,
+                    background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
+                    fontSize:14, fontWeight:500 }}>
+                    Account aanmaken
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)" }}>
+      <div style={{ background:"#fff", borderRadius:24, border:"1px solid #e0e0e0",
+        padding:"3rem 3rem 2.5rem", width:"100%", maxWidth:480,
+        boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
+
+        {/* Logo */}
+        <div style={{ textAlign:"center", marginBottom:"2rem" }}>
+          <img
+            src="afbeeldingen/dencrm.png"
+            alt="DenCRM logo"
+            style={{ height:160, objectFit:"contain", marginBottom:"0.5rem" }}
+            onError={e => {
+              e.target.style.display = "none";
+              e.target.nextSibling.style.display = "block";
+            }}
+          />
+          <div style={{ display:"none", textAlign:"center" }}>
+            <div style={{ width:72, height:72, borderRadius:"50%", background:kleur.licht,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              margin:"0 auto 0.75rem", fontSize:32 }}>🏢</div>
+            <h1 style={{ margin:0, fontSize:28, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
+          </div>
+          <p style={{ margin:"0.5rem 0 0", fontSize:14, color:"#888" }}>Klanten & Offertes Beheer</p>
+        </div>
+
+        {/* Formulier */}
+        <div style={{ marginBottom:"1.25rem" }}>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Gebruikersnaam</label>
+          <input value={un} onChange={e=>setUn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
+            placeholder="Vul je gebruikersnaam in"
+            style={{ width:"100%", padding:"13px 16px", borderRadius:10, border:"1.5px solid #ddd",
+              background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box",
+              outline:"none", transition:"border 0.15s" }} />
+        </div>
+        <div style={{ marginBottom:"1.75rem" }}>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Wachtwoord</label>
+          <div style={{ position:"relative" }}>
+            <input type={toon?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
+              placeholder="Vul je wachtwoord in"
+              style={{ width:"100%", padding:"13px 48px 13px 16px", borderRadius:10, border:"1.5px solid #ddd",
+                background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box" }} />
+            <button onClick={()=>setToon(t=>!t)} style={{ position:"absolute", right:14, top:"50%",
+              transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#aaa", fontSize:18 }}>
+              {toon?"🙈":"👁"}
+            </button>
+          </div>
+        </div>
+
+        {err && <p style={{ color:"#A32D2D", fontSize:14, marginBottom:"1.25rem", background:"#FCEBEB",
+          padding:"10px 14px", borderRadius:8 }}>{err}</p>}
+
+        <button onClick={doLogin} style={{ width:"100%", padding:"14px", borderRadius:10,
+          background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
+          fontSize:16, fontWeight:600, letterSpacing:"0.02em",
+          boxShadow:`0 4px 16px ${kleur.hoofd}55` }}>
+          Inloggen
+        </button>
+
+        <div style={{ marginTop:"1.75rem" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:"1.25rem" }}>
+            <div style={{ flex:1, height:"0.5px", background:"#e8e8e8" }} />
+            <span style={{ fontSize:13, color:"#bbb" }}>of</span>
+            <div style={{ flex:1, height:"0.5px", background:"#e8e8e8" }} />
+          </div>
+          <button onClick={onDemo} style={{ width:"100%", padding:"13px 16px", borderRadius:10,
+            background:"#fffbf0", color:"#7a5800", border:"1.5px dashed #e8c44a",
+            cursor:"pointer", fontSize:14,
+            display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
+            <span style={{ fontSize:20 }}>🧪</span>
+            <div style={{ textAlign:"left" }}>
+              <div style={{ fontWeight:600, fontSize:14 }}>Probeer de applicatie</div>
+              <div style={{ fontSize:12, color:"#a07820", marginTop:2 }}>Demo modus — wijzigingen worden niet opgeslagen</div>
             </div>
           </button>
         </div>
@@ -676,9 +903,10 @@ function ProductenPage({ producten, setProducten, kleur, fs }) {
 
 // ── AGENDA ───────────────────────────────────────────────────────────────────
 function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
-  const [view, setView] = useState("lijst");
+  const [view, setView] = useState("blok");
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ klantId:"", datum:"", tijd:"", notitie:"" });
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({ klantId:"", datum:"", tijd:"", tijdTot:"", notitie:"" });
   const [filterDatum, setFilterDatum] = useState(new Date().toISOString().slice(0,10));
   const [hover, setHover] = useState(null);
 
@@ -687,15 +915,36 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
     .sort((a,b)=>(a.datum+a.tijd).localeCompare(b.datum+b.tijd));
 
   function openNieuw(tijd="09:00") {
-    setForm({ klantId:"", datum:filterDatum||new Date().toISOString().slice(0,10), tijd, notitie:"" });
+    // Bereken een uur later als eindtijd
+    const [h, m] = tijd.split(":").map(Number);
+    const tijdTot = `${String(Math.min(h+1,23)).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+    setForm({ klantId:"", datum:filterDatum||new Date().toISOString().slice(0,10), tijd, tijdTot, notitie:"" });
+    setEditId(null);
     setModal(true);
   }
+
+  function openEdit(a) {
+    setForm({ klantId:a.klantId, datum:a.datum, tijd:a.tijd, tijdTot:a.tijdTot||"", notitie:a.notitie||"" });
+    setEditId(a.id);
+    setModal(true);
+  }
+
   function save() {
     if(!form.klantId||!form.datum||!form.tijd) return;
-    setAgenda(p=>[...p,{...form,id:"a"+uid()}]);
+    if (editId) {
+      setAgenda(p=>p.map(a=>a.id===editId?{...a,...form}:a));
+    } else {
+      setAgenda(p=>[...p,{...form,id:"a"+uid()}]);
+    }
     setModal(false);
   }
-  function del(id) { if(confirm("Afspraak verwijderen?")) setAgenda(p=>p.filter(a=>a.id!==id)); }
+
+  function del(id) {
+    if(confirm("Afspraak verwijderen?")) {
+      setAgenda(p=>p.filter(a=>a.id!==id));
+      if(editId===id) setModal(false);
+    }
+  }
 
   const groups = {};
   sorted.forEach(a=>{ if(!groups[a.datum]) groups[a.datum]=[]; groups[a.datum].push(a); });
@@ -703,14 +952,25 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
   const dagAfsp = agenda.filter(a=>a.datum===filterDatum);
   function afspVoorUur(uur) { return dagAfsp.filter(a=>a.tijd.startsWith(uur.slice(0,2))); }
 
+  function tijdLabel(a) {
+    if (a.tijdTot) return `${a.tijd} – ${a.tijdTot}`;
+    return a.tijd;
+  }
+
   return (
     <div>
       <div style={{ display:"flex", gap:8, marginBottom:"1rem", alignItems:"center", flexWrap:"wrap" }}>
-        <input type="date" value={filterDatum} onChange={e=>setFilterDatum(e.target.value)}
-          style={{ padding:"8px 12px", borderRadius:8, border:"0.5px solid var(--color-border-secondary)",
-            background:"var(--color-background-primary)", color:"var(--color-text-primary)", fontSize:fs }} />
+        <label style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 14px",
+          borderRadius:8, border:`1.5px solid ${kleur.hoofd}`,
+          background:"var(--color-background-primary)", cursor:"pointer",
+          boxShadow:`0 0 0 3px ${kleur.hoofd}22` }}>
+          <span style={{ fontSize:fs-1, color:kleur.hoofd, fontWeight:500 }}>📅 Datum:</span>
+          <input type="date" value={filterDatum} onChange={e=>setFilterDatum(e.target.value)}
+            style={{ border:"none", background:"transparent", color:"var(--color-text-primary)",
+              fontSize:fs, cursor:"pointer", outline:"none", fontWeight:500 }} />
+        </label>
         <div style={{ display:"flex", borderRadius:8, overflow:"hidden", border:`1px solid ${kleur.hoofd}` }}>
-          {[{id:"lijst",label:"☰ Lijst"},{id:"blok",label:"⊞ Uurblokken"}].map(v=>(
+          {[{id:"blok",label:"⊞ Uurblokken"},{id:"lijst",label:"☰ Lijst"}].map(v=>(
             <button key={v.id} onClick={()=>setView(v.id)} style={{ padding:"7px 14px", border:"none", cursor:"pointer", fontSize:fs-1,
               background:view===v.id?kleur.hoofd:"var(--color-background-primary)",
               color:view===v.id?"#fff":"var(--color-text-primary)" }}>{v.label}</button>
@@ -731,15 +991,17 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
               {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId);return(
                 <div key={a.id} style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
                   borderRadius:12, padding:"12px 16px", display:"flex", gap:16, alignItems:"center", marginBottom:8 }}>
-                  <div style={{ background:kleur.licht, color:kleur.donker, borderRadius:8, padding:"8px 12px", textAlign:"center", minWidth:60 }}>
-                    <p style={{ margin:0, fontSize:fs+1, fontWeight:500 }}>{a.tijd}</p>
+                  <div style={{ background:kleur.licht, color:kleur.donker, borderRadius:8, padding:"8px 12px", textAlign:"center", minWidth:80 }}>
+                    <p style={{ margin:0, fontSize:fs, fontWeight:500 }}>{a.tijd}</p>
+                    {a.tijdTot&&<p style={{ margin:0, fontSize:fs-3, opacity:0.8 }}>t/m {a.tijdTot}</p>}
                   </div>
                   {k&&<Avatar naam={k.naam} size={36} kleur={kleur}/>}
                   <div style={{ flex:1 }}>
                     <p style={{ margin:0, fontSize:fs, fontWeight:500 }}>{k?.naam||"Onbekende klant"}</p>
                     <p style={{ margin:0, fontSize:fs-1, color:"var(--color-text-secondary)" }}>{a.notitie}</p>
                   </div>
-                  <button onClick={()=>del(a.id)} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",padding:4,fontSize:fs+2 }}>✕</button>
+                  <button onClick={()=>openEdit(a)} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",padding:4,fontSize:fs+2 }}>✎</button>
+                  <button onClick={()=>del(a.id)} style={{ background:"none",border:"none",cursor:"pointer",color:"#A32D2D",padding:4,fontSize:fs+2 }}>✕</button>
                 </div>
               );})}
             </div>
@@ -762,18 +1024,24 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
                   style={{ display:"flex", minHeight:52, borderBottom:"0.5px solid var(--color-border-tertiary)",
                     background:isH&&afspraken.length===0?kleur.licht:"var(--color-background-primary)",
                     cursor:afspraken.length===0?"pointer":"default", transition:"background 0.12s" }}>
-                  <div style={{ width:64, flexShrink:0, padding:"10px 12px 6px", fontSize:fs-2,
+                  <div style={{ width:72, flexShrink:0, padding:"10px 12px 6px", fontSize:fs-2,
                     color:"var(--color-text-secondary)", borderRight:"0.5px solid var(--color-border-tertiary)" }}>{uur}</div>
                   <div style={{ flex:1, padding:"4px 8px", display:"flex", flexDirection:"column", gap:4 }}>
                     {afspraken.length===0&&isH&&<span style={{ fontSize:fs-2, color:kleur.donker, padding:"4px 0" }}>+ Klik om afspraak toe te voegen</span>}
                     {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId);return(
-                      <div key={a.id} style={{ background:kleur.hoofd, color:"#fff", borderRadius:6,
-                        padding:"5px 10px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div key={a.id}
+                        onClick={e=>{e.stopPropagation();openEdit(a);}}
+                        style={{ background:kleur.hoofd, color:"#fff", borderRadius:6,
+                          padding:"5px 10px", display:"flex", justifyContent:"space-between", alignItems:"center",
+                          cursor:"pointer" }}>
                         <div>
-                          <span style={{ fontSize:fs-1, fontWeight:500 }}>{a.tijd} — {k?.naam||"?"}</span>
+                          <span style={{ fontSize:fs-1, fontWeight:500 }}>{tijdLabel(a)} — {k?.naam||"?"}</span>
                           {a.notitie&&<p style={{ margin:"1px 0 0", fontSize:fs-3, opacity:0.85 }}>{a.notitie}</p>}
                         </div>
-                        <button onClick={e=>{e.stopPropagation();del(a.id);}} style={{ background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.8)",fontSize:14,padding:"0 4px" }}>✕</button>
+                        <div style={{ display:"flex", gap:4 }}>
+                          <span style={{ fontSize:fs-2, opacity:0.7, padding:"0 4px" }}>✎</span>
+                          <button onClick={e=>{e.stopPropagation();del(a.id);}} style={{ background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.8)",fontSize:14,padding:"0 4px" }}>✕</button>
+                        </div>
                       </div>
                     );})}
                   </div>
@@ -785,18 +1053,32 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
       )}
 
       {modal&&(
-        <Modal title="Nieuwe afspraak" onClose={()=>setModal(false)} fs={fs}>
+        <Modal title={editId?"Afspraak bewerken":"Nieuwe afspraak"} onClose={()=>setModal(false)} fs={fs}>
           <FF label="Klant zoeken" fs={fs}>
             <KlantZoekBox klanten={klanten} value={form.klantId} onChange={id=>setForm(f=>({...f,klantId:id}))} fs={fs} />
           </FF>
+          <FF label="Datum" fs={fs}>
+            <input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
+          </FF>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <FF label="Datum" fs={fs}><input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} /></FF>
-            <FF label="Tijd" fs={fs}><input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label="Vanaf" fs={fs}>
+              <input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} />
+            </FF>
+            <FF label="Tot" fs={fs}>
+              <input type="time" value={form.tijdTot} onChange={e=>setForm(f=>({...f,tijdTot:e.target.value}))} style={iSt(fs)} />
+            </FF>
           </div>
-          <FF label="Notitie" fs={fs}><textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
-          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
-            <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
-            <Btn variant="primary" onClick={save} kleur={kleur} fs={fs} disabled={!form.klantId}>Opslaan</Btn>
+          <FF label="Notitie" fs={fs}>
+            <textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} />
+          </FF>
+          <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginTop:"1rem" }}>
+            {editId && (
+              <Btn variant="danger" onClick={()=>del(editId)} fs={fs}>Verwijderen</Btn>
+            )}
+            <div style={{ display:"flex", gap:8, marginLeft:"auto" }}>
+              <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
+              <Btn variant="primary" onClick={save} kleur={kleur} fs={fs} disabled={!form.klantId}>Opslaan</Btn>
+            </div>
           </div>
         </Modal>
       )}
@@ -992,11 +1274,15 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs }) {
             <div style={{ flex:1, height:"0.5px", background:"var(--color-border-tertiary)" }}/>
           </div>
 
-          <button onClick={()=>setNieuweKlantModal(true)} style={{ width:"100%", padding:"10px", borderRadius:8,
-            background:"var(--color-background-primary)", color:"var(--color-text-primary)",
-            border:"0.5px solid var(--color-border-secondary)", cursor:"pointer", fontSize:fs,
-            display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-            + Voeg nieuwe klant toe
+          <button onClick={()=>setNieuweKlantModal(true)} style={{ width:"100%", padding:"11px 16px", borderRadius:10,
+            background:kleur.licht, color:kleur.donker,
+            border:`2px dashed ${kleur.hoofd}`, cursor:"pointer", fontSize:fs, fontWeight:500,
+            display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+            transition:"all 0.15s" }}
+            onMouseEnter={e=>{e.currentTarget.style.background=kleur.hoofd;e.currentTarget.style.color="#fff";}}
+            onMouseLeave={e=>{e.currentTarget.style.background=kleur.licht;e.currentTarget.style.color=kleur.donker;}}>
+            <span style={{ fontSize:18 }}>👤</span>
+            <span>+ Voeg nieuwe klant toe</span>
           </button>
 
           <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"2rem" }}>
@@ -1145,13 +1431,30 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs }) {
             <textarea value={template} onChange={e=>setTemplate(e.target.value)} rows={6}
               style={{...iSt(fs), resize:"vertical", fontFamily:"monospace"}} />
           </FF>
-          <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginBottom:"1.5rem" }}>
+          <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginBottom:"1.5rem", flexWrap:"wrap" }}>
             <Btn onClick={()=>setStap(2)} fs={fs}>← Terug</Btn>
-            <div style={{ display:"flex", gap:8 }}>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
               {!opgeslagen?(
                 <Btn onClick={slaOp} kleur={kleur} fs={fs} variant="primary">💾 Opslaan onder klant</Btn>
               ):(
                 <span style={{ fontSize:fs-1, color:"green", padding:"8px 12px" }}>✓ Opgeslagen</span>
+              )}
+              {/* Mail knop — mail functionaliteit nog niet actief */}
+              {klant?.email ? (
+                <button
+                  onClick={()=>alert(`[MAIL VOORBEREIDING]\nAan: ${klant.email}\nOnderwerp: Offerte ${ref}\n\nDeze functie wordt actief zodra de mailserver gekoppeld is.`)}
+                  style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+                    background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs,
+                    display:"flex", alignItems:"center", gap:6, fontWeight:400 }}>
+                  ✉ Mailen naar klant
+                </button>
+              ) : (
+                <button disabled title="Er is geen mailadres gekoppeld aan deze klant"
+                  style={{ padding:"8px 14px", borderRadius:8, border:"1px solid #ddd",
+                    background:"transparent", color:"#bbb", cursor:"not-allowed", fontSize:fs,
+                    display:"flex", alignItems:"center", gap:6, opacity:0.5 }}>
+                  ✉ Geen mailadres bekend
+                </button>
               )}
               <Btn onClick={()=>window.print()} kleur={kleur} fs={fs} variant="primary">🖨 Afdrukken / PDF</Btn>
               <Btn onClick={reset} fs={fs}>Nieuwe offerte</Btn>
@@ -1172,6 +1475,361 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs }) {
   const [filterKlant, setFilterKlant] = useState("");
   const [filterVan,   setFilterVan]   = useState("");
   const [filterTot,   setFilterTot]   = useState("");
+  const [filterBetaald, setFilterBetaald] = useState("alle");
+  const [openOfferte, setOpenOfferte] = useState(null);
+  const [openKlant,   setOpenKlant]   = useState(null);
+  const [losseFactuurModal, setLosseFactuurModal] = useState(false);
+  const [exportModal, setExportModal] = useState(false);
+
+  // Losse factuur state
+  const [lfKlantId, setLfKlantId]   = useState("");
+  const [lfKlantVrij, setLfKlantVrij] = useState("");
+  const [lfRegels, setLfRegels]     = useState([{ id:"lf1", naam:"", prijs:0 }]);
+  const [lfInclBtw, setLfInclBtw]   = useState(true);
+  const [lfRef, setLfRef]           = useState(`FACT-${new Date().getFullYear()}-001`);
+
+  // Export modal state
+  const [expVan, setExpVan] = useState("");
+  const [expTot, setExpTot] = useState("");
+  const [expMail, setExpMail] = useState(false);
+
+  // Verzamel alle offertes + losse facturen uit alle klanten
+  const alleOffertes = klanten.flatMap(k =>
+    (k.offertes || []).map(o => ({ ...o, klant: k, type: o.factuur ? "factuur" : "offerte" }))
+  );
+
+  const gesorteerd = [...alleOffertes].sort((a, b) => b.datum.localeCompare(a.datum));
+
+  const gefilterd = gesorteerd.filter(o => {
+    if (filterKlant && o.klant.id !== filterKlant) return false;
+    if (filterVan   && o.datum < filterVan) return false;
+    if (filterTot   && o.datum > filterTot) return false;
+    if (filterBetaald === "betaald" && !o.betaald) return false;
+    if (filterBetaald === "open"    &&  o.betaald) return false;
+    return true;
+  });
+
+  const totaalAlle    = gefilterd.reduce((s, o) => s + (o.totaalInclBtw || 0), 0);
+  const totaalBetaald = gefilterd.filter(o => o.betaald).reduce((s, o) => s + (o.totaalInclBtw || 0), 0);
+  const totaalOpen    = totaalAlle - totaalBetaald;
+
+  function toggleBetaald(klantId, offerteId) {
+    setKlanten(prev => prev.map(k => {
+      if (k.id !== klantId) return k;
+      return { ...k, offertes: (k.offertes || []).map(o => o.id === offerteId ? { ...o, betaald: !o.betaald } : o) };
+    }));
+    if (openOfferte?.id === offerteId) setOpenOfferte(prev => ({ ...prev, betaald: !prev.betaald }));
+  }
+
+  function fmt(bedrag) {
+    return "€" + bedrag.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtDatum(iso) {
+    if (!iso) return "—";
+    return new Date(iso + "T12:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  // Losse factuur helpers
+  function lfAddRegel() { setLfRegels(r => [...r, { id: "lf"+uid(), naam: "", prijs: 0 }]); }
+  function lfUpdateRegel(id, veld, val) { setLfRegels(r => r.map(x => x.id===id ? {...x,[veld]:val} : x)); }
+  function lfDelRegel(id) { setLfRegels(r => r.filter(x => x.id!==id)); }
+
+  function lfSlaOp() {
+    const exclBtw = lfRegels.reduce((s,r) => s+(parseFloat(r.prijs)||0), 0);
+    const totaal = lfInclBtw ? Math.round(exclBtw*1.21) : exclBtw;
+    const klantObj = klanten.find(k => k.id === lfKlantId);
+    const naamVoorFactuur = klantObj?.naam || lfKlantVrij || "Losse klant";
+    const factuur = {
+      id: "fact"+uid(), referentie: lfRef, datum: new Date().toISOString().slice(0,10),
+      regels: lfRegels, totaalInclBtw: totaal, inclBtw: lfInclBtw,
+      bedrijfsnaam: "", bedrijfAdres: "", iban: "", btwNr: "", template: "",
+      factuur: true, betaald: false,
+    };
+    if (klantObj) {
+      setKlanten(prev => prev.map(k => k.id===lfKlantId ? {...k, offertes:[...(k.offertes||[]),factuur]} : k));
+    } else {
+      // Losse klant: maak tijdelijke klant aan
+      const tijdelijkeKlant = { id:"k"+uid(), naam:naamVoorFactuur, email:"", telefoon:"", adres:"", producten:[], offertes:[factuur] };
+      setKlanten(prev => [...prev, tijdelijkeKlant]);
+    }
+    setLosseFactuurModal(false);
+    setLfKlantId(""); setLfKlantVrij(""); setLfRegels([{ id:"lf1", naam:"", prijs:0 }]); setLfInclBtw(true);
+  }
+
+  // Export/print helpers
+  const exportGefilterd = gesorteerd.filter(o => {
+    if (expVan && o.datum < expVan) return false;
+    if (expTot && o.datum > expTot) return false;
+    return true;
+  });
+  const expTotaal = exportGefilterd.reduce((s,o) => s+(o.totaalInclBtw||0), 0);
+  const expBetaald = exportGefilterd.filter(o=>o.betaald).reduce((s,o) => s+(o.totaalInclBtw||0), 0);
+
+  function doPrint() {
+    window.print();
+  }
+
+  function doMail() {
+    alert(`[MAIL VOORBEREIDING]\nOnderwerp: Financieel overzicht ${expVan||"begin"} t/m ${expTot||"heden"}\nAan: uw ingestelde mailadres\n\nDeze functie wordt actief zodra de mailserver gekoppeld is.`);
+  }
+
+  return (
+    <div>
+      {/* ── Samenvattingkaarten ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: "1.5rem" }}>
+        {[
+          { label: "Totaal gefactureerd", bedrag: totaalAlle,    kleurBg: "var(--color-background-secondary)", kleurTekst: "var(--color-text-primary)" },
+          { label: "Betaald",             bedrag: totaalBetaald, kleurBg: "#eaf3de", kleurTekst: "#27500a" },
+          { label: "Openstaand",          bedrag: totaalOpen,    kleurBg: "#fcebeb", kleurTekst: "#a32d2d" },
+        ].map(k => (
+          <div key={k.label} style={{ background: k.kleurBg, borderRadius: 10, padding: "14px 16px" }}>
+            <p style={{ margin: 0, fontSize: fs - 2, color: k.kleurTekst, opacity: 0.75, marginBottom: 4 }}>{k.label}</p>
+            <p style={{ margin: 0, fontSize: fs + 6, fontWeight: 600, color: k.kleurTekst }}>{fmt(k.bedrag)}</p>
+            <p style={{ margin: "4px 0 0", fontSize: fs - 2, color: k.kleurTekst, opacity: 0.6 }}>
+              {gefilterd.filter(o => k.label === "Betaald" ? o.betaald : k.label === "Openstaand" ? !o.betaald : true).length} document(en)
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Actiebalk ── */}
+      <div style={{ display: "flex", gap: 8, marginBottom: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+        <select value={filterKlant} onChange={e => setFilterKlant(e.target.value)}
+          style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
+            background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: fs - 1 }}>
+          <option value="">Alle klanten</option>
+          {klanten.filter(k => (k.offertes || []).length > 0).map(k => (
+            <option key={k.id} value={k.id}>{k.naam}</option>
+          ))}
+        </select>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>Van</span>
+          <input type="date" value={filterVan} onChange={e => setFilterVan(e.target.value)}
+            style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
+              background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: fs - 1 }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>Tot</span>
+          <input type="date" value={filterTot} onChange={e => setFilterTot(e.target.value)}
+            style={{ padding: "7px 10px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
+              background: "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: fs - 1 }} />
+        </div>
+        <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${kleur.hoofd}` }}>
+          {[{ id: "alle", label: "Alle" }, { id: "open", label: "Openstaand" }, { id: "betaald", label: "Betaald" }].map(v => (
+            <button key={v.id} onClick={() => setFilterBetaald(v.id)} style={{
+              padding: "7px 12px", border: "none", cursor: "pointer", fontSize: fs - 2,
+              background: filterBetaald === v.id ? kleur.hoofd : "var(--color-background-primary)",
+              color: filterBetaald === v.id ? "#fff" : "var(--color-text-primary)"
+            }}>{v.label}</button>
+          ))}
+        </div>
+        {(filterKlant || filterVan || filterTot || filterBetaald !== "alle") && (
+          <button onClick={() => { setFilterKlant(""); setFilterVan(""); setFilterTot(""); setFilterBetaald("alle"); }}
+            style={{ padding: "7px 12px", borderRadius: 8, border: "0.5px solid var(--color-border-secondary)",
+              background: "none", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: fs - 2 }}>
+            ✕ Wis filters
+          </button>
+        )}
+        <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>
+          {gefilterd.length} {gefilterd.length === 1 ? "document" : "documenten"}
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button onClick={() => setExportModal(true)}
+            style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${kleur.hoofd}`,
+              background: kleur.licht, color: kleur.donker, cursor: "pointer", fontSize: fs - 1, fontWeight: 500,
+              display: "flex", alignItems: "center", gap: 6 }}>
+            📊 Exporteer / Print
+          </button>
+          <button onClick={() => setLosseFactuurModal(true)}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "none",
+              background: kleur.hoofd, color: "#fff", cursor: "pointer", fontSize: fs - 1, fontWeight: 500,
+              display: "flex", alignItems: "center", gap: 6 }}>
+            + Losse factuur
+          </button>
+        </div>
+      </div>
+
+      {/* ── Lijst ── */}
+      {gefilterd.length === 0 ? (
+        <div style={{ padding: "2rem", textAlign: "center", color: "var(--color-text-secondary)", fontSize: fs - 1,
+          border: "0.5px dashed var(--color-border-tertiary)", borderRadius: 12 }}>
+          Geen documenten gevonden met de huidige filters.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {gefilterd.map(o => (
+            <div key={o.id} style={{
+              background: "var(--color-background-primary)",
+              border: `0.5px solid ${o.betaald ? "#c0ddb0" : "var(--color-border-tertiary)"}`,
+              borderRadius: 12, padding: "12px 16px",
+              display: "flex", alignItems: "center", gap: 14,
+              opacity: o.betaald ? 0.75 : 1, transition: "opacity 0.15s"
+            }}>
+              <button onClick={() => toggleBetaald(o.klant.id, o.id)}
+                title={o.betaald ? "Markeer als onbetaald" : "Markeer als betaald"}
+                style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                  border: `2px solid ${o.betaald ? "#3b6d11" : "var(--color-border-secondary)"}`,
+                  background: o.betaald ? "#3b6d11" : "transparent",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#fff", fontSize: 14, transition: "all 0.15s" }}>
+                {o.betaald ? "✓" : ""}
+              </button>
+              <Avatar naam={o.klant.naam} size={36} kleur={kleur} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <p style={{ margin: 0, fontWeight: 500, fontSize: fs }}>{o.klant.naam}</p>
+                  <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>—</span>
+                  <p style={{ margin: 0, fontSize: fs - 1, color: "var(--color-text-secondary)" }}>{o.referentie}</p>
+                  {o.factuur && <span style={{ background: "#e6f1fb", color: "#0c447c", fontSize: fs - 3, fontWeight: 600, padding: "2px 8px", borderRadius: 99 }}>FACTUUR</span>}
+                  {o.betaald && <span style={{ background: "#eaf3de", color: "#27500a", fontSize: fs - 3, fontWeight: 600, padding: "2px 8px", borderRadius: 99 }}>BETAALD</span>}
+                </div>
+                <p style={{ margin: "2px 0 0", fontSize: fs - 2, color: "var(--color-text-secondary)" }}>
+                  {fmtDatum(o.datum)} · {o.regels?.length || 0} regel(s)
+                  {o.regels?.length > 0 && <span> · {o.regels.map(r => r.naam).filter(Boolean).slice(0, 2).join(", ")}{o.regels.length > 2 ? ` +${o.regels.length - 2}` : ""}</span>}
+                </p>
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <p style={{ margin: 0, fontSize: fs + 1, fontWeight: 600, color: o.betaald ? "#3b6d11" : kleur.hoofd }}>{fmt(o.totaalInclBtw || 0)}</p>
+                <p style={{ margin: 0, fontSize: fs - 2, color: "var(--color-text-secondary)" }}>{o.inclBtw ? "incl. BTW" : "excl. BTW"}</p>
+              </div>
+              <button onClick={() => { setOpenOfferte(o); setOpenKlant(o.klant); }}
+                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${kleur.hoofd}`,
+                  background: kleur.licht, color: kleur.donker, cursor: "pointer", fontSize: fs - 2, fontWeight: 500, flexShrink: 0 }}>
+                📄 Openen
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Offerte viewer overlay ── */}
+      {openOfferte && openKlant && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex",
+          alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "1rem", overflowY: "auto" }}
+          onClick={e => e.target === e.currentTarget && setOpenOfferte(null)}>
+          <div style={{ background: "#f5f5f5", borderRadius: 12, padding: "1rem", width: "100%", maxWidth: 700, marginTop: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: fs + 2, fontWeight: 500, color: "#1a1a1a" }}>{openOfferte.referentie}</h2>
+                <p style={{ margin: 0, fontSize: fs - 2, color: "#888" }}>{openKlant.naam} · {fmtDatum(openOfferte.datum)}</p>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={() => toggleBetaald(openKlant.id, openOfferte.id)}
+                  style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: fs - 1,
+                    background: openOfferte.betaald ? "#eaf3de" : kleur.licht,
+                    color: openOfferte.betaald ? "#27500a" : kleur.donker,
+                    border: `1px solid ${openOfferte.betaald ? "#3b6d11" : kleur.hoofd}`, fontWeight: 500 }}>
+                  {openOfferte.betaald ? "✓ Betaald" : "○ Markeer als betaald"}
+                </button>
+                <button onClick={() => window.print()}
+                  style={{ padding: "7px 14px", borderRadius: 8, background: kleur.hoofd, color: "#fff", border: "none", cursor: "pointer", fontSize: fs - 1 }}>
+                  🖨 Afdrukken
+                </button>
+                <button onClick={() => setOpenOfferte(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#666", padding: "4px 8px", lineHeight: 1 }}>×</button>
+              </div>
+            </div>
+            <OffertePreview offerte={openOfferte} klant={openKlant} kleur={kleur} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Losse factuur modal ── */}
+      {losseFactuurModal && (
+        <Modal title="Losse factuur aanmaken" onClose={() => setLosseFactuurModal(false)} fs={fs}>
+          <FF label="Klant (zoek bestaande of typ een naam)" fs={fs}>
+            <KlantZoekBox klanten={klanten} value={lfKlantId} onChange={id => { setLfKlantId(id); if(id) setLfKlantVrij(""); }} fs={fs} />
+          </FF>
+          {!lfKlantId && (
+            <FF label="Of typ een klantnaam (losse factuur)" fs={fs}>
+              <input value={lfKlantVrij} onChange={e => setLfKlantVrij(e.target.value)}
+                placeholder="Bijv. Particulier, Eenmalige klant…"
+                style={iSt(fs)} />
+            </FF>
+          )}
+          <FF label="Referentienummer" fs={fs}>
+            <input value={lfRef} onChange={e => setLfRef(e.target.value)} style={iSt(fs)} />
+          </FF>
+          <p style={{ fontSize: fs - 1, fontWeight: 500, color: "var(--color-text-secondary)", margin: "0 0 8px" }}>Regels</p>
+          {lfRegels.map(r => (
+            <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 100px auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <input value={r.naam} onChange={e => lfUpdateRegel(r.id, "naam", e.target.value)}
+                placeholder="Omschrijving" style={{ ...iSt(fs), width: "auto" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: fs - 1, color: "#666" }}>€</span>
+                <input type="number" value={r.prijs} onChange={e => lfUpdateRegel(r.id, "prijs", e.target.value)}
+                  placeholder="0,00" style={{ ...iSt(fs), width: "auto" }} />
+              </div>
+              {lfRegels.length > 1 && (
+                <button onClick={() => lfDelRegel(r.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#a32d2d", fontSize: fs + 2, padding: 0 }}>✕</button>
+              )}
+            </div>
+          ))}
+          <button onClick={lfAddRegel} style={{ fontSize: fs - 1, color: kleur.hoofd, background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: "1rem" }}>
+            + Regel toevoegen
+          </button>
+          <div style={{ padding: "10px 14px", background: "var(--color-background-secondary)", borderRadius: 8, marginBottom: "1rem" }}>
+            <Toggle aan={lfInclBtw} onToggle={() => setLfInclBtw(v => !v)} label="BTW (21%) toevoegen" fs={fs} />
+            <p style={{ margin: "8px 0 0", fontSize: fs - 1, color: "var(--color-text-secondary)", textAlign: "right" }}>
+              Totaal: <strong style={{ color: kleur.hoofd }}>€{(lfInclBtw ? Math.round(lfRegels.reduce((s,r)=>s+(parseFloat(r.prijs)||0),0)*1.21) : lfRegels.reduce((s,r)=>s+(parseFloat(r.prijs)||0),0)).toLocaleString("nl-NL", {minimumFractionDigits:2})}</strong>
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Btn onClick={() => setLosseFactuurModal(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" onClick={lfSlaOp} kleur={kleur} fs={fs}
+              disabled={!lfKlantId && !lfKlantVrij}>
+              💾 Factuur aanmaken
+            </Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Export / Print modal ── */}
+      {exportModal && (
+        <Modal title="Exporteer / Print overzicht" onClose={() => setExportModal(false)} fs={fs}>
+          <p style={{ fontSize: fs - 1, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
+            Kies de tijdsperiode voor het overzicht. Laat leeg voor alle documenten.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: "1rem" }}>
+            <FF label="Van datum" fs={fs}>
+              <input type="date" value={expVan} onChange={e => setExpVan(e.target.value)} style={iSt(fs)} />
+            </FF>
+            <FF label="Tot datum" fs={fs}>
+              <input type="date" value={expTot} onChange={e => setExpTot(e.target.value)} style={iSt(fs)} />
+            </FF>
+          </div>
+          <div style={{ background: "var(--color-background-secondary)", borderRadius: 10, padding: "12px 14px", marginBottom: "1.25rem" }}>
+            <p style={{ margin: "0 0 4px", fontSize: fs - 1, fontWeight: 500 }}>Samenvatting voor geselecteerde periode</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 8 }}>
+              {[
+                { l: "Documenten", v: exportGefilterd.length },
+                { l: "Totaal",     v: "€"+expTotaal.toLocaleString("nl-NL",{minimumFractionDigits:2}) },
+                { l: "Betaald",    v: "€"+expBetaald.toLocaleString("nl-NL",{minimumFractionDigits:2}) },
+              ].map(x => (
+                <div key={x.l} style={{ textAlign: "center" }}>
+                  <p style={{ margin: 0, fontSize: fs - 2, color: "var(--color-text-secondary)" }}>{x.l}</p>
+                  <p style={{ margin: 0, fontSize: fs + 2, fontWeight: 600 }}>{x.v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <Btn onClick={() => setExportModal(false)} fs={fs}>Annuleren</Btn>
+            <button onClick={doMail}
+              style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${kleur.hoofd}`,
+                background: kleur.licht, color: kleur.donker, cursor: "pointer", fontSize: fs,
+                display: "flex", alignItems: "center", gap: 6 }}>
+              ✉ Mailen naar mijn mailadres
+              <span style={{ fontSize: fs - 3, opacity: 0.7 }}>(voorbereiding)</span>
+            </button>
+            <Btn variant="primary" onClick={doPrint} kleur={kleur} fs={fs}>🖨 Afdrukken</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
   const [filterBetaald, setFilterBetaald] = useState("alle"); // "alle" | "betaald" | "open"
   const [openOfferte, setOpenOfferte] = useState(null);
   const [openKlant,   setOpenKlant]   = useState(null);
@@ -1505,10 +2163,27 @@ function DemoBanner({ onUitloggen, fs }) {
 }
 
 // Demo data — verse kopie elke keer zodat echte data nooit wordt aangeraakt
+const DEMO_AGENDA = [
+  { id:"da1", klantId:"dk1", datum: new Date().toISOString().slice(0,10), tijd:"10:00", tijdTot:"11:00", notitie:"Kennismaking & bespreking wensen" },
+  { id:"da2", klantId:"dk2", datum: new Date(Date.now()+86400000*3).toISOString().slice(0,10), tijd:"14:00", tijdTot:"15:00", notitie:"Offerte presentatie" },
+];
+const DEMO_OFFERTE = {
+  id:"do1", referentie:"OFF-DEMO-001",
+  datum: new Date().toISOString().slice(0,10),
+  regels:[
+    { id:"dr1", naam:"Website Pakket Basic", beschrijving:"5-pagina website met CMS", prijs:1200, isVariabel:false },
+    { id:"dr2", naam:"SEO Optimalisatie", beschrijving:"Maandelijkse SEO-begeleiding", prijs:650, isVariabel:false },
+  ],
+  totaalInclBtw: Math.round((1200+650)*1.21),
+  inclBtw:true,
+  bedrijfsnaam:"Uw Bedrijfsnaam", bedrijfAdres:"Adres 1, 1234 AB Stad",
+  iban:"", btwNr:"",
+  template: OFFERTE_TEMPLATE, betaald:false,
+};
 const DEMO_KLANTEN = [
-  { id:"dk1", naam:"Bakkerij de Gouden Korst", email:"info@goudenkors.nl", telefoon:"06-12345678", adres:"Hoofdstraat 14, 1234 AB Amsterdam", producten:["dp1","dp3"], offertes:[] },
+  { id:"dk1", naam:"Bakkerij de Gouden Korst", email:"info@goudenkors.nl", telefoon:"06-12345678", adres:"Hoofdstraat 14, 1234 AB Amsterdam", producten:["dp1","dp3"], offertes:[DEMO_OFFERTE] },
   { id:"dk2", naam:"Autogarage Versteeg",      email:"versteeg@garage.nl", telefoon:"06-87654321", adres:"Industrieweg 7, 5678 CD Utrecht",   producten:["dp2","dp4"], offertes:[] },
-  { id:"dk3", naam:"Kapsalon Mooiste Knip",   email:"knip@kapsalon.nl",   telefoon:"06-11223344", adres:"Dorpsstraat 3, 9012 EF Groningen",  producten:["dp1"],        offertes:[] },
+  { id:"dk3", naam:"Kapsalon Mooiste Knip",    email:"knip@kapsalon.nl",   telefoon:"06-11223344", adres:"Dorpsstraat 3, 9012 EF Groningen",  producten:["dp1"],        offertes:[] },
 ];
 const DEMO_PRODUCTEN = [
   { id:"dp1", naam:"Website Pakket Basic", prijs:1200, beschrijving:"5-pagina website met CMS",        categorie:"Web"       },
@@ -1516,10 +2191,105 @@ const DEMO_PRODUCTEN = [
   { id:"dp3", naam:"SEO Optimalisatie",    prijs:650,  beschrijving:"Maandelijkse SEO-begeleiding",    categorie:"Marketing" },
   { id:"dp4", naam:"Logo & Huisstijl",     prijs:950,  beschrijving:"Complete huisstijl ontwikkeling", categorie:"Design"    },
 ];
-const DEMO_AGENDA = [
-  { id:"da1", klantId:"dk1", datum:"2026-06-10", tijd:"10:00", notitie:"Bespreking nieuwe website" },
-  { id:"da2", klantId:"dk2", datum:"2026-06-15", tijd:"14:30", notitie:"Offerte presentatie"       },
-];
+
+// ── PROFIEL PANEEL ────────────────────────────────────────────────────────────
+function ProfielPanel({ user, setUsers, onClose, kleur, fs }) {
+  const [tab, setTab] = useState("info");
+  const [huidigWw, setHuidigWw] = useState("");
+  const [nieuwWw, setNieuwWw]   = useState("");
+  const [bevestig, setBevestig] = useState("");
+  const [toonH, setToonH] = useState(false);
+  const [toonN, setToonN] = useState(false);
+  const [melding, setMelding] = useState(null); // {type:"ok"|"fout", tekst}
+
+  function slaWwOp() {
+    setMelding(null);
+    if (simpleHash(huidigWw) !== user.passHash) { setMelding({type:"fout", tekst:"Huidig wachtwoord klopt niet."}); return; }
+    if (nieuwWw.length < 6) { setMelding({type:"fout", tekst:"Nieuw wachtwoord moet minimaal 6 tekens zijn."}); return; }
+    if (nieuwWw !== bevestig) { setMelding({type:"fout", tekst:"Wachtwoorden komen niet overeen."}); return; }
+    setUsers(prev => prev.map(u => u.id === user.id ? {...u, passHash: simpleHash(nieuwWw)} : u));
+    setHuidigWw(""); setNieuwWw(""); setBevestig("");
+    setMelding({type:"ok", tekst:"Wachtwoord succesvol gewijzigd!"});
+  }
+
+  return (
+    <div style={{ position:"absolute", bottom:60, left:12, width:260,
+      backgroundColor:"#ffffff", color:"#1a1a1a",
+      border:"1px solid #d0d0d0", borderRadius:12,
+      boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:500, overflow:"hidden" }}>
+      {/* Header */}
+      <div style={{ background:kleur.hoofd, padding:"14px 16px", display:"flex", alignItems:"center", gap:10 }}>
+        <Avatar naam={user.naam} size={36} kleur={{licht:"rgba(255,255,255,0.25)", donker:"#fff"}} />
+        <div style={{ flex:1, minWidth:0 }}>
+          <p style={{ margin:0, fontWeight:600, fontSize:fs, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.naam}</p>
+          <p style={{ margin:0, fontSize:fs-3, color:"rgba(255,255,255,0.75)" }}>@{user.username}{user.isAdmin?" · Admin":""}</p>
+        </div>
+        <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.8)", fontSize:18, lineHeight:1, padding:"2px 4px" }}>×</button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", borderBottom:"0.5px solid #e8e8e8" }}>
+        {[{id:"info",label:"Profiel"},{id:"ww",label:"Wachtwoord"}].map(t=>(
+          <button key={t.id} onClick={()=>{setTab(t.id);setMelding(null);}} style={{
+            flex:1, padding:"9px", border:"none", background:"none", cursor:"pointer",
+            fontSize:fs-1, fontWeight:500,
+            color:tab===t.id?kleur.hoofd:"#888",
+            borderBottom:tab===t.id?`2px solid ${kleur.hoofd}`:"2px solid transparent"
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      <div style={{ padding:"1rem" }}>
+        {tab==="info" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {[{l:"Naam", v:user.naam},{l:"Gebruikersnaam", v:`@${user.username}`},{l:"Rechten", v:user.isAdmin?"Administrator":"Standaard gebruiker"}].map(r=>(
+              <div key={r.l}>
+                <p style={{ margin:0, fontSize:fs-3, color:"#888", marginBottom:2 }}>{r.l}</p>
+                <p style={{ margin:0, fontSize:fs-1, fontWeight:500, color:"#1a1a1a" }}>{r.v}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab==="ww" && (
+          <div>
+            <div style={{ marginBottom:10 }}>
+              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>Huidig wachtwoord</label>
+              <div style={{ position:"relative" }}>
+                <input type={toonH?"text":"password"} value={huidigWw} onChange={e=>setHuidigWw(e.target.value)}
+                  style={{ width:"100%", padding:"8px 32px 8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
+                <button onClick={()=>setToonH(t=>!t)} style={{ position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:13 }}>{toonH?"🙈":"👁"}</button>
+              </div>
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>Nieuw wachtwoord</label>
+              <div style={{ position:"relative" }}>
+                <input type={toonN?"text":"password"} value={nieuwWw} onChange={e=>setNieuwWw(e.target.value)}
+                  style={{ width:"100%", padding:"8px 32px 8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
+                <button onClick={()=>setToonN(t=>!t)} style={{ position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:13 }}>{toonN?"🙈":"👁"}</button>
+              </div>
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>Bevestig nieuw wachtwoord</label>
+              <input type="password" value={bevestig} onChange={e=>setBevestig(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&slaWwOp()}
+                style={{ width:"100%", padding:"8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
+            </div>
+            {melding && (
+              <p style={{ margin:"0 0 10px", fontSize:fs-2, padding:"7px 10px", borderRadius:6,
+                background:melding.type==="ok"?"#eaf3de":"#fcebeb",
+                color:melding.type==="ok"?"#27500a":"#a32d2d" }}>{melding.tekst}</p>
+            )}
+            <button onClick={slaWwOp} style={{ width:"100%", padding:"9px", borderRadius:8,
+              background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:500 }}>
+              Wachtwoord opslaan
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── APP SHELL ─────────────────────────────────────────────────────────────────
 export default function App() {
@@ -1542,18 +2312,20 @@ export default function App() {
   const [fs, setFs] = useState(14);
   const [bgIdx, setBgIdx] = useState(0);
   const [instellOpen, setInstellOpen] = useState(false);
+  const [profielOpen, setProfielOpen] = useState(false);
 
   const kleur = KLEUREN[kleurIdx];
   const bg = BGOVS[bgIdx];
   const isDark = DARK_BGS.includes(bg.w);
   const uid_ = huidigUser?.id;
 
-  // Selecteer de juiste data op basis van modus
+  // Sync huidigUser als setUsers hem wijzigt (bijv. wachtwoord)
+  const huidigUserActueel = users.find(u=>u.id===uid_) || huidigUser;
+
   const klanten   = isDemoMode ? demoKlanten  : (uid_ ? (alleKlanten[uid_]   || []) : []);
   const producten = isDemoMode ? demoProducten : (uid_ ? (alleProducten[uid_] || []) : []);
   const agenda    = isDemoMode ? demoAgenda    : (uid_ ? (alleAgenda[uid_]    || []) : []);
 
-  // Setters: in demo modus schrijven naar demo state, anders naar echte state
   function setKlanten(fn)   {
     if (isDemoMode) setDemoKlanten(fn);
     else setAlleKlanten(a=>({...a,[uid_]:typeof fn==="function"?fn(a[uid_]||[]):fn}));
@@ -1568,8 +2340,8 @@ export default function App() {
   }
 
   function logout() {
-    setHuidigUser(null); setIsDemoMode(false); setPagina("klanten"); setInstellOpen(false);
-    // Reset demo data naar origineel zodat volgende demo-sessie schoon begint
+    setHuidigUser(null); setIsDemoMode(false); setPagina("klanten");
+    setInstellOpen(false); setProfielOpen(false);
     setDemoKlanten(DEMO_KLANTEN); setDemoProducten(DEMO_PRODUCTEN); setDemoAgenda(DEMO_AGENDA);
   }
 
@@ -1579,7 +2351,7 @@ export default function App() {
     setPagina("klanten");
   }
 
-  if (!huidigUser && !isDemoMode) return <LoginPage users={users} onLogin={setHuidigUser} onDemo={startDemo} kleur={kleur} />;
+  if (!huidigUser && !isDemoMode) return <LoginPage users={users} setUsers={setUsers} onLogin={setHuidigUser} onDemo={startDemo} kleur={kleur} />;
 
   const nav = [
     { id:"klanten",    label:"Klanten",    icon:"👥" },
@@ -1587,15 +2359,14 @@ export default function App() {
     { id:"agenda",     label:"Agenda",     icon:"📅" },
     { id:"offertes",   label:"Offertes",   icon:"📄" },
     { id:"financieel", label:"Financieel", icon:"💶" },
-    ...(!isDemoMode && huidigUser?.isAdmin ? [{ id:"gebruikers", label:"Gebruikers", icon:"🔐" }] : []),
+    ...(!isDemoMode && huidigUserActueel?.isAdmin ? [{ id:"gebruikers", label:"Gebruikers", icon:"🔐" }] : []),
   ];
 
   const tekstK = isDark?"#e8e8e8":"#1a1a1a";
-  const gebruikersnaam = isDemoMode ? "Demo modus" : huidigUser?.naam;
+  const gebruikersnaam = isDemoMode ? "Demo modus" : huidigUserActueel?.naam;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", fontFamily:"var(--font-sans)", fontSize:fs, background:bg.w, color:tekstK }}>
-      {/* Demo banner bovenaan de hele pagina */}
       {isDemoMode && <DemoBanner onUitloggen={logout} fs={fs} />}
 
       <div style={{ display:"flex", flex:1 }}>
@@ -1627,6 +2398,11 @@ export default function App() {
             fs={fs} setFs={setFs} bgIdx={bgIdx} setBgIdx={setBgIdx} onClose={()=>setInstellOpen(false)} />
         )}
 
+        {profielOpen && !isDemoMode && huidigUserActueel && (
+          <ProfielPanel user={huidigUserActueel} setUsers={setUsers}
+            onClose={()=>setProfielOpen(false)} kleur={kleur} fs={fs} />
+        )}
+
         <div style={{ borderTop:`0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`, paddingTop:8, marginTop:8 }}>
           <button onClick={()=>setInstellOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
             padding:"9px 12px", borderRadius:8,
@@ -1635,16 +2411,25 @@ export default function App() {
             border:"none", cursor:"pointer", fontSize:fs, textAlign:"left" }}>
             ⚙ Instellingen
           </button>
-          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px" }}>
+
+          {/* Gebruikersbalk — klikbaar voor profielpaneel */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 12px",
+            borderRadius:8, cursor:isDemoMode?"default":"pointer",
+            background:profielOpen?kleur.licht:"none",
+            transition:"background 0.15s" }}
+            onClick={()=>{ if(!isDemoMode){ setProfielOpen(o=>!o); setInstellOpen(false); } }}>
             {isDemoMode
               ? <span style={{ fontSize:18 }}>🧪</span>
               : <Avatar naam={gebruikersnaam} size={26} kleur={kleur} />
             }
-            <span style={{ flex:1, fontSize:fs-2, color:isDark?"rgba(255,255,255,0.6)":"#888",
+            <span style={{ flex:1, fontSize:fs-2,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-              ...(isDemoMode?{color:"#f97316",fontStyle:"italic"}:{}) }}>{gebruikersnaam}</span>
-            <button onClick={logout} title="Uitloggen" style={{ background:"none",border:"none",cursor:"pointer",
-              fontSize:16,padding:2,color:isDark?"rgba(255,255,255,0.5)":"#aaa" }}>⏻</button>
+              color: isDemoMode?"#f97316":(isDark?"rgba(255,255,255,0.6)":"#666"),
+              fontStyle:isDemoMode?"italic":"normal" }}>{gebruikersnaam}</span>
+            {!isDemoMode && <span style={{ fontSize:10, color:isDark?"rgba(255,255,255,0.4)":"#bbb" }}>▲</span>}
+            <button onClick={e=>{e.stopPropagation();logout();}} title="Uitloggen"
+              style={{ background:"none",border:"none",cursor:"pointer",
+                fontSize:16,padding:2,color:isDark?"rgba(255,255,255,0.5)":"#aaa" }}>⏻</button>
           </div>
         </div>
       </aside>
@@ -1658,7 +2443,7 @@ export default function App() {
         {pagina==="agenda"    &&<AgendaPage    klanten={klanten} agenda={agenda} setAgenda={setAgenda} kleur={kleur} fs={fs} />}
         {pagina==="offertes"  &&<OffertesPage  klanten={klanten} setKlanten={setKlanten} producten={producten} kleur={kleur} fs={fs} />}
         {pagina==="financieel"&&<FinancieelPage klanten={klanten} setKlanten={setKlanten} kleur={kleur} fs={fs} />}
-        {pagina==="gebruikers"&&!isDemoMode&&huidigUser?.isAdmin&&<GebruikersBeheer users={users} setUsers={setUsers} kleur={kleur} fs={fs} />}
+        {pagina==="gebruikers"&&!isDemoMode&&huidigUserActueel?.isAdmin&&<GebruikersBeheer users={users} setUsers={setUsers} kleur={kleur} fs={fs} />}
       </main>
       </div>
     </div>
