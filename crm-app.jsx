@@ -6,38 +6,38 @@ const VERTALINGEN = {
   nl: {
     // Algemeen
     appNaam: "DenCRM",
-    appOndertitel: "{T.appOndertitel}",
-    opslaan: T.opslaan,
-    annuleren: T.annuleren,
-    verwijderen: T.verwijderen,
+    appOndertitel: "Klanten & Offertes Beheer",
+    opslaan: "Opslaan",
+    annuleren: "Annuleren",
+    verwijderen: "Verwijderen",
     bewerken: "Bewerken",
     nieuw: "Nieuw",
     zoeken: "Zoeken",
-    sluiten: T.sluiten,
+    sluiten: "Sluiten",
     laden: "DenCRM laden…",
     ja: "Ja",
     nee: "Nee",
     van: "Van",
     tot: "Tot",
     alle: "Alle",
-    terug: T.terug,
-    volgende: T.volgende,
+    terug: "← Terug",
+    volgende: "Volgende →",
     geen: "Geen",
     bezig: "Bezig…",
     // Login
     inloggen: "Inloggen",
     uitloggen: "Uitloggen",
-    gebruikersnaam: {T.gebruikersnaam},
-    wachtwoord: {T.wachtwoord},
+    gebruikersnaam: "Gebruikersnaam",
+    wachtwoord: "Wachtwoord",
     inlogMislukt: "Inloggen mislukt.",
     vulAllesIn: "Vul gebruikersnaam en wachtwoord in.",
-    probeerApp: {T.probeerApp},
-    demoOndertitel: {T.demoOndertitel},
-    maakAccount: {T.maakAccount},
+    probeerApp: "Probeer de applicatie",
+    demoOndertitel: "Demo modus — wijzigingen worden niet opgeslagen",
+    maakAccount: "Maak een account aan",
     // Registratie
-    naam: T.naam,
+    naam: "Naam",
     bedrijfsnaam: "Bedrijfsnaam",
-    emailadres: T.emailadres,
+    emailadres: "E-mailadres",
     naamVerplicht: "Naam is verplicht.",
     emailOngeldig: "Vul een geldig e-mailadres in.",
     registratieMislukt: "Registratie mislukt.",
@@ -61,96 +61,96 @@ const VERTALINGEN = {
     terugNaarLogin: "← Terug naar inloggen",
     demoActief: "Demo modus actief",
     // Klanten
-    nieuweKlant: T.nieuweKlant,
-    klantBewerken: T.klantBewerken,
+    nieuweKlant: "Nieuwe klant",
+    klantBewerken: "Klant bewerken",
     zoekKlantPlaceholder: "Zoek op naam of e-mail…",
-    selecteerKlant: T.selecteerKlant,
+    selecteerKlant: "Selecteer een klant om details te zien",
     telefoon: "Telefoon",
-    adres: T.adres,
-    afgenomenProducten: T.afgenomenProducten,
-    geenProducten: T.geenProducten,
+    adres: "Adres",
+    afgenomenProducten: "Afgenomen producten",
+    geenProducten: "Geen producten gekoppeld.",
     totaal: "Totaal",
-    productenKoppelen: T.productenKoppelen,
-    klantVerwijderen: T.klantVerwijderen,
-    geenKlantenGevonden: T.geenKlantenGevonden,
+    productenKoppelen: "Producten koppelen",
+    klantVerwijderen: "Klant verwijderen?",
+    geenKlantenGevonden: "Geen klanten gevonden.",
     info: "Info",
     afspraken: "Afspraken",
-    komend: T.komend,
-    verleden: T.verleden,
-    geenAfspraken: T.geenAfspraken,
-    nogGeenOffertes: T.nogGeenOffertes,
-    offerteOpenen: T.offerteOpenen,
+    komend: "KOMEND",
+    verleden: "VERLEDEN",
+    geenAfspraken: "Geen afspraken gevonden.",
+    nogGeenOffertes: "Nog geen offertes opgeslagen.",
+    offerteOpenen: "📄 Openen",
     // Producten
-    nieuwProduct: T.nieuwProduct,
-    productBewerken: T.productBewerken,
-    productNaam: T.productNaam,
-    verkoopprijs: T.verkoopprijs,
-    inkoopprijs: T.inkoopprijs,
-    beschrijving: T.beschrijving,
-    categorie: T.categorie,
+    nieuwProduct: "Nieuw product",
+    productBewerken: "Product bewerken",
+    productNaam: "Productnaam",
+    verkoopprijs: "Verkoopprijs (€)",
+    inkoopprijs: "Inkoopprijs (€)",
+    beschrijving: "Beschrijving",
+    categorie: "Categorie",
     voorraad: "Voorraad",
-    aantalOpVoorraad: T.aantalOpVoorraad,
-    productVerwijderen: T.productVerwijderen,
-    categorieToevoegen: T.categorieToevoegen,
-    nieuweCategorieNaam: T.nieuweCategorieNaam,
+    aantalOpVoorraad: "Aantal op voorraad",
+    productVerwijderen: "Product verwijderen?",
+    categorieToevoegen: "Categorie toevoegen",
+    nieuweCategorieNaam: "Nieuwe categorie naam",
     categorieVerwijderen: "Categorie verwijderen?",
-    categorieBestaatAl: T.categorieBestaatAl,
+    categorieBestaatAl: "Deze categorie bestaat al.",
     geenProductenGevonden: "Geen producten gevonden",
     // Agenda
-    nieuweAfspraak: T.nieuweAfspraak,
-    afspraakBewerken: T.afspraakBewerken,
-    klantZoeken: T.klantZoeken,
-    datum: T.datum,
-    vanaf: T.vanaf,
+    nieuweAfspraak: "Nieuwe afspraak",
+    afspraakBewerken: "Afspraak bewerken",
+    klantZoeken: "Klant zoeken",
+    datum: "Datum",
+    vanaf: "Vanaf",
     tijdTot: "Tot",
-    notitie: T.notitie,
-    afspraakVerwijderen: T.afspraakVerwijderen,
-    uurblokken: T.uurblokken,
-    lijst: T.lijst,
-    klikToevoegen: T.klikToevoegen,
-    datumLabel: T.datumLabel,
+    notitie: "Notitie",
+    afspraakVerwijderen: "Afspraak verwijderen?",
+    uurblokken: "⊞ Uurblokken",
+    lijst: "☰ Lijst",
+    klikToevoegen: "+ Klik om afspraak toe te voegen",
+    datumLabel: "📅 Datum:",
     // Offertes
-    klantKiezen: T.klantKiezen,
-    productenEnRegels: T.productenEnRegels,
-    tekstEnVoorbeeld: T.tekstEnVoorbeeld,
-    klantSelecteren: T.klantZoeken,
-    zoekBestaandeKlant: T.zoekBestaandeKlant,
-    voegNieuweKlantToe: T.voegNieuweKlantToe,
-    nieuweKlantToevoegen: T.nieuweKlantToevoegen,
-    klantToevoegenSelecteren: T.klantToevoegenSelecteren,
+    klantKiezen: "Klant kiezen",
+    productenEnRegels: "Producten & regels",
+    tekstEnVoorbeeld: "Tekst & voorbeeld",
+    klantSelecteren: "Klant zoeken",
+    zoekBestaandeKlant: "Zoek een bestaande klant of voeg een nieuwe klant toe.",
+    voegNieuweKlantToe: "+ Voeg nieuwe klant toe",
+    nieuweKlantToevoegen: "Nieuwe klant toevoegen",
+    klantToevoegenSelecteren: "Klant toevoegen & selecteren",
     offerteRegels: "Offerteregels",
-    geselecteerdeRegels: T.geselecteerdeRegels,
-    voegEenmaligToe: T.voegEenmaligToe,
-    btwToevoegen: T.btwToevoegen,
-    slaOpOnderKlant: T.slaOpOnderKlant,
-    opgeslagen: T.opgeslagen,
-    nieuweOfferte: T.nieuweOfferte,
-    mailenNaarKlant: T.mailenNaarKlant,
-    geenMailadres: T.geenMailadres,
-    referentienummer: T.referentienummer,
-    iBAN: T.iBAN,
-    btwNummer: T.btwNummer,
-    uwBedrijfsnaam: T.uwBedrijfsnaam,
-    uwAdres: T.uwAdres,
-    offertetekst: T.offertetekst,
-    afdrukken: T.afdrukken,
-    selecteerProducten: T.selecteerProducten,
+    geselecteerdeRegels: "Geselecteerde regels",
+    voegEenmaligToe: "+ Voeg eenmalig nog niet bestaand product toe",
+    btwToevoegen: "BTW (21%) toevoegen aan totaal",
+    slaOpOnderKlant: "💾 Opslaan onder klant",
+    opgeslagen: "✓ Opgeslagen",
+    nieuweOfferte: "Nieuwe offerte",
+    mailenNaarKlant: "✉ Mailen naar klant",
+    geenMailadres: "✉ Geen mailadres bekend",
+    referentienummer: "Referentienummer",
+    iBAN: "IBAN rekeningnummer",
+    btwNummer: "BTW-nummer",
+    uwBedrijfsnaam: "Uw bedrijfsnaam",
+    uwAdres: "Uw adres",
+    offertetekst: "Offertetekst (gebruik {klant_naam} als variabele)",
+    afdrukken: "🖨 Afdrukken / PDF",
+    selecteerProducten: "Producten selecteren voor offerte",
     // Financieel
-    totaalGefactureerd: T.totaalGefactureerd,
-    betaald: T.betaald,
-    openstaand: T.openstaand,
-    alleKlanten: T.alleKlanten,
-    wisFilters: T.wisFilters,
-    exporteerPrint: T.exporteerPrint,
-    losseFactuur: T.losseFactuur,
-    losseFactuurAanmaken: T.losseFactuurAanmaken,
-    factuurAanmaken: T.factuurAanmaken,
-    regelToevoegen: T.regelToevoegen,
-    exportTitel: T.exportTitel,
-    kiesTijdsperiode: T.kiesTijdsperiode,
-    mailenNaarMijzelf: T.mailenNaarMijzelf,
-    markerenAlsBetaald: T.markerenAlsBetaald,
-    geenDocumenten: T.geenDocumenten,
+    totaalGefactureerd: "Totaal gefactureerd",
+    betaald: "Betaald",
+    openstaand: "Openstaand",
+    alleKlanten: "Alle klanten",
+    wisFilters: "✕ Wis filters",
+    exporteerPrint: "📊 Exporteer / Print",
+    losseFactuur: "+ Losse factuur",
+    losseFactuurAanmaken: "Losse factuur aanmaken",
+    factuurAanmaken: "💾 Factuur aanmaken",
+    regelToevoegen: "+ Regel toevoegen",
+    exportTitel: "Exporteer / Print overzicht",
+    kiesTijdsperiode: "Kies de tijdsperiode voor het overzicht. Laat leeg voor alle documenten.",
+    mailenNaarMijzelf: "✉ Mailen naar mijn mailadres",
+    markerenAlsBetaald: "○ Markeer als betaald",
+    geenDocumenten: "Geen documenten gevonden met de huidige filters.",
     // Instellingen
     tekstgrootte: "TEKSTGROOTTE",
     accentkleur: "ACCENTKLEUR",
@@ -158,30 +158,30 @@ const VERTALINGEN = {
     klein: "Klein",
     groot: "Groot",
     // Profiel
-    profiel: T.profiel,
-    wachtwoordWijzigen: T.wachtwoordWijzigen,
-    huidigWachtwoord: T.huidigWachtwoord,
-    nieuwWachtwoord: T.nieuwWachtwoord,
-    bevestigWachtwoord: T.bevestigWachtwoord,
-    wachtwoordOpslaan: T.wachtwoordOpslaan,
-    wachtwoordGewijzigd: T.wachtwoordGewijzigd,
-    wachtwoordKloptNiet: T.wachtwoordKloptNiet,
-    wachtwoordTeKort: T.wachtwoordTeKort,
-    wachtwoordNietOvereen: T.wachtwoordNietOvereen,
+    profiel: "Profiel",
+    wachtwoordWijzigen: "Wachtwoord",
+    huidigWachtwoord: "Huidig wachtwoord",
+    nieuwWachtwoord: "Nieuw wachtwoord",
+    bevestigWachtwoord: "Bevestig nieuw wachtwoord",
+    wachtwoordOpslaan: "Wachtwoord opslaan",
+    wachtwoordGewijzigd: "Wachtwoord succesvol gewijzigd!",
+    wachtwoordKloptNiet: "Huidig wachtwoord klopt niet.",
+    wachtwoordTeKort: "Nieuw wachtwoord moet minimaal 6 tekens zijn.",
+    wachtwoordNietOvereen: "Wachtwoorden komen niet overeen.",
     rechten: "Rechten",
     administrator: "Administrator",
     standaardGebruiker: "Standaard gebruiker",
     // Gebruikersbeheer
-    nieuweGebruiker: T.nieuweGebruiker,
-    gebruikerBewerken: T.gebruikerBewerken,
-    adminRechten: T.adminRechten,
+    nieuweGebruiker: "Nieuwe gebruiker",
+    gebruikerBewerken: "Gebruiker bewerken",
+    adminRechten: "Admin-rechten (toegang tot gebruikersbeheer)",
     gebruikerVerwijderen: "Verwijderen?",
-    gebruikersnaamInGebruik: T.gebruikersnaamInGebruik,
-    naamEnUsernameVerplicht: T.naamEnUsernameVerplicht,
-    wachtwoordVerplicht: T.wachtwoordVerplicht,
-    nieuwWachtwoordOptioneel: T.nieuwWachtwoordOptioneel,
-    volledigeNaam: T.volledigeNaam,
-    admin: T.admin,
+    gebruikersnaamInGebruik: "Gebruikersnaam al in gebruik.",
+    naamEnUsernameVerplicht: "Naam en gebruikersnaam zijn verplicht.",
+    wachtwoordVerplicht: "Vul een wachtwoord in.",
+    nieuwWachtwoordOptioneel: "Nieuw wachtwoord (leeg = ongewijzigd)",
+    volledigeNaam: "Volledige naam",
+    admin: "Admin",
   },
 
   en: {
@@ -349,7 +349,7 @@ const VERTALINGEN = {
     wachtwoordVerplicht: "Please enter a password.",
     nieuwWachtwoordOptioneel: "New password (leave empty to keep current)",
     volledigeNaam: "Full name",
-    admin: T.admin,
+    admin: "Admin",
   },
 
   de: {
@@ -441,7 +441,7 @@ const VERTALINGEN = {
     nieuweAfspraak: "Neuer Termin",
     afspraakBewerken: "Termin bearbeiten",
     klantZoeken: "Kunden suchen",
-    datum: T.datum,
+    datum: "Datum",
     vanaf: "Von",
     tijdTot: "Bis",
     notitie: "Notiz",
@@ -449,7 +449,7 @@ const VERTALINGEN = {
     uurblokken: "⊞ Stundenblöcke",
     lijst: "☰ Liste",
     klikToevoegen: "+ Klicken um Termin hinzuzufügen",
-    datumLabel: T.datumLabel,
+    datumLabel: "📅 Datum:",
     klantKiezen: "Kunden wählen",
     productenEnRegels: "Produkte & Zeilen",
     tekstEnVoorbeeld: "Text & Vorschau",
@@ -517,7 +517,7 @@ const VERTALINGEN = {
     wachtwoordVerplicht: "Bitte geben Sie ein Passwort ein.",
     nieuwWachtwoordOptioneel: "Neues Passwort (leer lassen um beizubehalten)",
     volledigeNaam: "Vollständiger Name",
-    admin: T.admin,
+    admin: "Admin",
   },
 };
 
@@ -783,15 +783,19 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
 
         {/* Taalvlagjes */}
         <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:"1rem" }}>
-          {Object.entries(VLAGGEN).map(([code, vlag]) => (
+          {[
+            { code:"nl", img:"afbeeldingen/vlagnederland.png",  alt:"Nederlands" },
+            { code:"en", img:"afbeeldingen/vlagengeland.png",   alt:"English" },
+            { code:"de", img:"afbeeldingen/vlagduitsland.png",  alt:"Deutsch" },
+          ].map(({ code, img, alt }) => (
             <button key={code} onClick={() => setTaal(code)}
-              style={{ fontSize:22, cursor:"pointer", background:"none", border:"none",
-                padding:"4px 6px", borderRadius:6,
-                background: taal===code ? kleur.licht : "none",
-                border: taal===code ? `2px solid ${kleur.hoofd}` : "2px solid transparent",
-                opacity: taal===code ? 1 : 0.6,
-                transition:"all 0.15s" }}>
-              {vlag}
+              style={{ padding:"3px", borderRadius:6, background:"none", border:"none", cursor:"pointer",
+                outline: taal===code ? `3px solid ${kleur.hoofd}` : "3px solid transparent",
+                opacity: taal===code ? 1 : 0.5, transition:"all 0.15s" }}>
+              <img src={img} alt={alt} style={{ width:36, height:24, objectFit:"cover", borderRadius:3, display:"block" }}
+                onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="inline"; }}
+              />
+              <span style={{ display:"none", fontSize:13, fontWeight:600 }}>{code.toUpperCase()}</span>
             </button>
           ))}
         </div>
@@ -806,18 +810,18 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
               margin:"0 auto 0.75rem", fontSize:32 }}>🏢</div>
             <h1 style={{ margin:0, fontSize:28, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
           </div>
-          <p style={{ margin:"0.5rem 0 0", fontSize:14, color:"#888" }}>Klanten & Offertes Beheer</p>
+          <p style={{ margin:"0.5rem 0 0", fontSize:14, color:"#888" }}>{T.appOndertitel}</p>
         </div>
 
         <div style={{ marginBottom:"1.25rem" }}>
-          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Gebruikersnaam</label>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>{T.gebruikersnaam}</label>
           <input value={un} onChange={e=>setUn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
             placeholder={T.gebruikersnaam}
             style={{ width:"100%", padding:"13px 16px", borderRadius:10, border:"1.5px solid #ddd",
               background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box" }} />
         </div>
         <div style={{ marginBottom:"1.75rem" }}>
-          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Wachtwoord</label>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>{T.wachtwoord}</label>
           <div style={{ position:"relative" }}>
             <input type={toon?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
               placeholder={T.wachtwoord}
@@ -837,7 +841,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
           background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
           fontSize:16, fontWeight:600, letterSpacing:"0.02em",
           boxShadow:`0 4px 16px ${kleur.hoofd}55`,
-          opacity: bezig ? 0.7 : 1, cursor: bezig ? "not-allowed" : "pointer" }}>
+          opacity: bezig ? 0.7 : 1 }}>
           {bezig ? T.bezig : T.inloggen}
         </button>
 
@@ -854,7 +858,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
               background:"#f0f4ff", color:"#2a4ab5", border:"1.5px solid #c5d0f5",
               cursor:"pointer", fontSize:14, fontWeight:500,
               display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-            <span style={{ fontSize:18 }}>✉</span> Maak een account aan
+            <span style={{ fontSize:18 }}>✉</span> {T.maakAccount}
           </button>
 
           {/* Demo modus */}
@@ -864,8 +868,8 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
             display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
             <span style={{ fontSize:20 }}>🧪</span>
             <div style={{ textAlign:"left" }}>
-              <div style={{ fontWeight:600, fontSize:14 }}>Probeer de applicatie</div>
-              <div style={{ fontSize:12, color:"#a07820", marginTop:2 }}>Demo modus — wijzigingen worden niet opgeslagen</div>
+              <div style={{ fontWeight:600, fontSize:14 }}>{T.probeerApp}</div>
+              <div style={{ fontSize:12, color:"#a07820", marginTop:2 }}>{T.demoOndertitel}</div>
             </div>
           </button>
         </div>
@@ -913,7 +917,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
                     Bedrijfsnaam <span style={{ color:"#bbb", fontWeight:400 }}>(optioneel)</span>
                   </label>
                   <input value={regForm.bedrijf} onChange={e=>setRegForm(f=>({...f,bedrijf:e.target.value}))}
-                    placeholder=T.uwBedrijfsnaam
+                    placeholder={T.uwBedrijfsnaam}
                     style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #ddd",
                       background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
                 </div>
@@ -993,10 +997,10 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T }) {
         ))}
       </div>
       {modal&&(
-        <Modal title={editId?T.gebruikerBewerken:T.nieuweGebruiker} onClose={()=>setModal(false)} fs={fs}>
-          <FF label=T.volledigeNaam fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label=T.gebruikersnaam fs={fs}><input value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label={editId?T.nieuwWachtwoordOptioneel:T.wachtwoordWijzigen} fs={fs}>
+          <Modal title={editId?T.gebruikerBewerken:T.nieuweGebruiker} onClose={()=>setModal(false)} fs={fs}>
+          <FF label={T.volledigeNaam} fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label={T.gebruikersnaam} fs={fs}><input value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label={editId?T.nieuwWachtwoordOptioneel:T.wachtwoordWijzigen} fs={fs}>
             <input type="password" value={form.ww} onChange={e=>setForm(f=>({...f,ww:e.target.value}))} style={iSt(fs)} />
           </FF>
           <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:fs, cursor:"pointer", marginBottom:"1rem", color:"#1a1a1a" }}>
@@ -1116,7 +1120,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
             </div>
             {/* Tabbladen */}
             <div style={{ display:"flex", borderBottom:"0.5px solid var(--color-border-tertiary)", marginBottom:"1rem", gap:0 }}>
-              {[{id:"info",label:T.info},{id:"afspraken",label:`${T.afspraken} (${klantAfspraken.length})`},{id:"offertes",label:`${T.offertes} (${klantOffertes.length})`}].map(t=>(
+              {[{id:"info",label:T.info},{id:"afspraken",label:`$T.afspraken (${klantAfspraken.length})`},{id:"offertes",label:`$T.offertes (${klantOffertes.length})`}].map(t=>(
                 <button key={t.id} onClick={()=>setTabblad(t.id)} style={{
                   padding:"7px 14px", border:"none", background:"none", cursor:"pointer",
                   fontSize:fs-1, fontWeight:500,
@@ -1229,11 +1233,11 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
 
       {(modal==="nieuw"||modal==="bewerk")&&(
         <Modal title={modal==="nieuw"?T.nieuweKlant:T.klantBewerken} onClose={()=>setModal(null)} fs={fs}>
-          <FF label=T.naam fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label=T.emailadres fs={fs}><input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label=T.telefoon fs={fs}><input value={form.telefoon} onChange={e=>setForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label=T.adres fs={fs}><input value={form.adres} onChange={e=>setForm(f=>({...f,adres:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label=T.productenKoppelen fs={fs}>
+          <FF label={T.naam} fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label={T.emailadres} fs={fs}><input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label={T.telefoon} fs={fs}><input value={form.telefoon} onChange={e=>setForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label={T.adres} fs={fs}><input value={form.adres} onChange={e=>setForm(f=>({...f,adres:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label={T.productenKoppelen} fs={fs}>
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
               {producten.map(p=>(
                 <label key={p.id} style={{ display:"flex", alignItems:"center", gap:8, fontSize:fs, cursor:"pointer", color:"#1a1a1a" }}>
@@ -1536,10 +1540,10 @@ function ProductenPage({ producten, setProducten, kleur, fs, isDemoMode, herlaad
       {/* Product modal */}
       {modal&&(
         <Modal title={editProduct?T.productBewerken:T.nieuwProduct} onClose={()=>setModal(false)} fs={fs}>
-          <FF label=T.productNaam fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label={T.productNaam} fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <FF label=T.verkoopprijs fs={fs}><input type="number" value={form.prijs} onChange={e=>setForm(f=>({...f,prijs:e.target.value}))} style={iSt(fs)} /></FF>
-            <FF label=T.inkoopprijs fs={fs}>
+            <FF label={T.verkoopprijs} fs={fs}><input type="number" value={form.prijs} onChange={e=>setForm(f=>({...f,prijs:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label={T.inkoopprijs} fs={fs}>
               <div style={{ position:"relative" }}>
                 <input type={toonInkoop?"number":"password"} value={form.inkoopprijs}
                   onChange={e=>setForm(f=>({...f,inkoopprijs:e.target.value}))}
@@ -1553,15 +1557,15 @@ function ProductenPage({ producten, setProducten, kleur, fs, isDemoMode, herlaad
               </div>
             </FF>
           </div>
-          <FF label=T.beschrijving fs={fs}><textarea value={form.beschrijving} onChange={e=>setForm(f=>({...f,beschrijving:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
-          <FF label=T.categorie fs={fs}>
+          <FF label={T.beschrijving} fs={fs}><textarea value={form.beschrijving} onChange={e=>setForm(f=>({...f,beschrijving:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
+          <FF label={T.categorie} fs={fs}>
             <input value={form.categorie} onChange={e=>setForm(f=>({...f,categorie:e.target.value}))} list="prod-cats" style={iSt(fs)} placeholder="Bijv. Web, Marketing, Design…" />
             <datalist id="prod-cats">{cats.map(c=><option key={c} value={c}/>)}</datalist>
           </FF>
           {/* Voorraad */}
           <div style={{ borderTop:"0.5px solid var(--color-border-tertiary)", paddingTop:"1rem", marginTop:"0.25rem" }}>
             <p style={{ margin:"0 0 8px", fontSize:fs-1, fontWeight:500, color:"var(--color-text-secondary)", letterSpacing:"0.04em" }}>VOORRAAD</p>
-            <FF label=T.aantalOpVoorraad fs={fs}>
+            <FF label={T.aantalOpVoorraad} fs={fs}>
               <input type="number" min="0" value={form.voorraad} onChange={e=>setForm(f=>({...f,voorraad:e.target.value}))}
                 placeholder="Laat leeg indien niet van toepassing" style={iSt(fs)} />
             </FF>
@@ -1575,7 +1579,7 @@ function ProductenPage({ producten, setProducten, kleur, fs, isDemoMode, herlaad
 
       {/* Categorie beheer modal */}
       {catModal&&(
-        <Modal title=T.categorieToevoegen onClose={()=>setCatModal(false)} fs={fs}>
+        <Modal title={T.categorieToevoegen} onClose={()=>setCatModal(false)} fs={fs}>
           <p style={{ fontSize:fs-1, color:"#555", margin:"0 0 1rem" }}>
             Bestaande categorieën kun je verwijderen via het ✕-knopje naast de categorieknop.
           </p>
@@ -1596,7 +1600,7 @@ function ProductenPage({ producten, setProducten, kleur, fs, isDemoMode, herlaad
               </div>
             </div>
           )}
-          <FF label=T.nieuweCategorieNaam fs={fs}>
+          <FF label={T.nieuweCategorieNaam} fs={fs}>
             <input value={nieuweCategorie} onChange={e=>setNieuweCategorie(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&voegCatToe()}
               placeholder="Bijv. Diensten, Hardware, Licenties…"
@@ -1769,17 +1773,17 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
 
       {modal&&(
         <Modal title={editId?T.afspraakBewerken:T.nieuweAfspraak} onClose={()=>setModal(false)} fs={fs}>
-          <FF label=T.klantZoeken fs={fs}>
+          <FF label={T.klantZoeken} fs={fs}>
             <KlantZoekBox klanten={klanten} value={form.klantId} onChange={id=>setForm(f=>({...f,klantId:id}))} fs={fs} />
           </FF>
-          <FF label=T.datum fs={fs}>
+          <FF label={T.datum} fs={fs}>
             <input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
           </FF>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <FF label=T.vanaf fs={fs}><input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label={T.vanaf} fs={fs}><input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} /></FF>
             <FF label="Tot" fs={fs}><input type="time" value={form.tijdTot} onChange={e=>setForm(f=>({...f,tijdTot:e.target.value}))} style={iSt(fs)} /></FF>
           </div>
-          <FF label=T.notitie fs={fs}><textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
+          <FF label={T.notitie} fs={fs}><textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
           <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginTop:"1rem" }}>
             {editId && <Btn variant="danger" onClick={()=>del(editId)} fs={fs}>Verwijderen</Btn>}
             <div style={{ display:"flex", gap:8, marginLeft:"auto" }}>
@@ -1955,7 +1959,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
     setRef(`OFF-${new Date().getFullYear()}-001`); setOpgeslagen(false); setCatFilter("Alle");
   }
 
-  const stapLabels = [T.klantKiezen,T.productenEnRegels,T.tekstEnVoorbeeld];
+  const stapLabels = [T.klantKiezen, T.productenEnRegels, T.tekstEnVoorbeeld];
 
   return (
     <div>
@@ -1980,7 +1984,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
           <p style={{ margin:"0 0 1.25rem", fontSize:fs-1, color:"var(--color-text-secondary)" }}>
             Zoek een bestaande klant of voeg een nieuwe klant toe.
           </p>
-          <FF label=T.klantZoeken fs={fs}>
+          <FF label={T.klantZoeken} fs={fs}>
             <KlantZoekBox klanten={klanten} value={klantId} onChange={id=>setKlantId(id)} fs={fs} />
           </FF>
 
@@ -2020,11 +2024,11 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
           </div>
 
           {nieuweKlantModal&&(
-            <Modal title=T.nieuweKlantToevoegen onClose={()=>setNieuweKlantModal(false)} fs={fs}>
-              <FF label=T.naam fs={fs}><input value={nkForm.naam} onChange={e=>setNkForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
-              <FF label=T.emailadres fs={fs}><input type="email" value={nkForm.email} onChange={e=>setNkForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
-              <FF label=T.telefoon fs={fs}><input value={nkForm.telefoon} onChange={e=>setNkForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
-              <FF label=T.adres fs={fs}><input value={nkForm.adres} onChange={e=>setNkForm(f=>({...f,adres:e.target.value}))} style={iSt(fs)} /></FF>
+            <Modal title={T.nieuweKlantToevoegen} onClose={()=>setNieuweKlantModal(false)} fs={fs}>
+              <FF label={T.naam} fs={fs}><input value={nkForm.naam} onChange={e=>setNkForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
+              <FF label={T.emailadres} fs={fs}><input type="email" value={nkForm.email} onChange={e=>setNkForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
+              <FF label={T.telefoon} fs={fs}><input value={nkForm.telefoon} onChange={e=>setNkForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
+              <FF label={T.adres} fs={fs}><input value={nkForm.adres} onChange={e=>setNkForm(f=>({...f,adres:e.target.value}))} style={iSt(fs)} /></FF>
               <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
                 <Btn onClick={()=>setNieuweKlantModal(false)} fs={fs}>Annuleren</Btn>
                 <Btn variant="primary" onClick={voegKlantToe} kleur={kleur} fs={fs}>Klant toevoegen & selecteren</Btn>
@@ -2126,7 +2130,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
           </button>
 
           <div style={{ margin:"0 0 1rem", padding:"12px 14px", background:"var(--color-background-secondary)", borderRadius:8 }}>
-            <Toggle aan={inclBtw} onToggle={()=>setInclBtw(v=>!v)} label=T.btwToevoegen fs={fs} />
+            <Toggle aan={inclBtw} onToggle={()=>setInclBtw(v=>!v)} label={T.btwToevoegen} fs={fs} />
           </div>
 
           {regels.length>0&&(
@@ -2149,13 +2153,13 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
       {stap===3&&(
         <div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:"1rem" }}>
-            <FF label=T.uwBedrijfsnaam fs={fs}><input value={bedrijfsnaam} onChange={e=>setBedrijfsnaam(e.target.value)} style={iSt(fs)} /></FF>
-            <FF label=T.uwAdres fs={fs}><input value={bedrijfAdres} onChange={e=>setBedrijfAdres(e.target.value)} style={iSt(fs)} /></FF>
-            <FF label=T.iBAN fs={fs}><input value={iban} onChange={e=>setIban(e.target.value)} placeholder="NL00 BANK 0000 0000 00" style={iSt(fs)} /></FF>
-            <FF label=T.btwNummer fs={fs}><input value={btwNr} onChange={e=>setBtwNr(e.target.value)} placeholder="NL000000000B01" style={iSt(fs)} /></FF>
+            <FF label={T.uwBedrijfsnaam} fs={fs}><input value={bedrijfsnaam} onChange={e=>setBedrijfsnaam(e.target.value)} style={iSt(fs)} /></FF>
+            <FF label={T.uwAdres} fs={fs}><input value={bedrijfAdres} onChange={e=>setBedrijfAdres(e.target.value)} style={iSt(fs)} /></FF>
+            <FF label={T.iBAN} fs={fs}><input value={iban} onChange={e=>setIban(e.target.value)} placeholder="NL00 BANK 0000 0000 00" style={iSt(fs)} /></FF>
+            <FF label={T.btwNummer} fs={fs}><input value={btwNr} onChange={e=>setBtwNr(e.target.value)} placeholder="NL000000000B01" style={iSt(fs)} /></FF>
           </div>
-          <FF label=T.referentienummer fs={fs}><input value={ref} onChange={e=>setRef(e.target.value)} style={iSt(fs)} /></FF>
-          <FF label=T.offertetekst fs={fs}>
+          <FF label={T.referentienummer} fs={fs}><input value={ref} onChange={e=>setRef(e.target.value)} style={iSt(fs)} /></FF>
+          <FF label={T.offertetekst} fs={fs}>
             <textarea value={template} onChange={e=>setTemplate(e.target.value)} rows={6}
               style={{...iSt(fs), resize:"vertical", fontFamily:"monospace"}} />
           </FF>
@@ -2313,7 +2317,7 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
 
   async function doMail() {
     const inhoud = exportGefilterd.map(o =>
-      `${o.datum} | ${o.klant?.naam||o.klant_naam_vrij||"?"} | ${o.referentie} | €${(o.totaalInclBtw||0).toLocaleString("nl-NL",{minimumFractionDigits:2})} | ${o.betaald?T.betaald:"Open"}`
+        `${o.datum} | ${o.klant?.naam||o.klant_naam_vrij||"?"} | ${o.referentie} | €${(o.totaalInclBtw||0).toLocaleString("nl-NL",{minimumFractionDigits:2})} | ${o.betaald?T.betaald:"Open"}`
     ).join("\n");
     try {
       await API.stuurExportMail(expVan, expTot, inhoud);
@@ -2335,7 +2339,7 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
             <p style={{ margin: 0, fontSize: fs - 2, color: k.kleurTekst, opacity: 0.75, marginBottom: 4 }}>{k.label}</p>
             <p style={{ margin: 0, fontSize: fs + 6, fontWeight: 600, color: k.kleurTekst }}>{fmt(k.bedrag)}</p>
             <p style={{ margin: "4px 0 0", fontSize: fs - 2, color: k.kleurTekst, opacity: 0.6 }}>
-              {gefilterd.filter(o => k.label === T.betaald ? o.betaald : k.label === T.openstaand ? !o.betaald : true).length} document(en)
+                {gefilterd.filter(o => k.label === T.betaald ? o.betaald : k.label === T.openstaand ? !o.betaald : true).length} document(en)
             </p>
           </div>
         ))}
@@ -2491,7 +2495,7 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
 
       {/* ── Losse factuur modal ── */}
       {losseFactuurModal && (
-        <Modal title=T.losseFactuurAanmaken onClose={() => setLosseFactuurModal(false)} fs={fs}>
+        <Modal title={T.losseFactuurAanmaken} onClose={() => setLosseFactuurModal(false)} fs={fs}>
           <FF label="Klant (zoek bestaande of typ een naam)" fs={fs}>
             <KlantZoekBox klanten={klanten} value={lfKlantId} onChange={id => { setLfKlantId(id); if(id) setLfKlantVrij(""); }} fs={fs} />
           </FF>
@@ -2502,7 +2506,7 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                 style={iSt(fs)} />
             </FF>
           )}
-          <FF label=T.referentienummer fs={fs}>
+          <FF label={T.referentienummer} fs={fs}>
             <input value={lfRef} onChange={e => setLfRef(e.target.value)} style={iSt(fs)} />
           </FF>
           <p style={{ fontSize: fs - 1, fontWeight: 500, color: "var(--color-text-secondary)", margin: "0 0 8px" }}>Regels</p>
@@ -2541,7 +2545,7 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
 
       {/* ── Export / Print modal ── */}
       {exportModal && (
-        <Modal title=T.exportTitel onClose={() => setExportModal(false)} fs={fs}>
+        <Modal title={T.exportTitel} onClose={() => setExportModal(false)} fs={fs}>
           <p style={{ fontSize: fs - 1, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
             Kies de tijdsperiode voor het overzicht. Laat leeg voor alle documenten.
           </p>
