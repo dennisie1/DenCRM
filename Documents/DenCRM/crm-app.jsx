@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import * as API from './api.js';
 
 // Betere hash dan de vorige (nog steeds client-side demo, geen vervanging voor echte backend auth)
 function simpleHash(str) {
@@ -211,39 +212,34 @@ function Toggle({ aan, onToggle, label, fs }) {
 }
 
 // ── LOGIN ────────────────────────────────────────────────────────────────────
-function LoginPage({ users, setUsers, onLogin, onDemo, kleur }) {
+function LoginPage({ onLogin, onDemo, kleur }) {
   const [un, setUn] = useState(""); const [pw, setPw] = useState("");
   const [err, setErr] = useState(""); const [toon, setToon] = useState(false);
+  const [bezig, setBezig] = useState(false);
   const [regModal, setRegModal] = useState(false);
   const [regForm, setRegForm] = useState({ naam:"", bedrijf:"", email:"" });
   const [regErr, setRegErr] = useState("");
   const [regOk, setRegOk] = useState(false);
 
-  function doLogin() {
-    const u = users.find(x=>x.username===un && x.passHash===simpleHash(pw));
-    if (u) { setErr(""); onLogin(u); } else setErr("Gebruikersnaam of wachtwoord onjuist.");
+  async function doLogin() {
+    if (!un || !pw) { setErr("Vul gebruikersnaam en wachtwoord in."); return; }
+    setBezig(true); setErr("");
+    try {
+      const gebruiker = await API.login(un, pw);
+      onLogin(gebruiker);
+    } catch (e) {
+      setErr(e.message || "Inloggen mislukt.");
+    } finally { setBezig(false); }
   }
 
-  function doRegistreer() {
+  async function doRegistreer() {
     setRegErr("");
     if (!regForm.naam) { setRegErr("Naam is verplicht."); return; }
     if (!regForm.email || !regForm.email.includes("@")) { setRegErr("Vul een geldig e-mailadres in."); return; }
-    if (users.find(u => u.username === regForm.email)) { setRegErr("Dit e-mailadres is al geregistreerd."); return; }
-    // Account aanmaken met tijdelijk wachtwoord (activatie via mail volgt later)
-    const nieuweUser = {
-      id: "u"+uid(),
-      username: regForm.email,
-      passHash: simpleHash("WachtwoordInstellen!"), // tijdelijk — activatiemail volgt
-      isAdmin: false,
-      naam: regForm.naam,
-      bedrijf: regForm.bedrijf,
-      email: regForm.email,
-      actief: false, // wacht op activatie
-    };
-    setUsers(prev => [...prev, nieuweUser]);
-    // [MAIL VOORBEREIDING] Hier komt de activatiemail met wachtwoordlink
-    console.log(`[MAIL VOORBEREIDING] Activatiemail naar ${regForm.email} voor ${regForm.naam}`);
-    setRegOk(true);
+    try {
+      await API.registreer(regForm.naam, regForm.email, regForm.bedrijf);
+      setRegOk(true);
+    } catch (e) { setRegErr(e.message || "Registratie mislukt."); }
   }
 
   return (
@@ -294,8 +290,9 @@ function LoginPage({ users, setUsers, onLogin, onDemo, kleur }) {
         <button onClick={doLogin} style={{ width:"100%", padding:"14px", borderRadius:10,
           background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
           fontSize:16, fontWeight:600, letterSpacing:"0.02em",
-          boxShadow:`0 4px 16px ${kleur.hoofd}55` }}>
-          Inloggen
+          boxShadow:`0 4px 16px ${kleur.hoofd}55`,
+          opacity: bezig ? 0.7 : 1, cursor: bezig ? "not-allowed" : "pointer" }}>
+          {bezig ? "Bezig…" : "Inloggen"}
         </button>
 
         <div style={{ marginTop:"1.25rem", display:"flex", flexDirection:"column", gap:10 }}>
@@ -488,13 +485,32 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs }) {
 
   function openNieuw() { setForm({ naam:"", email:"", telefoon:"", adres:"", producten:[], offertes:[] }); setModal("nieuw"); }
   function openBewerk(k) { setForm({...k}); setModal("bewerk"); }
-  function save() {
+
+  async function save() {
     if (!form.naam) return;
-    if (modal==="nieuw") setKlanten(p=>[...p,{...form,id:"k"+uid()}]);
-    else { setKlanten(p=>p.map(k=>k.id===form.id?form:k)); if(sel?.id===form.id) setSel(form); }
-    setModal(null);
+    if (isDemoMode) {
+      if (modal==="nieuw") setKlanten(p=>[...p,{...form,id:"k"+uid()}]);
+      else { setKlanten(p=>p.map(k=>k.id===form.id?form:k)); if(sel?.id===form.id) setSel(form); }
+      setModal(null); return;
+    }
+    try {
+      if (modal==="nieuw") {
+        const { id } = await API.maakKlantAan({ naam:form.naam, email:form.email, telefoon:form.telefoon, adres:form.adres });
+        await API.updateKlant(id, { ...form, producten:form.producten });
+      } else {
+        await API.updateKlant(form.id, { naam:form.naam, email:form.email, telefoon:form.telefoon, adres:form.adres, producten:form.producten });
+      }
+      await herlaad();
+      setModal(null);
+    } catch(e) { alert("Opslaan mislukt: " + e.message); }
   }
-  function del(id) { if(confirm("Klant verwijderen?")){ setKlanten(p=>p.filter(k=>k.id!==id)); if(sel?.id===id) setSel(null); } }
+
+  async function del(id) {
+    if (!confirm("Klant verwijderen?")) return;
+    if (isDemoMode) { setKlanten(p=>p.filter(k=>k.id!==id)); if(sel?.id===id) setSel(null); return; }
+    try { await API.verwijderKlant(id); if(sel?.id===id) setSel(null); await herlaad(); }
+    catch(e) { alert("Verwijderen mislukt: " + e.message); }
+  }
   function togP(pid) { setForm(f=>({...f,producten:f.producten.includes(pid)?f.producten.filter(x=>x!==pid):[...f.producten,pid]})); }
 
   function selectKlant(k) { setSel(k); setTabblad("info"); }
@@ -841,38 +857,59 @@ function ProductenPage({ producten, setProducten, kleur, fs }) {
     setEditProduct(p); setToonInkoop(false); setModal(true);
   }
 
-  function save() {
+  async function save() {
     if(!form.naam||!form.prijs) return;
     const extra = {
       voorraad: form.voorraad !== "" ? parseInt(form.voorraad) : null,
       inkoopprijs: form.inkoopprijs !== "" ? parseFloat(form.inkoopprijs) : null,
     };
-    if (editProduct) {
-      setProducten(prev => prev.map(p => p.id === editProduct.id ? {...p, ...form, prijs:parseFloat(form.prijs), ...extra} : p));
-    } else {
-      setProducten(p=>[...p,{...form,id:"p"+uid(),prijs:parseFloat(form.prijs),...extra}]);
+    if (isDemoMode) {
+      if (editProduct) setProducten(prev => prev.map(p => p.id === editProduct.id ? {...p, ...form, prijs:parseFloat(form.prijs), ...extra} : p));
+      else setProducten(p=>[...p,{...form,id:"p"+uid(),prijs:parseFloat(form.prijs),...extra}]);
+      setModal(false); return;
     }
-    setModal(false);
+    try {
+      const data = { naam:form.naam, prijs:parseFloat(form.prijs), beschrijving:form.beschrijving,
+        categorie_id: null, voorraad:extra.voorraad, inkoopprijs:extra.inkoopprijs,
+        // Stuur categorie naam mee, server slaat op als tekst in producten
+        categorie: form.categorie };
+      if (editProduct) await API.updateProduct(editProduct.id, data);
+      else await API.maakProductAan(data);
+      await herlaad();
+      setModal(false);
+    } catch(e) { alert("Opslaan mislukt: " + e.message); }
   }
 
-  function del(id) { if(confirm("Product verwijderen?")) setProducten(p=>p.filter(x=>x.id!==id)); }
+  async function del(id) {
+    if (!confirm("Product verwijderen?")) return;
+    if (isDemoMode) { setProducten(p=>p.filter(x=>x.id!==id)); return; }
+    try { await API.verwijderProduct(id); await herlaad(); }
+    catch(e) { alert("Verwijderen mislukt: " + e.message); }
+  }
 
   function voegCatToe() {
     const naam = nieuweCategorie.trim();
     if (!naam || cats.includes(naam)) return;
-    // Categorie bestaat alleen als er een product mee is — we tonen een hint
     setNieuweCategorie("");
-    // Voeg een lege categorie toe door activeCat te zetten en modal te openen
     setActiveCat(naam);
     setForm(f=>({...f, categorie:naam}));
     setEditProduct(null); setToonInkoop(false); setModal(true);
     setCatModal(false);
   }
 
-  function verwijderCategorie(cat) {
+  async function verwijderCategorie(cat) {
     if (!confirm(`Categorie "${cat}" verwijderen? Producten in deze categorie krijgen geen categorie meer.`)) return;
-    setProducten(prev => prev.map(p => p.categorie === cat ? {...p, categorie:""} : p));
-    if (activeCat === cat) setActiveCat("Alle");
+    if (isDemoMode) {
+      setProducten(prev => prev.map(p => p.categorie === cat ? {...p, categorie:""} : p));
+      if (activeCat === cat) setActiveCat("Alle"); return;
+    }
+    try {
+      // Update alle producten in deze categorie — verwijder hun categorie
+      const teUpdaten = producten.filter(p => p.categorie === cat);
+      await Promise.all(teUpdaten.map(p => API.updateProduct(p.id, {...p, categorie:"", categorie_id:null})));
+      await herlaad();
+      if (activeCat === cat) setActiveCat("Alle");
+    } catch(e) { alert("Verwijderen mislukt: " + e.message); }
   }
 
   return (
@@ -1060,15 +1097,28 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs }) {
     setEditId(a.id); setModal(true);
   }
 
-  function save() {
+  async function save() {
     if(!form.klantId||!form.datum||!form.tijd) return;
-    if (editId) setAgenda(p=>p.map(a=>a.id===editId?{...a,...form}:a));
-    else setAgenda(p=>[...p,{...form,id:"a"+uid()}]);
-    setModal(false);
+    if (isDemoMode) {
+      if (editId) setAgenda(p=>p.map(a=>a.id===editId?{...a,...form}:a));
+      else setAgenda(p=>[...p,{...form,id:"a"+uid()}]);
+      setModal(false); return;
+    }
+    try {
+      const data = { klant_id:form.klantId, datum:form.datum,
+        tijd_van:form.tijd, tijd_tot:form.tijdTot||null, notitie:form.notitie||null };
+      if (editId) await API.updateAfspraak(editId, data);
+      else await API.maakAfspraakAan(data);
+      await herlaad();
+      setModal(false);
+    } catch(e) { alert("Opslaan mislukt: " + e.message); }
   }
 
-  function del(id) {
-    if(confirm("Afspraak verwijderen?")) { setAgenda(p=>p.filter(a=>a.id!==id)); if(editId===id) setModal(false); }
+  async function del(id) {
+    if (!confirm("Afspraak verwijderen?")) return;
+    if (isDemoMode) { setAgenda(p=>p.filter(a=>a.id!==id)); if(editId===id) setModal(false); return; }
+    try { await API.verwijderAfspraak(id); if(editId===id) setModal(false); await herlaad(); }
+    catch(e) { alert("Verwijderen mislukt: " + e.message); }
   }
 
   const groups = {};
@@ -1325,12 +1375,31 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs }) {
     setNkForm({ naam:"", email:"", telefoon:"", adres:"" });
   }
 
-  function slaOp() {
+  async function slaOp() {
     if (!klantId||regels.length===0) return;
-    const offerte = { id:"o"+uid(), referentie:ref, datum:vandaagISO, regels, totaalInclBtw, inclBtw,
-      bedrijfsnaam, bedrijfAdres, iban, btwNr, template };
-    setKlanten(p=>p.map(k=>k.id===klantId?{...k,offertes:[...(k.offertes||[]),offerte]}:k));
-    setOpgeslagen(true);
+    if (isDemoMode) {
+      const offerte = { id:"o"+uid(), referentie:ref, datum:vandaagISO, regels, totaalInclBtw, inclBtw,
+        bedrijfsnaam, bedrijfAdres, iban, btwNr, template };
+      setKlanten(p=>p.map(k=>k.id===klantId?{...k,offertes:[...(k.offertes||[]),offerte]}:k));
+      setOpgeslagen(true); return;
+    }
+    try {
+      await API.maakOfferteAan({
+        klant_id: klantId,
+        referentie: ref,
+        datum: vandaagISO,
+        type: "offerte",
+        incl_btw: inclBtw,
+        totaal_excl_btw: exclBtw,
+        totaal_incl_btw: totaalInclBtw,
+        bedrijfsnaam, bedrijf_adres: bedrijfAdres,
+        iban, btw_nummer: btwNr,
+        offerte_tekst: template,
+        regels: regels.map((r,i) => ({ naam:r.naam, beschrijving:r.beschrijving||"", prijs:parseFloat(r.prijs)||0, volgorde:i, isVariabel:r.isVariabel||false })),
+      });
+      await herlaad();
+      setOpgeslagen(true);
+    } catch(e) { alert("Opslaan mislukt: " + e.message); }
   }
 
   function reset() {
@@ -1624,12 +1693,19 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs }) {
   const totaalBetaald = gefilterd.filter(o => o.betaald).reduce((s, o) => s + (o.totaalInclBtw || 0), 0);
   const totaalOpen    = totaalAlle - totaalBetaald;
 
-  function toggleBetaald(klantId, offerteId) {
+  async function toggleBetaald(klantId, offerteId) {
+    const huidig = alleOffertes.find(o=>o.id===offerteId);
+    const nieuwStatus = (huidig?.betaald || huidig?.status==="betaald") ? "open" : "betaald";
+    // Optimistisch updaten in UI
     setKlanten(prev => prev.map(k => {
       if (k.id !== klantId) return k;
-      return { ...k, offertes: (k.offertes || []).map(o => o.id === offerteId ? { ...o, betaald: !o.betaald } : o) };
+      return { ...k, offertes: (k.offertes || []).map(o => o.id === offerteId ? { ...o, betaald: nieuwStatus==="betaald", status: nieuwStatus } : o) };
     }));
-    if (openOfferte?.id === offerteId) setOpenOfferte(prev => ({ ...prev, betaald: !prev.betaald }));
+    if (openOfferte?.id === offerteId) setOpenOfferte(prev => ({ ...prev, betaald: nieuwStatus==="betaald" }));
+    if (!isDemoMode) {
+      try { await API.updateOfferteStatus(offerteId, nieuwStatus); }
+      catch(e) { alert("Status bijwerken mislukt: " + e.message); await herlaad(); }
+    }
   }
 
   function fmt(bedrag) {
@@ -2074,14 +2150,17 @@ function ProfielPanel({ user, setUsers, onClose, kleur, fs }) {
   const [toonN, setToonN] = useState(false);
   const [melding, setMelding] = useState(null); // {type:"ok"|"fout", tekst}
 
-  function slaWwOp() {
+  async function slaWwOp() {
     setMelding(null);
-    if (simpleHash(huidigWw) !== user.passHash) { setMelding({type:"fout", tekst:"Huidig wachtwoord klopt niet."}); return; }
     if (nieuwWw.length < 6) { setMelding({type:"fout", tekst:"Nieuw wachtwoord moet minimaal 6 tekens zijn."}); return; }
     if (nieuwWw !== bevestig) { setMelding({type:"fout", tekst:"Wachtwoorden komen niet overeen."}); return; }
-    setUsers(prev => prev.map(u => u.id === user.id ? {...u, passHash: simpleHash(nieuwWw)} : u));
-    setHuidigWw(""); setNieuwWw(""); setBevestig("");
-    setMelding({type:"ok", tekst:"Wachtwoord succesvol gewijzigd!"});
+    try {
+      await API.wijzigWachtwoord(huidigWw, nieuwWw);
+      setHuidigWw(""); setNieuwWw(""); setBevestig("");
+      setMelding({type:"ok", tekst:"Wachtwoord succesvol gewijzigd!"});
+    } catch(e) {
+      setMelding({type:"fout", tekst: e.message || "Wijzigen mislukt."});
+    }
   }
 
   return (
@@ -2165,65 +2244,146 @@ function ProfielPanel({ user, setUsers, onClose, kleur, fs }) {
 
 // ── APP SHELL ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [users, setUsers] = useState(INIT_USERS);
   const [huidigUser, setHuidigUser] = useState(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isDemoMode, setIsDemoMode]  = useState(false);
+  const [laden, setLaden]            = useState(true); // eerste laad-check
 
-  // Echte gebruikersdata
-  const [alleKlanten,  setAlleKlanten]  = useState(INIT_KLANTEN);
-  const [alleProducten,setAlleProducten]= useState(INIT_PRODUCTEN);
-  const [alleAgenda,   setAlleAgenda]   = useState(INIT_AGENDA);
+  // ── Echte data uit API ─────────────────────────────────────
+  const [klanten,   setKlantenState]   = useState([]);
+  const [producten, setProductenState] = useState([]);
+  const [agenda,    setAgendaState]    = useState([]);
 
-  // Demo data — lokale state die na uitloggen wordt gereset
-  const [demoKlanten,  setDemoKlanten]  = useState(DEMO_KLANTEN);
-  const [demoProducten,setDemoProducten]= useState(DEMO_PRODUCTEN);
-  const [demoAgenda,   setDemoAgenda]   = useState(DEMO_AGENDA);
+  // ── Demo data (in-memory) ──────────────────────────────────
+  const [demoKlanten,   setDemoKlanten]   = useState(DEMO_KLANTEN);
+  const [demoProducten, setDemoProducten] = useState(DEMO_PRODUCTEN);
+  const [demoAgenda,    setDemoAgenda]    = useState(DEMO_AGENDA);
 
-  const [pagina, setPagina] = useState("klanten");
-  const [kleurIdx, setKleurIdx] = useState(0);
-  const [fs, setFs] = useState(14);
-  const [bgIdx, setBgIdx] = useState(0);
+  // ── UI state ───────────────────────────────────────────────
+  const [pagina,      setPagina]      = useState("klanten");
+  const [kleurIdx,    setKleurIdx]    = useState(0);
+  const [fs,          setFs]          = useState(14);
+  const [bgIdx,       setBgIdx]       = useState(0);
   const [instellOpen, setInstellOpen] = useState(false);
   const [profielOpen, setProfielOpen] = useState(false);
+  const [apiError,    setApiError]    = useState(null);
 
   const kleur = KLEUREN[kleurIdx];
-  const bg = BGOVS[bgIdx];
+  const bg    = BGOVS[bgIdx];
   const isDark = DARK_BGS.includes(bg.w);
-  const uid_ = huidigUser?.id;
 
-  // Sync huidigUser als setUsers hem wijzigt (bijv. wachtwoord)
-  const huidigUserActueel = users.find(u=>u.id===uid_) || huidigUser;
+  // ── Bij opstarten: kijk of er nog een token is ────────────
+  useEffect(() => {
+    if (API.heeftTokens()) {
+      // Token aanwezig — laad data direct
+      laadAlleData().then(() => setLaden(false));
+    } else {
+      setLaden(false);
+    }
+  }, []);
 
-  const klanten   = isDemoMode ? demoKlanten  : (uid_ ? (alleKlanten[uid_]   || []) : []);
-  const producten = isDemoMode ? demoProducten : (uid_ ? (alleProducten[uid_] || []) : []);
-  const agenda    = isDemoMode ? demoAgenda    : (uid_ ? (alleAgenda[uid_]    || []) : []);
-
-  function setKlanten(fn)   {
-    if (isDemoMode) setDemoKlanten(fn);
-    else setAlleKlanten(a=>({...a,[uid_]:typeof fn==="function"?fn(a[uid_]||[]):fn}));
+  // ── Data ophalen uit API ───────────────────────────────────
+  async function laadAlleData() {
+    try {
+      const [k, p, a] = await Promise.all([
+        API.haalKlantenOp(),
+        API.haalProductenOp(),
+        API.haalAgendaOp(),
+      ]);
+      // Zet offertes in klanten zodat de bestaande componenten werken
+      const offertes = await API.haalOffertesOp();
+      const klantenMetOffertes = k.map(klant => ({
+        ...klant,
+        offertes: offertes.filter(o => o.klant_id === klant.id),
+      }));
+      setKlantenState(klantenMetOffertes);
+      setProductenState(p.map(prod => ({
+        ...prod,
+        categorie: prod.categorie_naam || prod.categorie || '',
+      })));
+      setAgendaState(a.map(afspraak => ({
+        ...afspraak,
+        klantId: afspraak.klant_id,
+        tijd:    afspraak.tijd_van,
+        tijdTot: afspraak.tijd_tot,
+      })));
+    } catch (e) {
+      console.error('Data laden mislukt:', e);
+      setApiError(e.message);
+    }
   }
-  function setProducten(fn) {
-    if (isDemoMode) setDemoProducten(fn);
-    else setAlleProducten(a=>({...a,[uid_]:typeof fn==="function"?fn(a[uid_]||[]):fn}));
-  }
-  function setAgenda(fn) {
-    if (isDemoMode) setDemoAgenda(fn);
-    else setAlleAgenda(a=>({...a,[uid_]:typeof fn==="function"?fn(a[uid_]||[]):fn}));
+
+  // ── Data accessors op basis van modus ─────────────────────
+  const actieveKlanten   = isDemoMode ? demoKlanten   : klanten;
+  const actieveProducten = isDemoMode ? demoProducten : producten;
+  const actieveAgenda    = isDemoMode ? demoAgenda    : agenda;
+
+  // ── Klanten setters ────────────────────────────────────────
+  async function setKlanten(fn) {
+    if (isDemoMode) { setDemoKlanten(fn); return; }
+    const nieuw = typeof fn === 'function' ? fn(klanten) : fn;
+    setKlantenState(nieuw);
+    // Synchroniseer gewijzigde klanten naar API
+    // (individuele CRUD gaat via de pagina-componenten direct)
   }
 
-  function logout() {
-    setHuidigUser(null); setIsDemoMode(false); setPagina("klanten");
-    setInstellOpen(false); setProfielOpen(false);
-    setDemoKlanten(DEMO_KLANTEN); setDemoProducten(DEMO_PRODUCTEN); setDemoAgenda(DEMO_AGENDA);
+  // ── Producten setters ──────────────────────────────────────
+  async function setProducten(fn) {
+    if (isDemoMode) { setDemoProducten(fn); return; }
+    const nieuw = typeof fn === 'function' ? fn(producten) : fn;
+    setProductenState(nieuw);
   }
 
+  // ── Agenda setters ─────────────────────────────────────────
+  async function setAgenda(fn) {
+    if (isDemoMode) { setDemoAgenda(fn); return; }
+    const nieuw = typeof fn === 'function' ? fn(agenda) : fn;
+    setAgendaState(nieuw);
+  }
+
+  // ── Login ──────────────────────────────────────────────────
+  async function doLogin(gebruiker) {
+    setHuidigUser(gebruiker);
+    await laadAlleData();
+  }
+
+  // ── Logout ─────────────────────────────────────────────────
+  async function logout() {
+    await API.logout().catch(() => {});
+    setHuidigUser(null); setIsDemoMode(false);
+    setKlantenState([]); setProductenState([]); setAgendaState([]);
+    setPagina("klanten"); setInstellOpen(false); setProfielOpen(false);
+  }
+
+  // ── Demo modus ─────────────────────────────────────────────
   function startDemo() {
     setIsDemoMode(true);
     setDemoKlanten(DEMO_KLANTEN); setDemoProducten(DEMO_PRODUCTEN); setDemoAgenda(DEMO_AGENDA);
     setPagina("klanten");
   }
 
-  if (!huidigUser && !isDemoMode) return <LoginPage users={users} setUsers={setUsers} onLogin={setHuidigUser} onDemo={startDemo} kleur={kleur} />;
+  // ── Laadscherm ────────────────────────────────────────────
+  if (laden) {
+    return (
+      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+        background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)" }}>
+        <div style={{ textAlign:"center", color:"#fff" }}>
+          <div style={{ fontSize:48, marginBottom:16 }}>⏳</div>
+          <p style={{ fontSize:16, opacity:0.8 }}>DenCRM laden…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Login scherm ───────────────────────────────────────────
+  if (!huidigUser && !isDemoMode) {
+    return (
+      <LoginPage
+        onLogin={async (gebruiker) => { await doLogin(gebruiker); }}
+        onDemo={startDemo}
+        kleur={kleur}
+      />
+    );
+  }
 
   const nav = [
     { id:"klanten",    label:"Klanten",    icon:"👥" },
@@ -2231,92 +2391,112 @@ export default function App() {
     { id:"agenda",     label:"Agenda",     icon:"📅" },
     { id:"offertes",   label:"Offertes",   icon:"📄" },
     { id:"financieel", label:"Financieel", icon:"💶" },
-    ...(!isDemoMode && huidigUserActueel?.isAdmin ? [{ id:"gebruikers", label:"Gebruikers", icon:"🔐" }] : []),
+    ...(!isDemoMode && huidigUser?.is_admin ? [{ id:"gebruikers", label:"Gebruikers", icon:"🔐" }] : []),
   ];
 
-  const tekstK = isDark?"#e8e8e8":"#1a1a1a";
-  const gebruikersnaam = isDemoMode ? "Demo modus" : huidigUserActueel?.naam;
+  const tekstK      = isDark ? "#e8e8e8" : "#1a1a1a";
+  const gebruikersnaam = isDemoMode ? "Demo modus" : huidigUser?.naam;
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", fontFamily:"var(--font-sans)", fontSize:fs, background:bg.w, color:tekstK }}>
+    <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh",
+      fontFamily:"var(--font-sans)", fontSize:fs, background:bg.w, color:tekstK }}>
+
       {isDemoMode && <DemoBanner onUitloggen={logout} fs={fs} />}
 
-      <div style={{ display:"flex", flex:1 }}>
-      <aside style={{ width:220, flexShrink:0,
-        background:isDark?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)",
-        borderRight:`0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`,
-        padding:"1.5rem 1rem", display:"flex", flexDirection:"column", position:"relative" }}>
-        <div style={{ marginBottom:"2rem" }}>
-          <h1 style={{ margin:0, fontSize:fs+4, fontWeight:500, color:kleur.hoofd }}>DenCRM</h1>
-          <p style={{ margin:"2px 0 0", fontSize:fs-2, color:isDark?"rgba(255,255,255,0.5)":"#888" }}>
-            {klanten.length} klanten · {producten.length} producten
-          </p>
-        </div>
-        <nav style={{ flex:1 }}>
-          {nav.map(n=>(
-            <button key={n.id} onClick={()=>setPagina(n.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
-              padding:"10px 12px", borderRadius:8,
-              background:pagina===n.id?kleur.hoofd:"none",
-              color:pagina===n.id?"#fff":(isDark?"rgba(255,255,255,0.85)":tekstK),
-              border:"none", cursor:"pointer", fontSize:fs, textAlign:"left", marginBottom:4 }}>
-              <span>{n.icon}</span> {n.label}
-              {n.id==="gebruikers"&&<span style={{ marginLeft:"auto", fontSize:10, background:"rgba(255,255,255,0.25)", borderRadius:99, padding:"1px 6px" }}>Admin</span>}
-            </button>
-          ))}
-        </nav>
-
-        {instellOpen&&(
-          <InstellingenPanel kleur={kleur} kleurIdx={kleurIdx} setKleurIdx={setKleurIdx}
-            fs={fs} setFs={setFs} bgIdx={bgIdx} setBgIdx={setBgIdx} onClose={()=>setInstellOpen(false)} />
-        )}
-
-        {profielOpen && !isDemoMode && huidigUserActueel && (
-          <ProfielPanel user={huidigUserActueel} setUsers={setUsers}
-            onClose={()=>setProfielOpen(false)} kleur={kleur} fs={fs} />
-        )}
-
-        <div style={{ borderTop:`0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`, paddingTop:8, marginTop:8 }}>
-          <button onClick={()=>setInstellOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
-            padding:"9px 12px", borderRadius:8,
-            background:instellOpen?kleur.licht:"none",
-            color:instellOpen?kleur.donker:(isDark?"rgba(255,255,255,0.7)":"#666"),
-            border:"none", cursor:"pointer", fontSize:fs, textAlign:"left" }}>
-            ⚙ Instellingen
+      {/* API foutmelding banner */}
+      {apiError && !isDemoMode && (
+        <div style={{ background:"#7f1d1d", color:"#fecaca", padding:"10px 16px",
+          display:"flex", alignItems:"center", gap:12, fontSize:fs-1 }}>
+          <span>⚠ API-fout: {apiError}</span>
+          <button onClick={()=>{ setApiError(null); laadAlleData(); }}
+            style={{ marginLeft:"auto", padding:"4px 12px", borderRadius:6,
+              background:"rgba(255,255,255,0.2)", color:"#fff", border:"none", cursor:"pointer", fontSize:fs-2 }}>
+            Opnieuw proberen
           </button>
-
-          {/* Gebruikersbalk — klikbaar voor profielpaneel */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 12px",
-            borderRadius:8, cursor:isDemoMode?"default":"pointer",
-            background:profielOpen?kleur.licht:"none",
-            transition:"background 0.15s" }}
-            onClick={()=>{ if(!isDemoMode){ setProfielOpen(o=>!o); setInstellOpen(false); } }}>
-            {isDemoMode
-              ? <span style={{ fontSize:18 }}>🧪</span>
-              : <Avatar naam={gebruikersnaam} size={26} kleur={kleur} />
-            }
-            <span style={{ flex:1, fontSize:fs-2,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-              color: isDemoMode?"#f97316":(isDark?"rgba(255,255,255,0.6)":"#666"),
-              fontStyle:isDemoMode?"italic":"normal" }}>{gebruikersnaam}</span>
-            {!isDemoMode && <span style={{ fontSize:10, color:isDark?"rgba(255,255,255,0.4)":"#bbb" }}>▲</span>}
-            <button onClick={e=>{e.stopPropagation();logout();}} title="Uitloggen"
-              style={{ background:"none",border:"none",cursor:"pointer",
-                fontSize:16,padding:2,color:isDark?"rgba(255,255,255,0.5)":"#aaa" }}>⏻</button>
-          </div>
         </div>
-      </aside>
+      )}
 
-      <main style={{ flex:1, padding:"1.5rem 2rem", overflowY:"auto" }}>
-        <h2 style={{ margin:"0 0 1.25rem", fontSize:fs+6, fontWeight:500, color:tekstK }}>
-          {nav.find(n=>n.id===pagina)?.icon} {nav.find(n=>n.id===pagina)?.label}
-        </h2>
-        {pagina==="klanten"   &&<KlantenPage   klanten={klanten} setKlanten={setKlanten} producten={producten} agenda={agenda} kleur={kleur} fs={fs} />}
-        {pagina==="producten" &&<ProductenPage producten={producten} setProducten={setProducten} kleur={kleur} fs={fs} />}
-        {pagina==="agenda"    &&<AgendaPage    klanten={klanten} agenda={agenda} setAgenda={setAgenda} kleur={kleur} fs={fs} />}
-        {pagina==="offertes"  &&<OffertesPage  klanten={klanten} setKlanten={setKlanten} producten={producten} kleur={kleur} fs={fs} />}
-        {pagina==="financieel"&&<FinancieelPage klanten={klanten} setKlanten={setKlanten} kleur={kleur} fs={fs} />}
-        {pagina==="gebruikers"&&!isDemoMode&&huidigUserActueel?.isAdmin&&<GebruikersBeheer users={users} setUsers={setUsers} kleur={kleur} fs={fs} />}
-      </main>
+      <div style={{ display:"flex", flex:1 }}>
+        <aside style={{ width:220, flexShrink:0,
+          background:isDark?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)",
+          borderRight:`0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`,
+          padding:"1.5rem 1rem", display:"flex", flexDirection:"column", position:"relative" }}>
+          <div style={{ marginBottom:"2rem" }}>
+            <h1 style={{ margin:0, fontSize:fs+4, fontWeight:500, color:kleur.hoofd }}>DenCRM</h1>
+            <p style={{ margin:"2px 0 0", fontSize:fs-2, color:isDark?"rgba(255,255,255,0.5)":"#888" }}>
+              {actieveKlanten.length} klanten · {actieveProducten.length} producten
+            </p>
+          </div>
+          <nav style={{ flex:1 }}>
+            {nav.map(n=>(
+              <button key={n.id} onClick={()=>setPagina(n.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
+                padding:"10px 12px", borderRadius:8,
+                background:pagina===n.id?kleur.hoofd:"none",
+                color:pagina===n.id?"#fff":(isDark?"rgba(255,255,255,0.85)":tekstK),
+                border:"none", cursor:"pointer", fontSize:fs, textAlign:"left", marginBottom:4 }}>
+                <span>{n.icon}</span> {n.label}
+                {n.id==="gebruikers"&&<span style={{ marginLeft:"auto", fontSize:10, background:"rgba(255,255,255,0.25)", borderRadius:99, padding:"1px 6px" }}>Admin</span>}
+              </button>
+            ))}
+          </nav>
+
+          {instellOpen&&(
+            <InstellingenPanel kleur={kleur} kleurIdx={kleurIdx} setKleurIdx={setKleurIdx}
+              fs={fs} setFs={setFs} bgIdx={bgIdx} setBgIdx={setBgIdx} onClose={()=>setInstellOpen(false)} />
+          )}
+
+          {profielOpen && !isDemoMode && huidigUser && (
+            <ProfielPanel
+              user={huidigUser}
+              setUsers={() => {}} // wordt afgehandeld via API
+              onWachtwoordWijzigen={async (huidig, nieuw) => {
+                await API.wijzigWachtwoord(huidig, nieuw);
+              }}
+              onClose={()=>setProfielOpen(false)}
+              kleur={kleur} fs={fs}
+            />
+          )}
+
+          <div style={{ borderTop:`0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`, paddingTop:8, marginTop:8 }}>
+            <button onClick={()=>setInstellOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
+              padding:"9px 12px", borderRadius:8,
+              background:instellOpen?kleur.licht:"none",
+              color:instellOpen?kleur.donker:(isDark?"rgba(255,255,255,0.7)":"#666"),
+              border:"none", cursor:"pointer", fontSize:fs, textAlign:"left" }}>
+              ⚙ Instellingen
+            </button>
+
+            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 12px",
+              borderRadius:8, cursor:isDemoMode?"default":"pointer",
+              background:profielOpen?kleur.licht:"none", transition:"background 0.15s" }}
+              onClick={()=>{ if(!isDemoMode){ setProfielOpen(o=>!o); setInstellOpen(false); } }}>
+              {isDemoMode
+                ? <span style={{ fontSize:18 }}>🧪</span>
+                : <Avatar naam={gebruikersnaam} size={26} kleur={kleur} />
+              }
+              <span style={{ flex:1, fontSize:fs-2,
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                color: isDemoMode?"#f97316":(isDark?"rgba(255,255,255,0.6)":"#666"),
+                fontStyle:isDemoMode?"italic":"normal" }}>{gebruikersnaam}</span>
+              {!isDemoMode && <span style={{ fontSize:10, color:isDark?"rgba(255,255,255,0.4)":"#bbb" }}>▲</span>}
+              <button onClick={e=>{e.stopPropagation();logout();}} title="Uitloggen"
+                style={{ background:"none",border:"none",cursor:"pointer",
+                  fontSize:16,padding:2,color:isDark?"rgba(255,255,255,0.5)":"#aaa" }}>⏻</button>
+            </div>
+          </div>
+        </aside>
+
+        <main style={{ flex:1, padding:"1.5rem 2rem", overflowY:"auto" }}>
+          <h2 style={{ margin:"0 0 1.25rem", fontSize:fs+6, fontWeight:500, color:tekstK }}>
+            {nav.find(n=>n.id===pagina)?.icon} {nav.find(n=>n.id===pagina)?.label}
+          </h2>
+          {pagina==="klanten"    && <KlantenPage   klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} agenda={actieveAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} />}
+          {pagina==="producten"  && <ProductenPage producten={actieveProducten} setProducten={setProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} />}
+          {pagina==="agenda"     && <AgendaPage    klanten={actieveKlanten} agenda={actieveAgenda} setAgenda={setAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} />}
+          {pagina==="offertes"   && <OffertesPage  klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} />}
+          {pagina==="financieel" && <FinancieelPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} />}
+          {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer kleur={kleur} fs={fs} />}
+        </main>
       </div>
     </div>
   );
