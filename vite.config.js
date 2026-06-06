@@ -6,5 +6,5 @@ export default defineConfig({
   plugins: [react()],
   // Pas 'base' aan naar jouw GitHub repository-naam als je GitHub Pages gebruikt
   // Voorbeeld: base: "/dencrm/"
-  base: "/dencrm/",
+  base: "/",
 });
