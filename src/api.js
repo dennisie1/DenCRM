@@ -127,3 +127,10 @@ export async function verwijderOfferte(id)          { return apiFetch(`/offertes
 // GEBRUIKERS (admin)
 // ============================================================
 export async function haalGebruikersOp()       { return apiFetch('/gebruikers'); }
+
+// ============================================================
+// MAIL
+// ============================================================
+export async function stuurOfferteMail(offerte_id)     { return apiFetch('/mail/offerte', { method: 'POST', body: { offerte_id } }); }
+export async function stuurExportMail(van, tot, inhoud) { return apiFetch('/mail/export',  { method: 'POST', body: { van, tot, inhoud } }); }
+export async function stuurTestMail(aan)               { return apiFetch('/mail/test',    { method: 'POST', body: { aan } }); }
