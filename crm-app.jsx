@@ -1346,6 +1346,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs }) {
   const [iban, setIban] = useState("");
   const [btwNr, setBtwNr] = useState("");
   const [opgeslagen, setOpgeslagen] = useState(false);
+  const [geslagenOfferteId, setGeslagenOfferteId] = useState(null);
   const [nieuweKlantModal, setNieuweKlantModal] = useState(false);
   const [nkForm, setNkForm] = useState({ naam:"", email:"", telefoon:"", adres:"" });
   const [catFilter, setCatFilter] = useState("Alle");
@@ -1384,7 +1385,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs }) {
       setOpgeslagen(true); return;
     }
     try {
-      await API.maakOfferteAan({
+      const { id } = await API.maakOfferteAan({
         klant_id: klantId,
         referentie: ref,
         datum: vandaagISO,
@@ -1398,6 +1399,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs }) {
         regels: regels.map((r,i) => ({ naam:r.naam, beschrijving:r.beschrijving||"", prijs:parseFloat(r.prijs)||0, volgorde:i, isVariabel:r.isVariabel||false })),
       });
       await herlaad();
+      setGeslagenOfferteId(id);
       setOpgeslagen(true);
     } catch(e) { alert("Opslaan mislukt: " + e.message); }
   }
@@ -1619,10 +1621,16 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs }) {
               ):(
                 <span style={{ fontSize:fs-1, color:"green", padding:"8px 12px" }}>✓ Opgeslagen</span>
               )}
-              {/* Mail knop — mail functionaliteit nog niet actief */}
+              {/* Mail knop */}
               {klant?.email ? (
                 <button
-                  onClick={()=>alert(`[MAIL VOORBEREIDING]\nAan: ${klant.email}\nOnderwerp: Offerte ${ref}\n\nDeze functie wordt actief zodra de mailserver gekoppeld is.`)}
+                  onClick={async ()=>{
+                    if (!opgeslagen) { alert("Sla de offerte eerst op voor u hem mailt."); return; }
+                    try {
+                      await API.stuurOfferteMail(geslagenOfferteId);
+                      alert(`Offerte verstuurd naar ${klant.email}`);
+                    } catch(e) { alert("Mailen mislukt: " + e.message); }
+                  }}
                   style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
                     background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs,
                     display:"flex", alignItems:"center", gap:6, fontWeight:400 }}>
@@ -1757,8 +1765,15 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs }) {
     window.print();
   }
 
-  function doMail() {
-    alert(`[MAIL VOORBEREIDING]\nOnderwerp: Financieel overzicht ${expVan||"begin"} t/m ${expTot||"heden"}\nAan: uw ingestelde mailadres\n\nDeze functie wordt actief zodra de mailserver gekoppeld is.`);
+  async function doMail() {
+    const inhoud = exportGefilterd.map(o =>
+      `${o.datum} | ${o.klant?.naam||o.klant_naam_vrij||"?"} | ${o.referentie} | €${(o.totaalInclBtw||0).toLocaleString("nl-NL",{minimumFractionDigits:2})} | ${o.betaald?"Betaald":"Open"}`
+    ).join("\n");
+    try {
+      await API.stuurExportMail(expVan, expTot, inhoud);
+      alert("Overzicht verstuurd naar uw e-mailadres!");
+      setExportModal(false);
+    } catch(e) { alert("Mailen mislukt: " + e.message); }
   }
 
   return (
