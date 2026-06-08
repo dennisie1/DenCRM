@@ -783,15 +783,19 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
 
         {/* Taalvlagjes */}
         <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:"1rem" }}>
-          {Object.entries(VLAGGEN).map(([code, vlag]) => (
+          {[
+            { code:"nl", img:"afbeeldingen/vlagnederland.png",  alt:"Nederlands" },
+            { code:"en", img:"afbeeldingen/vlagengeland.png",   alt:"English" },
+            { code:"de", img:"afbeeldingen/vlagduitsland.png",  alt:"Deutsch" },
+          ].map(({ code, img, alt }) => (
             <button key={code} onClick={() => setTaal(code)}
-              style={{ fontSize:22, cursor:"pointer", background:"none", border:"none",
-                padding:"4px 6px", borderRadius:6,
-                background: taal===code ? kleur.licht : "none",
-                border: taal===code ? `2px solid ${kleur.hoofd}` : "2px solid transparent",
-                opacity: taal===code ? 1 : 0.6,
-                transition:"all 0.15s" }}>
-              {vlag}
+              style={{ padding:"3px", borderRadius:6, background:"none", border:"none", cursor:"pointer",
+                outline: taal===code ? `3px solid ${kleur.hoofd}` : "3px solid transparent",
+                opacity: taal===code ? 1 : 0.5, transition:"all 0.15s" }}>
+              <img src={img} alt={alt} style={{ width:36, height:24, objectFit:"cover", borderRadius:3, display:"block" }}
+                onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="inline"; }}
+              />
+              <span style={{ display:"none", fontSize:13, fontWeight:600 }}>{code.toUpperCase()}</span>
             </button>
           ))}
         </div>
@@ -806,21 +810,21 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
               margin:"0 auto 0.75rem", fontSize:32 }}>🏢</div>
             <h1 style={{ margin:0, fontSize:28, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
           </div>
-          <p style={{ margin:"0.5rem 0 0", fontSize:14, color:"#888" }}>Klanten & Offertes Beheer</p>
+          <p style={{ margin:"0.5rem 0 0", fontSize:14, color:"#888" }}>{T.appOndertitel}</p>
         </div>
 
         <div style={{ marginBottom:"1.25rem" }}>
-          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Gebruikersnaam</label>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>{T.gebruikersnaam}</label>
           <input value={un} onChange={e=>setUn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
-            placeholder="Gebruikersnaam"
+            placeholder={T.gebruikersnaam}
             style={{ width:"100%", padding:"13px 16px", borderRadius:10, border:"1.5px solid #ddd",
               background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box" }} />
         </div>
         <div style={{ marginBottom:"1.75rem" }}>
-          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>Wachtwoord</label>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>{T.wachtwoord}</label>
           <div style={{ position:"relative" }}>
             <input type={toon?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
-              placeholder="Wachtwoord"
+              placeholder={T.wachtwoord}
               style={{ width:"100%", padding:"13px 48px 13px 16px", borderRadius:10, border:"1.5px solid #ddd",
                 background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box" }} />
             <button onClick={()=>setToon(t=>!t)} style={{ position:"absolute", right:14, top:"50%",
@@ -837,7 +841,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
           background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
           fontSize:16, fontWeight:600, letterSpacing:"0.02em",
           boxShadow:`0 4px 16px ${kleur.hoofd}55`,
-          opacity: bezig ? 0.7 : 1, cursor: bezig ? "not-allowed" : "pointer" }}>
+          opacity: bezig ? 0.7 : 1 }}>
           {bezig ? T.bezig : T.inloggen}
         </button>
 
@@ -854,7 +858,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
               background:"#f0f4ff", color:"#2a4ab5", border:"1.5px solid #c5d0f5",
               cursor:"pointer", fontSize:14, fontWeight:500,
               display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-            <span style={{ fontSize:18 }}>✉</span> Maak een account aan
+            <span style={{ fontSize:18 }}>✉</span> {T.maakAccount}
           </button>
 
           {/* Demo modus */}
@@ -864,8 +868,8 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
             display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
             <span style={{ fontSize:20 }}>🧪</span>
             <div style={{ textAlign:"left" }}>
-              <div style={{ fontWeight:600, fontSize:14 }}>Probeer de applicatie</div>
-              <div style={{ fontSize:12, color:"#a07820", marginTop:2 }}>Demo modus — wijzigingen worden niet opgeslagen</div>
+              <div style={{ fontWeight:600, fontSize:14 }}>{T.probeerApp}</div>
+              <div style={{ fontSize:12, color:"#a07820", marginTop:2 }}>{T.demoOndertitel}</div>
             </div>
           </button>
         </div>
