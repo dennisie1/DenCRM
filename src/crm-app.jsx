@@ -1797,7 +1797,253 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
   );
 }
 
-// ── OFFERTE PREVIEW (herbruikbaar) ───────────────────────────────────────────
+// ── CONTACT / SUPPORT PAGINA ──────────────────────────────────
+function ContactPage({ huidigUser, kleur, fs, T }) {
+  const [form, setForm] = useState({
+    naam: huidigUser?.naam || "",
+    email: huidigUser?.email || huidigUser?.username || "",
+    onderwerp: "",
+    bericht: "",
+    type: "vraag",
+  });
+  const [bezig, setBezig] = useState(false);
+  const [melding, setMelding] = useState(null);
+
+  async function verstuur() {
+    if (!form.naam || !form.email || !form.onderwerp || !form.bericht) {
+      setMelding({ type:"fout", tekst:"Vul alle verplichte velden in." });
+      return;
+    }
+    setBezig(true); setMelding(null);
+    try {
+      await API.stuurSupportBericht(form);
+      setMelding({ type:"ok", tekst:"Je bericht is verstuurd! We nemen zo snel mogelijk contact op." });
+      setForm(f => ({ ...f, onderwerp:"", bericht:"", type:"vraag" }));
+    } catch(e) {
+      setMelding({ type:"fout", tekst:"Versturen mislukt: " + e.message });
+    } finally { setBezig(false); }
+  }
+
+  return (
+    <div style={{ maxWidth:680 }}>
+      <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
+        borderRadius:16, padding:"2rem", marginBottom:"1.5rem" }}>
+        <p style={{ margin:"0 0 1.5rem", fontSize:fs, color:"var(--color-text-secondary)", lineHeight:1.7 }}>
+          Heb je een vraag, mis je een functionaliteit of zie je ergens een foutje?<br/>
+          Vul dan onderstaand formulier in.
+        </p>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+          <FF label="Naam" fs={fs}>
+            <input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))}
+              style={iSt(fs)} />
+          </FF>
+          <FF label="E-mailadres" fs={fs}>
+            <input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}
+              style={iSt(fs)} />
+          </FF>
+        </div>
+
+        <FF label="Type bericht" fs={fs}>
+          <div style={{ display:"flex", gap:8 }}>
+            {[
+              { id:"vraag", label:"❓ Vraag" },
+              { id:"functionaliteit", label:"💡 Functionaliteit" },
+              { id:"fout", label:"🐛 Foutmelding" },
+            ].map(t => (
+              <button key={t.id} onClick={()=>setForm(f=>({...f,type:t.id}))}
+                style={{ flex:1, padding:"8px", borderRadius:8, cursor:"pointer", fontSize:fs-1,
+                  border:`1.5px solid ${form.type===t.id ? kleur.hoofd : "var(--color-border-secondary)"}`,
+                  background: form.type===t.id ? kleur.licht : "var(--color-background-primary)",
+                  color: form.type===t.id ? kleur.donker : "var(--color-text-secondary)",
+                  fontWeight: form.type===t.id ? 500 : 400 }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </FF>
+
+        <FF label="Onderwerp" fs={fs}>
+          <input value={form.onderwerp} onChange={e=>setForm(f=>({...f,onderwerp:e.target.value}))}
+            placeholder="Korte omschrijving" style={iSt(fs)} />
+        </FF>
+
+        <FF label="Bericht" fs={fs}>
+          <textarea value={form.bericht} onChange={e=>setForm(f=>({...f,bericht:e.target.value}))}
+            rows={6} placeholder="Beschrijf je vraag of probleem zo duidelijk mogelijk…"
+            style={{...iSt(fs), resize:"vertical"}} />
+        </FF>
+
+        {melding && (
+          <p style={{ padding:"10px 14px", borderRadius:8, fontSize:fs-1, margin:"0.5rem 0",
+            background: melding.type==="ok" ? "#eaf3de" : "#fcebeb",
+            color: melding.type==="ok" ? "#27500a" : "#a32d2d" }}>
+            {melding.tekst}
+          </p>
+        )}
+
+        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1rem" }}>
+          <Btn variant="primary" onClick={verstuur} kleur={kleur} fs={fs} disabled={bezig}>
+            {bezig ? "Versturen…" : "✉ Verstuur bericht"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SUPPORT INBOX (admin only) ────────────────────────────────
+function SupportInboxPage({ kleur, fs }) {
+  const [berichten, setBerichten] = useState([]);
+  const [laden, setLaden] = useState(true);
+  const [filter, setFilter] = useState("alle");
+  const [open, setOpen] = useState(null);
+
+  useEffect(() => { laadBerichten(); }, []);
+
+  async function laadBerichten() {
+    setLaden(true);
+    try {
+      const data = await API.haalSupportBerichtenOp();
+      setBerichten(data);
+    } catch(e) { console.error(e); }
+    finally { setLaden(false); }
+  }
+
+  async function updateStatus(id, status) {
+    await API.updateSupportStatus(id, status);
+    setBerichten(prev => prev.map(b => b.id===id ? {...b, status} : b));
+    if (open?.id === id) setOpen(prev => ({...prev, status}));
+  }
+
+  async function verwijder(id) {
+    if (!confirm("Bericht verwijderen?")) return;
+    await API.verwijderSupportBericht(id);
+    setBerichten(prev => prev.filter(b => b.id!==id));
+    if (open?.id === id) setOpen(null);
+  }
+
+  const gefilterd = berichten.filter(b => filter === "alle" || b.status === filter);
+
+  const statusKleur = {
+    nieuw: { bg:"#e6f1fb", tekst:"#0c447c" },
+    in_behandeling: { bg:"#fffbf0", tekst:"#7a5800" },
+    afgehandeld: { bg:"#eaf3de", tekst:"#27500a" },
+  };
+
+  const typeIcoon = { vraag:"❓", functionaliteit:"💡", fout:"🐛" };
+
+  function fmtDatum(iso) {
+    return new Date(iso).toLocaleDateString("nl-NL", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  }
+
+  return (
+    <div style={{ display:"flex", gap:16, height:"calc(100vh - 160px)" }}>
+      {/* Lijst */}
+      <div style={{ width:340, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+        {/* Filter tabs */}
+        <div style={{ display:"flex", borderRadius:8, overflow:"hidden", border:`1px solid ${kleur.hoofd}`, flexShrink:0 }}>
+          {[
+            { id:"alle", label:`Alle (${berichten.length})` },
+            { id:"nieuw", label:`Nieuw (${berichten.filter(b=>b.status==="nieuw").length})` },
+            { id:"in_behandeling", label:"In behandeling" },
+            { id:"afgehandeld", label:"Afgehandeld" },
+          ].map(f => (
+            <button key={f.id} onClick={()=>setFilter(f.id)} style={{
+              flex:1, padding:"6px 4px", border:"none", cursor:"pointer", fontSize:fs-3,
+              background: filter===f.id ? kleur.hoofd : "var(--color-background-primary)",
+              color: filter===f.id ? "#fff" : "var(--color-text-primary)" }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Berichten lijst */}
+        <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+          {laden && <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, padding:"1rem" }}>Laden…</p>}
+          {!laden && gefilterd.length===0 && (
+            <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, padding:"1rem" }}>Geen berichten gevonden.</p>
+          )}
+          {gefilterd.map(b => (
+            <div key={b.id} onClick={()=>setOpen(b)}
+              style={{ background:"var(--color-background-primary)",
+                border:`1px solid ${open?.id===b.id ? kleur.hoofd : "var(--color-border-tertiary)"}`,
+                borderRadius:10, padding:"10px 12px", cursor:"pointer",
+                borderLeft:`4px solid ${statusKleur[b.status]?.bg || "#ddd"}` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                <span style={{ fontSize:14 }}>{typeIcoon[b.type] || "📩"}</span>
+                <span style={{ fontSize:fs-1, fontWeight:500, flex:1, overflow:"hidden",
+                  textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{b.onderwerp}</span>
+                <span style={{ fontSize:fs-3, padding:"2px 8px", borderRadius:99,
+                  background: statusKleur[b.status]?.bg,
+                  color: statusKleur[b.status]?.tekst }}>
+                  {b.status.replace("_"," ")}
+                </span>
+              </div>
+              <p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)" }}>
+                {b.naam} · {fmtDatum(b.aangemaakt_op)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Detail */}
+      <div style={{ flex:1, background:"var(--color-background-primary)",
+        border:"0.5px solid var(--color-border-tertiary)", borderRadius:16,
+        padding:"1.5rem", overflowY:"auto" }}>
+        {!open ? (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+            height:"100%", color:"var(--color-text-secondary)", fontSize:fs }}>
+            Selecteer een bericht om te lezen
+          </div>
+        ) : (
+          <>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem", flexWrap:"wrap", gap:8 }}>
+              <div>
+                <h2 style={{ margin:0, fontSize:fs+4, fontWeight:600 }}>{open.onderwerp}</h2>
+                <p style={{ margin:"4px 0 0", fontSize:fs-1, color:"var(--color-text-secondary)" }}>
+                  {typeIcoon[open.type]} {open.type} · {open.naam} · {open.email} · {fmtDatum(open.aangemaakt_op)}
+                </p>
+              </div>
+              <div style={{ display:"flex", gap:6 }}>
+                {["nieuw","in_behandeling","afgehandeld"].map(s => (
+                  <button key={s} onClick={()=>updateStatus(open.id, s)}
+                    style={{ padding:"6px 10px", borderRadius:8, cursor:"pointer", fontSize:fs-2, border:"none",
+                      background: open.status===s ? kleur.hoofd : "var(--color-background-secondary)",
+                      color: open.status===s ? "#fff" : "var(--color-text-secondary)",
+                      fontWeight: open.status===s ? 500 : 400 }}>
+                    {s.replace("_"," ")}
+                  </button>
+                ))}
+                <button onClick={()=>verwijder(open.id)}
+                  style={{ padding:"6px 10px", borderRadius:8, cursor:"pointer", fontSize:fs-2,
+                    background:"#fcebeb", color:"#a32d2d", border:"none" }}>
+                  ✕ Verwijderen
+                </button>
+              </div>
+            </div>
+
+            <div style={{ background:"var(--color-background-secondary)", borderRadius:10,
+              padding:"1.25rem", fontSize:fs, lineHeight:1.8, whiteSpace:"pre-wrap" }}>
+              {open.bericht}
+            </div>
+
+            {open.email && (
+              <div style={{ marginTop:"1rem" }}>
+                <a href={`mailto:${open.email}?subject=Re: ${open.onderwerp}`}
+                  style={{ padding:"8px 16px", borderRadius:8, background:kleur.hoofd,
+                    color:"#fff", textDecoration:"none", fontSize:fs-1, fontWeight:500 }}>
+                  ✉ Beantwoorden via mail
+                </a>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 function OffertePreview({ offerte, klant, kleur }) {
   const vandaag = offerte.datum
     ? new Date(offerte.datum+"T12:00:00").toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"})
@@ -2984,7 +3230,11 @@ export default function App() {
     { id:"agenda",     label:T.agenda,     icon:"📅" },
     { id:"offertes",   label:T.offertes,   icon:"📄" },
     { id:"financieel", label:T.financieel, icon:"💶" },
-    ...(!isDemoMode && huidigUser?.is_admin ? [{ id:"gebruikers", label:T.gebruikers, icon:"🔐" }] : []),
+    { id:"contact",    label:T.contact||"Contact", icon:"💬" },
+    ...(!isDemoMode && huidigUser?.is_admin ? [
+      { id:"gebruikers", label:T.gebruikers, icon:"🔐" },
+      { id:"support",    label:T.supportInbox||"Support inbox", icon:"📥" },
+    ] : []),
   ];
 
   const tekstK      = isDark ? "#e8e8e8" : "#1a1a1a";
@@ -3090,7 +3340,9 @@ export default function App() {
           {pagina==="agenda"     && <AgendaPage    klanten={actieveKlanten} agenda={actieveAgenda} setAgenda={setAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="offertes"   && <OffertesPage  klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="financieel" && <FinancieelPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
+          {pagina==="contact"    && <ContactPage huidigUser={huidigUser} kleur={kleur} fs={fs} T={T} />}
           {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer users={[]} setUsers={()=>{}} kleur={kleur} fs={fs} T={T} />}
+          {pagina==="support"    && !isDemoMode && huidigUser?.is_admin && <SupportInboxPage kleur={kleur} fs={fs} />}
         </main>
       </div>
     </div>

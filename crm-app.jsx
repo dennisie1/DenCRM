@@ -742,7 +742,144 @@ function Toggle({ aan, onToggle, label, fs }) {
   );
 }
 
-// ── LOGIN ────────────────────────────────────────────────────────────────────
+// ── ACTIVATIE PAGINA ──────────────────────────────────────────
+function ActivatiePagina({ token, kleur }) {
+  const [fase, setFase] = useState('laden'); // laden | formulier | klaar | fout
+  const [gebruikerInfo, setGebruikerInfo] = useState(null);
+  const [ww1, setWw1] = useState('');
+  const [ww2, setWw2] = useState('');
+  const [toon1, setToon1] = useState(false);
+  const [toon2, setToon2] = useState(false);
+  const [fout, setFout] = useState('');
+  const [bezig, setBezig] = useState(false);
+
+  useEffect(() => {
+    API.controleerActivatieToken(token)
+      .then(data => { setGebruikerInfo(data); setFase('formulier'); })
+      .catch(() => setFase('fout'));
+  }, [token]);
+
+  async function stelWachtwoordIn() {
+    setFout('');
+    if (ww1.length < 6) { setFout('Wachtwoord moet minimaal 6 tekens zijn.'); return; }
+    if (ww1 !== ww2) { setFout('Wachtwoorden komen niet overeen.'); return; }
+    setBezig(true);
+    try {
+      await API.activeerAccount(token, ww1);
+      setFase('klaar');
+    } catch(e) {
+      setFout(e.message || 'Activatie mislukt.');
+    } finally { setBezig(false); }
+  }
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)" }}>
+      <div style={{ background:"#fff", borderRadius:24, padding:"3rem", width:"100%", maxWidth:440,
+        boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
+
+        <div style={{ textAlign:"center", marginBottom:"2rem" }}>
+          <img src="afbeeldingen/dencrm.png" alt="DenCRM"
+            style={{ height:100, objectFit:"contain" }}
+            onError={e=>{ e.target.style.display="none"; }} />
+          <h1 style={{ margin:"1rem 0 0", fontSize:24, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
+        </div>
+
+        {fase === 'laden' && (
+          <p style={{ textAlign:"center", color:"#888" }}>Token controleren…</p>
+        )}
+
+        {fase === 'fout' && (
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:48, marginBottom:"1rem" }}>❌</div>
+            <h2 style={{ color:"#a32d2d" }}>Link ongeldig of verlopen</h2>
+            <p style={{ color:"#666", fontSize:14 }}>
+              De activatielink is verlopen of al gebruikt.<br/>
+              Registreer opnieuw of neem contact op.
+            </p>
+            <button onClick={()=>window.location.href='/'}
+              style={{ marginTop:"1.5rem", padding:"10px 24px", borderRadius:8,
+                background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:14 }}>
+              Terug naar inloggen
+            </button>
+          </div>
+        )}
+
+        {fase === 'formulier' && (
+          <>
+            <h2 style={{ margin:"0 0 0.5rem", fontSize:20, color:"#1a1a1a" }}>Welkom, {gebruikerInfo?.naam}!</h2>
+            <p style={{ color:"#666", fontSize:14, marginBottom:"1.5rem" }}>
+              Stel hieronder uw wachtwoord in om uw account te activeren.
+            </p>
+
+            <div style={{ marginBottom:"1rem" }}>
+              <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
+                Wachtwoord
+              </label>
+              <div style={{ position:"relative" }}>
+                <input type={toon1?"text":"password"} value={ww1} onChange={e=>setWw1(e.target.value)}
+                  placeholder="Minimaal 6 tekens"
+                  style={{ width:"100%", padding:"11px 40px 11px 12px", borderRadius:8,
+                    border:"1.5px solid #ddd", background:"#fafafa", fontSize:14,
+                    color:"#1a1a1a", boxSizing:"border-box" }} />
+                <button onClick={()=>setToon1(t=>!t)} style={{ position:"absolute", right:10,
+                  top:"50%", transform:"translateY(-50%)", background:"none",
+                  border:"none", cursor:"pointer", color:"#aaa", fontSize:16 }}>
+                  {toon1?"🙈":"👁"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginBottom:"1.5rem" }}>
+              <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
+                Wachtwoord bevestigen
+              </label>
+              <div style={{ position:"relative" }}>
+                <input type={toon2?"text":"password"} value={ww2}
+                  onChange={e=>setWw2(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&stelWachtwoordIn()}
+                  placeholder="Herhaal uw wachtwoord"
+                  style={{ width:"100%", padding:"11px 40px 11px 12px", borderRadius:8,
+                    border:"1.5px solid #ddd", background:"#fafafa", fontSize:14,
+                    color:"#1a1a1a", boxSizing:"border-box" }} />
+                <button onClick={()=>setToon2(t=>!t)} style={{ position:"absolute", right:10,
+                  top:"50%", transform:"translateY(-50%)", background:"none",
+                  border:"none", cursor:"pointer", color:"#aaa", fontSize:16 }}>
+                  {toon2?"🙈":"👁"}
+                </button>
+              </div>
+            </div>
+
+            {fout && <p style={{ color:"#a32d2d", fontSize:13, background:"#fcebeb",
+              padding:"8px 12px", borderRadius:6, marginBottom:"1rem" }}>{fout}</p>}
+
+            <button onClick={stelWachtwoordIn} disabled={bezig}
+              style={{ width:"100%", padding:"13px", borderRadius:10,
+                background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:600, opacity:bezig?0.7:1 }}>
+              {bezig ? "Bezig…" : "✓ Account activeren"}
+            </button>
+          </>
+        )}
+
+        {fase === 'klaar' && (
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:56, marginBottom:"1rem" }}>🎉</div>
+            <h2 style={{ color:"#27500a", margin:"0 0 0.5rem" }}>Account geactiveerd!</h2>
+            <p style={{ color:"#666", fontSize:14, marginBottom:"1.5rem" }}>
+              Uw wachtwoord is ingesteld. U kunt nu inloggen met uw e-mailadres.
+            </p>
+            <button onClick={()=>window.location.href='/'}
+              style={{ padding:"12px 28px", borderRadius:10, background:kleur.hoofd,
+                color:"#fff", border:"none", cursor:"pointer", fontSize:15, fontWeight:600 }}>
+              Naar inloggen →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
   const T = VERTALINGEN[taal] || VERTALINGEN.nl;
   const [un, setUn] = useState(""); const [pw, setPw] = useState("");
@@ -3107,6 +3244,12 @@ export default function App() {
   const kleur = KLEUREN[kleurIdx];
   const bg    = BGOVS[bgIdx];
   const isDark = DARK_BGS.includes(bg.w);
+
+  // ── Bij opstarten: kijk of er een activatietoken in de URL zit ──
+  const activatieToken = new URLSearchParams(window.location.search).get('token');
+  if (activatieToken) {
+    return <ActivatiePagina token={activatieToken} kleur={kleur} />;
+  }
 
   // ── Bij opstarten: kijk of er nog een token is ────────────
   useEffect(() => {
