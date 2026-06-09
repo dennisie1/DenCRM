@@ -164,3 +164,9 @@ export async function stuurSupportBericht(data)        { return apiFetch('/suppo
 export async function haalSupportBerichtenOp()         { return apiFetch('/support'); }
 export async function updateSupportStatus(id, status)  { return apiFetch(`/support/${id}/status`, { method: 'PATCH', body: { status } }); }
 export async function verwijderSupportBericht(id)      { return apiFetch(`/support/${id}`, { method: 'DELETE' }); }
+
+// ============================================================
+// RAPPORTEN
+// ============================================================
+export async function haalRapportInstellingOp()   { return apiFetch('/rapporten/instelling'); }
+export async function slaRapportInstellingOp(data) { return apiFetch('/rapporten/instelling', { method: 'POST', body: data }); }

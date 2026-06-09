@@ -2649,6 +2649,29 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
   const [openKlant,   setOpenKlant]   = useState(null);
   const [losseFactuurModal, setLosseFactuurModal] = useState(false);
   const [exportModal, setExportModal] = useState(false);
+  const [rapportModal, setRapportModal] = useState(false);
+  const [rapportInst, setRapportInst] = useState(null);
+  const [rapportForm, setRapportForm] = useState({
+    actief: true, frequentie: 'week', dag_van_week: 1, dag_van_maand: 1, inhoud: 'alle'
+  });
+  const [rapportOpgeslagen, setRapportOpgeslagen] = useState(false);
+
+  useEffect(() => {
+    if (rapportModal && !isDemoMode) {
+      API.haalRapportInstellingOp().then(data => {
+        if (data) {
+          setRapportInst(data);
+          setRapportForm({
+            actief: !!data.actief,
+            frequentie: data.frequentie || 'week',
+            dag_van_week: data.dag_van_week || 1,
+            dag_van_maand: data.dag_van_maand || 1,
+            inhoud: data.inhoud || 'alle',
+          });
+        }
+      }).catch(()=>{});
+    }
+  }, [rapportModal]);
 
   // Losse factuur state
   const [lfKlantId, setLfKlantId]   = useState("");
@@ -2824,6 +2847,12 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
           {gefilterd.length} {gefilterd.length === 1 ? "document" : "documenten"}
         </span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button onClick={() => setRapportModal(true)}
+            style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${kleur.hoofd}`,
+              background: kleur.licht, color: kleur.donker, cursor: "pointer", fontSize: fs - 1, fontWeight: 500,
+              display: "flex", alignItems: "center", gap: 6 }}>
+            📬 Rapporten automatisch mailen
+          </button>
           <button onClick={() => setExportModal(true)}
             style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${kleur.hoofd}`,
               background: kleur.licht, color: kleur.donker, cursor: "pointer", fontSize: fs - 1, fontWeight: 500,
@@ -3018,11 +3047,105 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
           </div>
         </Modal>
       )}
+
+      {/* ── Rapport instellingen modal ── */}
+      {rapportModal && (
+        <Modal title="📬 Rapporten automatisch mailen" onClose={()=>{ setRapportModal(false); setRapportOpgeslagen(false); }} fs={fs}>
+          <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1.25rem", lineHeight:1.6 }}>
+            Ontvang automatisch een financieel rapport op uw e-mailadres. U kunt kiezen hoe vaak en wat er gestuurd wordt.
+          </p>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"10px 14px", background:"var(--color-background-secondary)", borderRadius:10, marginBottom:"1rem" }}>
+            <span style={{ fontSize:fs, fontWeight:500 }}>Automatisch mailen</span>
+            <div onClick={()=>setRapportForm(f=>({...f,actief:!f.actief}))}
+              style={{ width:44, height:24, borderRadius:99, cursor:"pointer",
+                background: rapportForm.actief ? kleur.hoofd : "#ccc", position:"relative", transition:"background 0.2s" }}>
+              <div style={{ position:"absolute", top:3, left: rapportForm.actief ? 22 : 3,
+                width:18, height:18, borderRadius:"50%", background:"#fff", transition:"left 0.2s",
+                boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
+            </div>
+          </div>
+          {rapportForm.actief && (<>
+            <FF label="Hoe vaak?" fs={fs}>
+              <div style={{ display:"flex", gap:8 }}>
+                {[{id:"dag",label:"📅 Dagelijks"},{id:"week",label:"📆 Wekelijks"},{id:"maand",label:"🗓 Maandelijks"}].map(f=>(
+                  <button key={f.id} onClick={()=>setRapportForm(p=>({...p,frequentie:f.id}))}
+                    style={{ flex:1, padding:"8px", borderRadius:8, cursor:"pointer", fontSize:fs-1,
+                      border:`1.5px solid ${rapportForm.frequentie===f.id ? kleur.hoofd : "var(--color-border-secondary)"}`,
+                      background: rapportForm.frequentie===f.id ? kleur.licht : "var(--color-background-primary)",
+                      color: rapportForm.frequentie===f.id ? kleur.donker : "var(--color-text-secondary)",
+                      fontWeight: rapportForm.frequentie===f.id ? 500 : 400 }}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </FF>
+            {rapportForm.frequentie === 'week' && (
+              <FF label="Op welke dag?" fs={fs}>
+                <div style={{ display:"flex", gap:6 }}>
+                  {["Ma","Di","Wo","Do","Vr","Za","Zo"].map((d,i)=>(
+                    <button key={i} onClick={()=>setRapportForm(p=>({...p,dag_van_week:i+1}))}
+                      style={{ width:40, height:36, borderRadius:8, cursor:"pointer", fontSize:fs-2,
+                        border:`1.5px solid ${rapportForm.dag_van_week===i+1 ? kleur.hoofd : "var(--color-border-secondary)"}`,
+                        background: rapportForm.dag_van_week===i+1 ? kleur.hoofd : "var(--color-background-primary)",
+                        color: rapportForm.dag_van_week===i+1 ? "#fff" : "var(--color-text-secondary)",
+                        fontWeight: rapportForm.dag_van_week===i+1 ? 600 : 400 }}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </FF>
+            )}
+            {rapportForm.frequentie === 'maand' && (
+              <FF label="Op welke dag van de maand?" fs={fs}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <input type="number" min={1} max={28} value={rapportForm.dag_van_maand}
+                    onChange={e=>setRapportForm(p=>({...p,dag_van_maand:parseInt(e.target.value)||1}))}
+                    style={{...iSt(fs), width:70}} />
+                  <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>van de maand (max. 28)</span>
+                </div>
+              </FF>
+            )}
+            <FF label="Wat wilt u ontvangen?" fs={fs}>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {[
+                  { id:"alle",       label:"📄 Alle facturen en offertes",           omschr:"Compleet overzicht" },
+                  { id:"betaald",    label:"✅ Alleen betaalde facturen/offertes",    omschr:"Overzicht ontvangen betalingen" },
+                  { id:"openstaand", label:"⏳ Alleen openstaande facturen/offertes", omschr:"Overzicht nog te ontvangen" },
+                ].map(o=>(
+                  <div key={o.id} onClick={()=>setRapportForm(p=>({...p,inhoud:o.id}))}
+                    style={{ padding:"10px 14px", borderRadius:10, cursor:"pointer",
+                      border:`1.5px solid ${rapportForm.inhoud===o.id ? kleur.hoofd : "var(--color-border-secondary)"}`,
+                      background: rapportForm.inhoud===o.id ? kleur.licht : "var(--color-background-primary)" }}>
+                    <p style={{ margin:0, fontSize:fs-1, fontWeight:500,
+                      color: rapportForm.inhoud===o.id ? kleur.donker : "var(--color-text-primary)" }}>{o.label}</p>
+                    <p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>{o.omschr}</p>
+                  </div>
+                ))}
+              </div>
+            </FF>
+          </>)}
+          {rapportOpgeslagen && (
+            <p style={{ padding:"8px 12px", borderRadius:8, background:"#eaf3de",
+              color:"#27500a", fontSize:fs-1, margin:"0.5rem 0" }}>
+              ✓ Instellingen opgeslagen! Rapporten worden om 07:00 verstuurd.
+            </p>
+          )}
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>{ setRapportModal(false); setRapportOpgeslagen(false); }} fs={fs}>Sluiten</Btn>
+            <Btn variant="primary" onClick={async ()=>{
+              if (isDemoMode) { setRapportOpgeslagen(true); return; }
+              try {
+                await API.slaRapportInstellingOp(rapportForm);
+                setRapportOpgeslagen(true);
+              } catch(e) { alert("Opslaan mislukt: "+e.message); }
+            }} kleur={kleur} fs={fs}>💾 Opslaan</Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
-
-// ── INSTELLINGEN PANEEL ───────────────────────────────────────────────────────
 function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, setBgIdx, taal, setTaal, T, onClose, modulesAan, setModulesAan }) {
   const [modulesOpen, setModulesOpen] = useState(false);
 
