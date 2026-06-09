@@ -1804,21 +1804,78 @@ function ProductenPage({ producten, setProducten, kleur, fs, isDemoMode, herlaad
 
 // ── AGENDA ───────────────────────────────────────────────────────────────────
 function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad, T }) {
-  const [view, setView] = useState("blok");
+  const [view, setView] = useState("blok"); // blok | week | werkweek | lijst
   const [modal, setModal] = useState(false);
+  const [werkweekModal, setWerkweekModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ klantId:"", datum:"", tijd:"", tijdTot:"", notitie:"" });
   const [filterDatum, setFilterDatum] = useState(new Date().toISOString().slice(0,10));
   const [hover, setHover] = useState(null);
 
+  // Werkweek instellingen (bewaard in localStorage)
+  const [werkweekInst, setWerkweekInstState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dencrm_werkweek') || 'null') || {
+      dagen: [1,2,3,4,5], // ma=1 t/m zo=7
+      vanUur: "08:00",
+      totUur: "17:00",
+    }; } catch { return { dagen:[1,2,3,4,5], vanUur:"08:00", totUur:"17:00" }; }
+  });
+
+  function setWerkweekInst(v) {
+    const nieuw = typeof v === 'function' ? v(werkweekInst) : v;
+    setWerkweekInstState(nieuw);
+    localStorage.setItem('dencrm_werkweek', JSON.stringify(nieuw));
+  }
+
+  // Week navigatie — maandag van de huidige week
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date();
+    const dag = d.getDay() || 7;
+    d.setDate(d.getDate() - dag + 1);
+    return d.toISOString().slice(0,10);
+  });
+
+  function weekDagen(startISO, alleenWerkdagen=false) {
+    const result = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startISO + "T12:00:00");
+      d.setDate(d.getDate() + i);
+      const iso = d.toISOString().slice(0,10);
+      const dagNr = d.getDay() || 7; // 1=ma, 7=zo
+      if (!alleenWerkdagen || werkweekInst.dagen.includes(dagNr)) {
+        result.push({ iso, dagNr, label: d.toLocaleDateString("nl-NL",{weekday:"short",day:"numeric",month:"short"}) });
+      }
+    }
+    return result;
+  }
+
+  function navigeerWeek(richting) {
+    const d = new Date(weekStart + "T12:00:00");
+    d.setDate(d.getDate() + richting * 7);
+    setWeekStart(d.toISOString().slice(0,10));
+  }
+
+  function naarVandaag() {
+    const d = new Date();
+    const dag = d.getDay() || 7;
+    d.setDate(d.getDate() - dag + 1);
+    setWeekStart(d.toISOString().slice(0,10));
+    setFilterDatum(new Date().toISOString().slice(0,10));
+  }
+
+  // Uren gefilterd op werkweek instelling
+  const zichtbareUren = (view === 'werkweek')
+    ? UREN.filter(u => u >= werkweekInst.vanUur && u <= werkweekInst.totUur)
+    : UREN;
+
   const sorted = [...agenda]
     .filter(a=>!filterDatum||a.datum===filterDatum)
     .sort((a,b)=>(a.datum+a.tijd).localeCompare(b.datum+b.tijd));
 
-  function openNieuw(tijd="09:00") {
+  function openNieuw(tijd="09:00", datum=null) {
     const [h,m] = tijd.split(":").map(Number);
     const tijdTot = `${String(Math.min(h+1,23)).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
-    setForm({ klantId:"", datum:filterDatum||new Date().toISOString().slice(0,10), tijd, tijdTot, notitie:"" });
+    setForm({ klantId:"", datum:datum||filterDatum||new Date().toISOString().slice(0,10), tijd, tijdTot, notitie:"" });
     setEditId(null); setModal(true);
   }
 
@@ -1856,34 +1913,72 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
 
   const dagAfsp = agenda.filter(a=>a.datum===filterDatum);
   function afspVoorUur(uur) { return dagAfsp.filter(a=>a.tijd.startsWith(uur.slice(0,2))); }
+  function afspVoorDagUur(datum, uur) { return agenda.filter(a=>a.datum===datum&&a.tijd.startsWith(uur.slice(0,2))); }
   function tijdLabel(a) { return a.tijdTot ? `${a.tijd} – ${a.tijdTot}` : a.tijd; }
+
+  const dagNamen = ["","Ma","Di","Wo","Do","Vr","Za","Zo"];
 
   return (
     <div>
       <div style={{ display:"flex", gap:8, marginBottom:"1rem", alignItems:"center", flexWrap:"wrap" }}>
-        <label style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 14px",
-          borderRadius:8, border:`1.5px solid ${kleur.hoofd}`,
-          background:"var(--color-background-primary)", cursor:"pointer",
-          boxShadow:`0 0 0 3px ${kleur.hoofd}22` }}>
-          <span style={{ fontSize:fs-1, color:kleur.hoofd, fontWeight:500 }}>📅 Datum:</span>
-          <input type="date" value={filterDatum} onChange={e=>setFilterDatum(e.target.value)}
-            style={{ border:"none", background:"transparent", color:"var(--color-text-primary)",
-              fontSize:fs, cursor:"pointer", outline:"none", fontWeight:500 }} />
-        </label>
+        {/* Datum of week navigatie */}
+        {(view==="blok"||view==="lijst") ? (
+          <label style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 14px",
+            borderRadius:8, border:`1.5px solid ${kleur.hoofd}`,
+            background:"var(--color-background-primary)", cursor:"pointer",
+            boxShadow:`0 0 0 3px ${kleur.hoofd}22` }}>
+            <span style={{ fontSize:fs-1, color:kleur.hoofd, fontWeight:500 }}>📅 {T.datum}:</span>
+            <input type="date" value={filterDatum} onChange={e=>setFilterDatum(e.target.value)}
+              style={{ border:"none", background:"transparent", color:"var(--color-text-primary)",
+                fontSize:fs, cursor:"pointer", outline:"none", fontWeight:500 }} />
+          </label>
+        ) : (
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <button onClick={()=>navigeerWeek(-1)} style={{ padding:"6px 10px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+              background:"var(--color-background-primary)", cursor:"pointer", fontSize:fs }}>◀</button>
+            <button onClick={naarVandaag} style={{ padding:"6px 12px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-1, fontWeight:500 }}>Vandaag</button>
+            <button onClick={()=>navigeerWeek(1)} style={{ padding:"6px 10px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+              background:"var(--color-background-primary)", cursor:"pointer", fontSize:fs }}>▶</button>
+            <span style={{ fontSize:fs-1, color:"var(--color-text-secondary)", marginLeft:4 }}>
+              {new Date(weekStart+"T12:00:00").toLocaleDateString("nl-NL",{day:"numeric",month:"long"})} – {
+                new Date(new Date(weekStart+"T12:00:00").setDate(new Date(weekStart+"T12:00:00").getDate()+6)).toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"})
+              }
+            </span>
+          </div>
+        )}
+
+        {/* View knoppen */}
         <div style={{ display:"flex", borderRadius:8, overflow:"hidden", border:`1px solid ${kleur.hoofd}` }}>
-          {[{id:"blok",label:T.uurblokken},{id:"lijst",label:T.lijst}].map(v=>(
-            <button key={v.id} onClick={()=>setView(v.id)} style={{ padding:"7px 14px", border:"none", cursor:"pointer", fontSize:fs-1,
+          {[
+            {id:"blok",     label:"⊞ Dag"},
+            {id:"week",     label:"📅 Week"},
+            {id:"werkweek", label:"💼 Werkweek"},
+            {id:"lijst",    label:"☰ Lijst"},
+          ].map(v=>(
+            <button key={v.id} onClick={()=>setView(v.id)} style={{ padding:"7px 12px", border:"none", cursor:"pointer", fontSize:fs-2,
               background:view===v.id?kleur.hoofd:"var(--color-background-primary)",
               color:view===v.id?"#fff":"var(--color-text-primary)" }}>{v.label}</button>
           ))}
         </div>
+
+        {/* Werkweek instelling knop */}
+        {(view==="werkweek") && (
+          <button onClick={()=>setWerkweekModal(true)}
+            style={{ padding:"7px 12px", borderRadius:8, border:`1px dashed ${kleur.hoofd}`,
+              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2 }}>
+            ⚙ Werkweek instellen
+          </button>
+        )}
+
         <div style={{ flex:1 }}/>
-        <Btn variant="primary" onClick={()=>openNieuw()} kleur={kleur} fs={fs}>+ Afspraak</Btn>
+        <Btn variant="primary" onClick={()=>openNieuw()} kleur={kleur} fs={fs}>+ {T.nieuweAfspraak}</Btn>
       </div>
 
+      {/* ── LIJSTWEERGAVE ── */}
       {view==="lijst"&&(
         <>
-          {Object.keys(groups).length===0&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>Geen afspraken gevonden.</p>}
+          {Object.keys(groups).length===0&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>{T.geenAfspraken}</p>}
           {Object.entries(groups).map(([datum,afspraken])=>(
             <div key={datum} style={{ marginBottom:"1.5rem" }}>
               <p style={{ fontSize:fs-1, fontWeight:500, color:"var(--color-text-secondary)", marginBottom:8 }}>
@@ -1910,6 +2005,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
         </>
       )}
 
+      {/* ── DAG BLOKWEERGAVE ── */}
       {view==="blok"&&(
         <div style={{ border:"0.5px solid var(--color-border-tertiary)", borderRadius:12, overflow:"hidden" }}>
           <div style={{ background:kleur.hoofd, color:"#fff", padding:"10px 16px", fontSize:fs, fontWeight:500 }}>
@@ -1928,7 +2024,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
                   <div style={{ width:72, flexShrink:0, padding:"10px 12px 6px", fontSize:fs-2,
                     color:"var(--color-text-secondary)", borderRight:"0.5px solid var(--color-border-tertiary)" }}>{uur}</div>
                   <div style={{ flex:1, padding:"4px 8px", display:"flex", flexDirection:"column", gap:4 }}>
-                    {afspraken.length===0&&isH&&<span style={{ fontSize:fs-2, color:kleur.donker, padding:"4px 0" }}>+ Klik om afspraak toe te voegen</span>}
+                    {afspraken.length===0&&isH&&<span style={{ fontSize:fs-2, color:kleur.donker, padding:"4px 0" }}>{T.klikToevoegen}</span>}
                     {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId);return(
                       <div key={a.id} onClick={e=>{e.stopPropagation();openEdit(a);}}
                         style={{ background:kleur.hoofd, color:"#fff", borderRadius:6,
@@ -1951,6 +2047,113 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
         </div>
       )}
 
+      {/* ── WEEK / WERKWEEK WEERGAVE ── */}
+      {(view==="week"||view==="werkweek")&&(()=>{
+        const dagen = weekDagen(weekStart, view==="werkweek");
+        const uren = view==="werkweek" ? zichtbareUren : UREN;
+        const vandaag = new Date().toISOString().slice(0,10);
+        return (
+          <div style={{ border:"0.5px solid var(--color-border-tertiary)", borderRadius:12, overflow:"hidden" }}>
+            {/* Header met dagnamen */}
+            <div style={{ display:"grid", gridTemplateColumns:`64px repeat(${dagen.length}, 1fr)`,
+              background:kleur.hoofd, color:"#fff" }}>
+              <div style={{ padding:"8px", fontSize:fs-3, borderRight:"0.5px solid rgba(255,255,255,0.2)" }} />
+              {dagen.map(d=>(
+                <div key={d.iso} style={{ padding:"8px 4px", textAlign:"center", fontSize:fs-2,
+                  borderRight:"0.5px solid rgba(255,255,255,0.2)",
+                  background: d.iso===vandaag ? "rgba(255,255,255,0.2)" : "transparent",
+                  fontWeight: d.iso===vandaag ? 700 : 400 }}>
+                  {d.label}
+                </div>
+              ))}
+            </div>
+            {/* Uurblokken */}
+            <div style={{ overflowY:"auto", maxHeight:"65vh" }}>
+              {uren.map(uur=>(
+                <div key={uur} style={{ display:"grid", gridTemplateColumns:`64px repeat(${dagen.length}, 1fr)`,
+                  borderBottom:"0.5px solid var(--color-border-tertiary)", minHeight:48 }}>
+                  <div style={{ padding:"8px 6px", fontSize:fs-3, color:"var(--color-text-secondary)",
+                    borderRight:"0.5px solid var(--color-border-tertiary)", flexShrink:0 }}>{uur}</div>
+                  {dagen.map(d=>{
+                    const afspraken = afspVoorDagUur(d.iso, uur);
+                    const isVandaag = d.iso === vandaag;
+                    return (
+                      <div key={d.iso} onClick={()=>afspraken.length===0&&openNieuw(uur,d.iso)}
+                        style={{ padding:"2px 3px", borderRight:"0.5px solid var(--color-border-tertiary)",
+                          cursor:afspraken.length===0?"pointer":"default",
+                          background: isVandaag ? `${kleur.hoofd}08` : "transparent",
+                          transition:"background 0.1s" }}
+                        onMouseEnter={e=>{ if(afspraken.length===0) e.currentTarget.style.background=`${kleur.hoofd}18`; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.background = isVandaag ? `${kleur.hoofd}08` : "transparent"; }}>
+                        {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId);return(
+                          <div key={a.id} onClick={e=>{e.stopPropagation();openEdit(a);}}
+                            style={{ background:kleur.hoofd, color:"#fff", borderRadius:4, padding:"2px 5px",
+                              fontSize:fs-3, cursor:"pointer", marginBottom:2, lineHeight:1.3 }}>
+                            <div style={{ fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {a.tijd} {k?.naam||"?"}
+                            </div>
+                            {a.notitie&&<div style={{ opacity:0.8, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.notitie}</div>}
+                          </div>
+                        );})}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── WERKWEEK INSTELLING MODAL ── */}
+      {werkweekModal && (
+        <Modal title="💼 Werkweek instellen" onClose={()=>setWerkweekModal(false)} fs={fs}>
+          <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1rem" }}>
+            Kies welke dagen en tijden zichtbaar zijn in de werkweekweergave.
+          </p>
+          <FF label="Werkdagen" fs={fs}>
+            <div style={{ display:"flex", gap:6 }}>
+              {[1,2,3,4,5,6,7].map(d=>{
+                const aan = werkweekInst.dagen.includes(d);
+                return (
+                  <button key={d} onClick={()=>setWerkweekInst(prev=>({
+                    ...prev,
+                    dagen: aan ? prev.dagen.filter(x=>x!==d) : [...prev.dagen, d].sort()
+                  }))}
+                    style={{ width:40, height:36, borderRadius:8, cursor:"pointer", fontSize:fs-2, fontWeight:600,
+                      border:`1.5px solid ${aan ? kleur.hoofd : "var(--color-border-secondary)"}`,
+                      background: aan ? kleur.hoofd : "var(--color-background-primary)",
+                      color: aan ? "#fff" : "var(--color-text-secondary)" }}>
+                    {dagNamen[d]}
+                  </button>
+                );
+              })}
+            </div>
+          </FF>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FF label="Begintijd" fs={fs}>
+              <input type="time" value={werkweekInst.vanUur}
+                onChange={e=>setWerkweekInst(p=>({...p,vanUur:e.target.value}))}
+                style={iSt(fs)} />
+            </FF>
+            <FF label="Eindtijd" fs={fs}>
+              <input type="time" value={werkweekInst.totUur}
+                onChange={e=>setWerkweekInst(p=>({...p,totUur:e.target.value}))}
+                style={iSt(fs)} />
+            </FF>
+          </div>
+          <div style={{ padding:"10px 14px", borderRadius:8, background:"var(--color-background-secondary)",
+            fontSize:fs-2, color:"var(--color-text-secondary)", marginTop:"0.5rem" }}>
+            Huidige instelling: {werkweekInst.dagen.map(d=>dagNamen[d]).join(", ")} · {werkweekInst.vanUur} – {werkweekInst.totUur}
+          </div>
+          <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:"1rem" }}>
+            <Btn onClick={()=>setWerkweekModal(false)} fs={fs}>Sluiten</Btn>
+            <Btn variant="primary" onClick={()=>setWerkweekModal(false)} kleur={kleur} fs={fs}>✓ Opslaan</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── AFSPRAAK MODAL ── */}
       {modal&&(
         <Modal title={editId?T.afspraakBewerken:T.nieuweAfspraak} onClose={()=>setModal(false)} fs={fs}>
           <FF label={T.klantZoeken} fs={fs}>
@@ -1961,14 +2164,14 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
           </FF>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             <FF label={T.vanaf} fs={fs}><input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} /></FF>
-            <FF label="Tot" fs={fs}><input type="time" value={form.tijdTot} onChange={e=>setForm(f=>({...f,tijdTot:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label={T.tijdTot} fs={fs}><input type="time" value={form.tijdTot} onChange={e=>setForm(f=>({...f,tijdTot:e.target.value}))} style={iSt(fs)} /></FF>
           </div>
           <FF label={T.notitie} fs={fs}><textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={3} style={{...iSt(fs),resize:"vertical"}} /></FF>
           <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginTop:"1rem" }}>
-            {editId && <Btn variant="danger" onClick={()=>del(editId)} fs={fs}>Verwijderen</Btn>}
+            {editId && <Btn variant="danger" onClick={()=>del(editId)} fs={fs}>{T.verwijderen}</Btn>}
             <div style={{ display:"flex", gap:8, marginLeft:"auto" }}>
-              <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
-              <Btn variant="primary" onClick={save} kleur={kleur} fs={fs} disabled={!form.klantId}>Opslaan</Btn>
+              <Btn onClick={()=>setModal(false)} fs={fs}>{T.annuleren}</Btn>
+              <Btn variant="primary" onClick={save} kleur={kleur} fs={fs} disabled={!form.klantId}>{T.opslaan}</Btn>
             </div>
           </div>
         </Modal>
@@ -1977,7 +2180,304 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
   );
 }
 
-// ── CONTACT / SUPPORT PAGINA ──────────────────────────────────
+
+// ── KASSA PAGINA ──────────────────────────────────────────────
+function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
+  const [winkelwagen, setWinkelwagen] = useState([]);
+  const [klantId, setKlantId] = useState("");
+  const [klantVrij, setKlantVrij] = useState("");
+  const [inclBtw, setInclBtw] = useState(true);
+  const [betaalmethode, setBetaalmethode] = useState("contant");
+  const [zoek, setZoek] = useState("");
+  const [toonTeller, setToonTeller] = useState(true);
+  const [dagBonnen, setDagBonnen] = useState([]);
+  const [bezig, setBezig] = useState(false);
+  const [succesBon, setSuccesBon] = useState(null);
+  const [activeCat, setActiveCat] = useState("Alle");
+
+  const vandaag = new Date().toISOString().slice(0,10);
+
+  // Laad dagbonnen
+  useEffect(() => {
+    if (!isDemoMode) {
+      API.haalKassaBonnenOp()
+        .then(data => setDagBonnen(data.filter(b => b.datum === vandaag)))
+        .catch(() => {});
+    }
+  }, []);
+
+  const cats = ["Alle", ...new Set(producten.map(p=>p.categorie).filter(Boolean))];
+  const gefilterd = producten.filter(p => {
+    const catOk = activeCat === "Alle" || p.categorie === activeCat;
+    const zoekOk = !zoek || p.naam.toLowerCase().includes(zoek.toLowerCase());
+    return catOk && zoekOk;
+  });
+
+  function voegToe(product) {
+    setWinkelwagen(prev => {
+      const bestaand = prev.find(r => r.product_id === product.id);
+      if (bestaand) return prev.map(r => r.product_id===product.id ? {...r, aantal:r.aantal+1} : r);
+      return [...prev, { id:"w"+uid(), product_id:product.id, naam:product.naam, prijs:product.prijs, aantal:1 }];
+    });
+  }
+
+  function updateAantal(id, delta) {
+    setWinkelwagen(prev => prev.map(r => r.id===id ? {...r, aantal:Math.max(1,r.aantal+delta)} : r));
+  }
+
+  function verwijderRegel(id) {
+    setWinkelwagen(prev => prev.filter(r => r.id !== id));
+  }
+
+  function voegLosToe() {
+    setWinkelwagen(prev => [...prev, { id:"w"+uid(), product_id:null, naam:"", prijs:0, aantal:1, los:true }]);
+  }
+
+  function updateLosRegel(id, veld, val) {
+    setWinkelwagen(prev => prev.map(r => r.id===id ? {...r, [veld]:val} : r));
+  }
+
+  const subTotaal = winkelwagen.reduce((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
+  const btwBedrag = inclBtw ? Math.round(subTotaal * 0.21) : 0;
+  const totaal    = subTotaal + btwBedrag;
+  const fmt = n => "€" + parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
+
+  const dagTotaal = dagBonnen.reduce((s,b) => s + parseFloat(b.totaal_incl_btw||0), 0);
+
+  async function afrekenen() {
+    if (winkelwagen.length === 0) return;
+    setBezig(true);
+    const ref = `KASSA-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*10000).toString().padStart(4,'0')}`;
+    const bon = {
+      klant_id: klantId || null,
+      klant_naam_vrij: !klantId ? klantVrij || null : null,
+      referentie: ref,
+      regels: winkelwagen.map(r => ({ product_id:r.product_id, naam:r.naam, prijs:parseFloat(r.prijs)||0, aantal:r.aantal })),
+      totaal_excl_btw: subTotaal,
+      totaal_incl_btw: totaal,
+      incl_btw: inclBtw,
+      betaalmethode,
+    };
+    try {
+      if (!isDemoMode) {
+        const { id } = await API.slaKassaBonOp(bon);
+        bon.id = id;
+        setDagBonnen(prev => [{ ...bon, datum:vandaag, totaal_incl_btw:totaal }, ...prev]);
+      }
+      setSuccesBon({ ...bon, totaal, regels:winkelwagen });
+      setWinkelwagen([]); setKlantId(""); setKlantVrij("");
+    } catch(e) { alert("Afrekenen mislukt: "+e.message); }
+    finally { setBezig(false); }
+  }
+
+  return (
+    <div style={{ display:"flex", gap:16, height:"calc(100vh - 160px)" }}>
+
+      {/* ── Linker kolom: producten ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
+
+        {/* Dagomzet teller */}
+        {toonTeller && (
+          <div style={{ background:kleur.hoofd, borderRadius:12, padding:"12px 16px",
+            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <p style={{ margin:0, fontSize:fs-2, color:"rgba(255,255,255,0.8)" }}>Vandaag verkocht</p>
+              <p style={{ margin:0, fontSize:fs+8, fontWeight:700, color:"#fff" }}>{fmt(dagTotaal)}</p>
+              <p style={{ margin:0, fontSize:fs-3, color:"rgba(255,255,255,0.7)" }}>{dagBonnen.length} {dagBonnen.length===1?"bon":"bonnen"}</p>
+            </div>
+            <button onClick={()=>setToonTeller(false)}
+              style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8,
+                color:"#fff", cursor:"pointer", padding:"6px 10px", fontSize:fs-2 }}>
+              Verberg
+            </button>
+          </div>
+        )}
+        {!toonTeller && (
+          <button onClick={()=>setToonTeller(true)}
+            style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2, textAlign:"left" }}>
+            📊 Toon dagomzet teller
+          </button>
+        )}
+
+        {/* Zoek + categoriefilter */}
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Product zoeken…"
+            style={{ ...iSt(fs), flex:1, minWidth:120 }} />
+        </div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setActiveCat(c)}
+              style={{ padding:"5px 12px", borderRadius:99, border:"none", cursor:"pointer", fontSize:fs-2,
+                background: activeCat===c ? kleur.hoofd : "var(--color-background-secondary)",
+                color: activeCat===c ? "#fff" : "var(--color-text-secondary)" }}>
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {/* Productenraster */}
+        <div style={{ overflowY:"auto", flex:1 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(130px,1fr))", gap:8 }}>
+            {gefilterd.map(p=>(
+              <button key={p.id} onClick={()=>voegToe(p)}
+                style={{ padding:"12px 8px", borderRadius:10, border:`1px solid ${kleur.hoofd}22`,
+                  background:"var(--color-background-primary)", cursor:"pointer", textAlign:"left",
+                  transition:"all 0.1s" }}
+                onMouseEnter={e=>{ e.currentTarget.style.background=kleur.licht; e.currentTarget.style.borderColor=kleur.hoofd; }}
+                onMouseLeave={e=>{ e.currentTarget.style.background="var(--color-background-primary)"; e.currentTarget.style.borderColor=`${kleur.hoofd}22`; }}>
+                <p style={{ margin:"0 0 4px", fontSize:fs-1, fontWeight:500, color:"var(--color-text-primary)",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.naam}</p>
+                {p.categorie&&<p style={{ margin:"0 0 6px", fontSize:fs-3, color:"var(--color-text-secondary)" }}>{p.categorie}</p>}
+                <p style={{ margin:0, fontSize:fs, fontWeight:700, color:kleur.hoofd }}>{fmt(p.prijs)}</p>
+              </button>
+            ))}
+            {gefilterd.length===0&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, padding:"1rem" }}>Geen producten gevonden.</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Rechter kolom: bon ── */}
+      <div style={{ width:320, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
+          borderRadius:12, padding:"1rem", flex:1, display:"flex", flexDirection:"column" }}>
+          <h3 style={{ margin:"0 0 12px", fontSize:fs+1, fontWeight:600 }}>🧾 Bon</h3>
+
+          {/* Klant (optioneel) */}
+          <div style={{ marginBottom:10 }}>
+            <KlantZoekBox klanten={klanten} value={klantId} onChange={id=>{ setKlantId(id); if(id) setKlantVrij(""); }} fs={fs} />
+            {!klantId && (
+              <input value={klantVrij} onChange={e=>setKlantVrij(e.target.value)}
+                placeholder="Of typ klantnaam (optioneel)"
+                style={{ ...iSt(fs), marginTop:6 }} />
+            )}
+          </div>
+
+          {/* Winkelwagen */}
+          <div style={{ flex:1, overflowY:"auto", marginBottom:8 }}>
+            {winkelwagen.length===0 && (
+              <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, textAlign:"center", padding:"2rem 0" }}>
+                Klik een product om toe te voegen
+              </p>
+            )}
+            {winkelwagen.map(r=>(
+              <div key={r.id} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6,
+                padding:"6px 8px", borderRadius:8, background:"var(--color-background-secondary)" }}>
+                {r.los ? (
+                  <div style={{ flex:1, display:"flex", gap:4 }}>
+                    <input value={r.naam} onChange={e=>updateLosRegel(r.id,"naam",e.target.value)}
+                      placeholder="Omschrijving" style={{ ...iSt(fs-1), flex:1, padding:"4px 8px" }} />
+                    <input type="number" value={r.prijs} onChange={e=>updateLosRegel(r.id,"prijs",e.target.value)}
+                      placeholder="€" style={{ ...iSt(fs-1), width:60, padding:"4px 8px" }} />
+                  </div>
+                ) : (
+                  <span style={{ flex:1, fontSize:fs-1, fontWeight:500,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.naam}</span>
+                )}
+                <div style={{ display:"flex", alignItems:"center", gap:3, flexShrink:0 }}>
+                  <button onClick={()=>updateAantal(r.id,-1)}
+                    style={{ width:22,height:22,borderRadius:"50%",border:`1px solid ${kleur.hoofd}`,
+                      background:kleur.licht,color:kleur.donker,cursor:"pointer",fontSize:14,padding:0 }}>−</button>
+                  <span style={{ fontSize:fs-1, fontWeight:600, minWidth:16, textAlign:"center" }}>{r.aantal}</span>
+                  <button onClick={()=>updateAantal(r.id,1)}
+                    style={{ width:22,height:22,borderRadius:"50%",border:`1px solid ${kleur.hoofd}`,
+                      background:kleur.licht,color:kleur.donker,cursor:"pointer",fontSize:14,padding:0 }}>+</button>
+                </div>
+                <span style={{ fontSize:fs-1, fontWeight:600, color:kleur.hoofd, minWidth:50, textAlign:"right" }}>
+                  {fmt((parseFloat(r.prijs)||0)*r.aantal)}
+                </span>
+                <button onClick={()=>verwijderRegel(r.id)}
+                  style={{ background:"none",border:"none",cursor:"pointer",color:"#a32d2d",fontSize:14,padding:"0 2px" }}>✕</button>
+              </div>
+            ))}
+            <button onClick={voegLosToe}
+              style={{ width:"100%", padding:"6px", borderRadius:8, marginTop:4,
+                border:`1px dashed ${kleur.hoofd}`, background:"transparent",
+                color:kleur.hoofd, cursor:"pointer", fontSize:fs-2 }}>
+              + Losse regel toevoegen
+            </button>
+          </div>
+
+          {/* BTW toggle */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"6px 8px", background:"var(--color-background-secondary)", borderRadius:8, marginBottom:8 }}>
+            <span style={{ fontSize:fs-2 }}>BTW (21%) toevoegen</span>
+            <div onClick={()=>setInclBtw(v=>!v)}
+              style={{ width:36,height:20,borderRadius:99,cursor:"pointer",
+                background:inclBtw?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
+              <div style={{ position:"absolute",top:2,left:inclBtw?18:2,width:16,height:16,
+                borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+            </div>
+          </div>
+
+          {/* Totaal */}
+          <div style={{ borderTop:"0.5px solid var(--color-border-tertiary)", paddingTop:8, marginBottom:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-1, color:"var(--color-text-secondary)", marginBottom:4 }}>
+              <span>Subtotaal</span><span>{fmt(subTotaal)}</span>
+            </div>
+            {inclBtw&&<div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-1, color:"var(--color-text-secondary)", marginBottom:4 }}>
+              <span>BTW 21%</span><span>{fmt(btwBedrag)}</span>
+            </div>}
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs+2, fontWeight:700, color:kleur.hoofd }}>
+              <span>Totaal</span><span>{fmt(totaal)}</span>
+            </div>
+          </div>
+
+          {/* Betaalmethode */}
+          <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+            {["contant","pin","overig"].map(m=>(
+              <button key={m} onClick={()=>setBetaalmethode(m)}
+                style={{ flex:1, padding:"6px", borderRadius:8, cursor:"pointer", fontSize:fs-2,
+                  border:`1.5px solid ${betaalmethode===m?kleur.hoofd:"var(--color-border-secondary)"}`,
+                  background:betaalmethode===m?kleur.hoofd:"var(--color-background-primary)",
+                  color:betaalmethode===m?"#fff":"var(--color-text-secondary)",
+                  fontWeight:betaalmethode===m?600:400 }}>
+                {m==="contant"?"💵 Contant":m==="pin"?"💳 Pin":"📋 Overig"}
+              </button>
+            ))}
+          </div>
+
+          {/* Afrekenen knop */}
+          <button onClick={afrekenen} disabled={bezig||winkelwagen.length===0}
+            style={{ width:"100%", padding:"14px", borderRadius:10, border:"none",
+              background:winkelwagen.length>0?kleur.hoofd:"#ccc",
+              color:"#fff", cursor:winkelwagen.length>0?"pointer":"not-allowed",
+              fontSize:fs+1, fontWeight:700, transition:"all 0.15s" }}>
+            {bezig ? "Bezig…" : `✓ Afrekenen ${winkelwagen.length>0?fmt(totaal):""}`}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Succes bon popup ── */}
+      {succesBon && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem" }}>
+          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:360,
+            textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize:56, marginBottom:"0.5rem" }}>✅</div>
+            <h2 style={{ margin:"0 0 0.5rem", color:"#27500a" }}>Betaald!</h2>
+            <p style={{ color:"#555", fontSize:fs, marginBottom:"0.25rem" }}>{succesBon.referentie}</p>
+            <p style={{ color:kleur.hoofd, fontSize:fs+6, fontWeight:700, margin:"0 0 1rem" }}>{fmt(succesBon.totaal)}</p>
+            <div style={{ background:"#f5f5f5", borderRadius:8, padding:"10px", marginBottom:"1rem",
+              fontSize:fs-1, textAlign:"left" }}>
+              {succesBon.regels.map(r=>(
+                <div key={r.id} style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span>{r.aantal}× {r.naam}</span>
+                  <span>{fmt((parseFloat(r.prijs)||0)*r.aantal)}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>setSuccesBon(null)}
+              style={{ width:"100%", padding:"12px", borderRadius:10, background:kleur.hoofd,
+                color:"#fff", border:"none", cursor:"pointer", fontSize:fs, fontWeight:600 }}>
+              Nieuwe bon
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 function ContactPage({ huidigUser, kleur, fs, T }) {
   const [form, setForm] = useState({
     naam: huidigUser?.naam || "",
@@ -2645,14 +3145,23 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
   const [filterVan,   setFilterVan]   = useState("");
   const [filterTot,   setFilterTot]   = useState("");
   const [filterBetaald, setFilterBetaald] = useState("alle");
+  const [toonKassa,   setToonKassa]   = useState(false);
+  const [kassaBonnen, setKassaBonnen] = useState([]);
   const [openOfferte, setOpenOfferte] = useState(null);
   const [openKlant,   setOpenKlant]   = useState(null);
+
+  // Laad kassa bonnen
+  useEffect(() => {
+    if (!isDemoMode) {
+      API.haalKassaBonnenOp().then(setKassaBonnen).catch(()=>{});
+    }
+  }, []);
   const [losseFactuurModal, setLosseFactuurModal] = useState(false);
   const [exportModal, setExportModal] = useState(false);
   const [rapportModal, setRapportModal] = useState(false);
   const [rapportInst, setRapportInst] = useState(null);
   const [rapportForm, setRapportForm] = useState({
-    actief: true, frequentie: 'week', dag_van_week: 1, dag_van_maand: 1, inhoud: 'alle'
+    actief: true, frequentie: 'week', dag_van_week: 1, dag_van_maand: 1, inhoud: 'alle', incl_kassa: false
   });
   const [rapportOpgeslagen, setRapportOpgeslagen] = useState(false);
 
@@ -2685,10 +3194,22 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
   const [expTot, setExpTot] = useState("");
   const [expMail, setExpMail] = useState(false);
 
-  // Verzamel alle offertes + losse facturen uit alle klanten
-  const alleOffertes = klanten.flatMap(k =>
-    (k.offertes || []).map(o => ({ ...o, klant: k, type: o.factuur ? "factuur" : "offerte" }))
-  );
+  // Verzamel alle offertes + optioneel kassa bonnen
+  const alleOffertes = [
+    ...klanten.flatMap(k =>
+      (k.offertes || []).map(o => ({ ...o, klant: k, type: o.factuur ? "factuur" : "offerte" }))
+    ),
+    ...(toonKassa ? kassaBonnen.map(b => ({
+      ...b,
+      klant: b.klant_naam ? { id: b.klant_id, naam: b.klant_naam } : { id: null, naam: b.klant_naam_vrij || "Kassa" },
+      type: "kassa",
+      totaalInclBtw: parseFloat(b.totaal_incl_btw) || 0,
+      betaald: true, // kassa bonnen zijn altijd direct betaald
+      status: "betaald",
+      referentie: b.referentie,
+      regels: b.regels || [],
+    })) : []),
+  ];
 
   const gesorteerd = [...alleOffertes].sort((a, b) => b.datum.localeCompare(a.datum));
 
@@ -2843,6 +3364,16 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
             ✕ Wis filters
           </button>
         )}
+        {/* Kassa bonnen toggle */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 12px",
+          borderRadius:8, border:`1px solid ${toonKassa?kleur.hoofd:"var(--color-border-secondary)"}`,
+          background:toonKassa?kleur.licht:"var(--color-background-primary)", cursor:"pointer" }}
+          onClick={()=>setToonKassa(v=>!v)}>
+          <span style={{ fontSize:fs-2, color:toonKassa?kleur.donker:"var(--color-text-secondary)" }}>🧾 Kassa bonnen</span>
+          <div style={{ width:32,height:18,borderRadius:99,background:toonKassa?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
+            <div style={{ position:"absolute",top:2,left:toonKassa?14:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+          </div>
+        </div>
         <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>
           {gefilterd.length} {gefilterd.length === 1 ? "document" : "documenten"}
         </span>
@@ -3079,6 +3610,37 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                   </button>
                 ))}
               </div>
+              {/* Uitleg per frequentie */}
+              {rapportForm.frequentie === 'dag' && (
+                <div style={{ marginTop:8, padding:"10px 12px", borderRadius:8,
+                  background:"#f0f4ff", border:"1px solid #c5d0f5", fontSize:fs-2 }}>
+                  <p style={{ margin:0, fontWeight:500, color:"#2a4ab5" }}>📋 Wat u ontvangt:</p>
+                  <p style={{ margin:"4px 0 0", color:"#444", lineHeight:1.5 }}>
+                    Elke ochtend om 07:00 een overzicht van alle documenten van <strong>gisteren</strong>.<br/>
+                    Voorbeeld: op dinsdag ontvangt u de data van maandag.
+                  </p>
+                </div>
+              )}
+              {rapportForm.frequentie === 'week' && (
+                <div style={{ marginTop:8, padding:"10px 12px", borderRadius:8,
+                  background:"#f0f4ff", border:"1px solid #c5d0f5", fontSize:fs-2 }}>
+                  <p style={{ margin:0, fontWeight:500, color:"#2a4ab5" }}>📋 Wat u ontvangt:</p>
+                  <p style={{ margin:"4px 0 0", color:"#444", lineHeight:1.5 }}>
+                    Op de door u gekozen dag een overzicht van de <strong>afgelopen 7 dagen</strong>.<br/>
+                    Voorbeeld: elke maandag ontvangt u de data van maandag t/m zondag.
+                  </p>
+                </div>
+              )}
+              {rapportForm.frequentie === 'maand' && (
+                <div style={{ marginTop:8, padding:"10px 12px", borderRadius:8,
+                  background:"#f0f4ff", border:"1px solid #c5d0f5", fontSize:fs-2 }}>
+                  <p style={{ margin:0, fontWeight:500, color:"#2a4ab5" }}>📋 Wat u ontvangt:</p>
+                  <p style={{ margin:"4px 0 0", color:"#444", lineHeight:1.5 }}>
+                    Op de gekozen dag een overzicht van de <strong>volledige vorige kalendermaand</strong>.<br/>
+                    Voorbeeld: op 1 juni ontvangt u alle data van mei.
+                  </p>
+                </div>
+              )}
             </FF>
             {rapportForm.frequentie === 'week' && (
               <FF label="Op welke dag?" fs={fs}>
@@ -3109,9 +3671,9 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
             <FF label="Wat wilt u ontvangen?" fs={fs}>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {[
-                  { id:"alle",       label:"📄 Alle facturen en offertes",           omschr:"Compleet overzicht" },
-                  { id:"betaald",    label:"✅ Alleen betaalde facturen/offertes",    omschr:"Overzicht ontvangen betalingen" },
-                  { id:"openstaand", label:"⏳ Alleen openstaande facturen/offertes", omschr:"Overzicht nog te ontvangen" },
+                  { id:"alle",       label:"📄 Alle facturen en offertes",           omschr:"Compleet overzicht van zowel betaalde als openstaande documenten in de periode." },
+                  { id:"betaald",    label:"✅ Alleen betaalde facturen/offertes",    omschr:"Overzicht van alle betalingen die in de periode zijn ontvangen." },
+                  { id:"openstaand", label:"⏳ Alleen openstaande facturen/offertes", omschr:"Overzicht van alle documenten die nog niet betaald zijn, ongeacht de aanmaakdatum." },
                 ].map(o=>(
                   <div key={o.id} onClick={()=>setRapportForm(p=>({...p,inhoud:o.id}))}
                     style={{ padding:"10px 14px", borderRadius:10, cursor:"pointer",
@@ -3125,8 +3687,23 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
               </div>
             </FF>
           </>)}
-          {rapportOpgeslagen && (
-            <p style={{ padding:"8px 12px", borderRadius:8, background:"#eaf3de",
+          {/* Kassa bonnen meesturen */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"10px 14px", background:"var(--color-background-secondary)", borderRadius:10, marginBottom:"0.5rem" }}>
+            <div>
+              <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>🧾 Kassa bonnen meesturen</p>
+              <p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>Voeg ook losse kassa transacties toe aan het rapport</p>
+            </div>
+            <div onClick={()=>setRapportForm(f=>({...f,incl_kassa:!f.incl_kassa}))}
+              style={{ width:44, height:24, borderRadius:99, cursor:"pointer", flexShrink:0,
+                background: rapportForm.incl_kassa ? kleur.hoofd : "#ccc",
+                position:"relative", transition:"background 0.2s", marginLeft:12 }}>
+              <div style={{ position:"absolute", top:3, left: rapportForm.incl_kassa ? 22 : 3,
+                width:18, height:18, borderRadius:"50%", background:"#fff", transition:"left 0.2s" }} />
+            </div>
+          </div>
+
+          {rapportOpgeslagen && (            <p style={{ padding:"8px 12px", borderRadius:8, background:"#eaf3de",
               color:"#27500a", fontSize:fs-1, margin:"0.5rem 0" }}>
               ✓ Instellingen opgeslagen! Rapporten worden om 07:00 verstuurd.
             </p>
@@ -3453,7 +4030,7 @@ export default function App() {
   const [demoAgenda,    setDemoAgenda]    = useState(DEMO_AGENDA);
 
   // ── UI state ───────────────────────────────────────────────
-  const [pagina,      setPagina]      = useState("klanten");
+  const [pagina,      setPagina]      = useState("kassa");
   const [kleurIdx,    setKleurIdx]    = useState(0);
   const [fs,          setFs]          = useState(14);
   const [bgIdx,       setBgIdx]       = useState(0);
@@ -3508,9 +4085,24 @@ export default function App() {
       ]);
       // Zet offertes in klanten zodat de bestaande componenten werken
       const offertes = await API.haalOffertesOp();
+      const normaliseOfferte = o => ({
+        ...o,
+        // Normaliseer veldnamen van API naar wat de componenten verwachten
+        totaalInclBtw: parseFloat(o.totaal_incl_btw) || 0,
+        inclBtw:       !!o.incl_btw,
+        betaald:       o.status === 'betaald',
+        datum:         o.datum ? o.datum.toString().slice(0, 10) : '',
+        bedrijfAdres:  o.bedrijf_adres || '',
+        btwNr:         o.btw_nummer || '',
+        template:      o.offerte_tekst || '',
+        regels:        (o.regels || []).map(r => ({
+          ...r,
+          isVariabel: !!r.is_variabel,
+        })),
+      });
       const klantenMetOffertes = k.map(klant => ({
         ...klant,
-        offertes: offertes.filter(o => o.klant_id === klant.id),
+        offertes: offertes.filter(o => o.klant_id === klant.id).map(normaliseOfferte),
       }));
       setKlantenState(klantenMetOffertes);
       setProductenState(p.map(prod => ({
@@ -3605,6 +4197,7 @@ export default function App() {
   }
 
   const alleNav = [
+    { id:"kassa",      label:"Kassa",              icon:"🧾" },
     { id:"klanten",    label:T.klanten,    icon:"👥" },
     { id:"producten",  label:T.producten,  icon:"📦" },
     { id:"agenda",     label:T.agenda,     icon:"📅" },
@@ -3723,6 +4316,7 @@ export default function App() {
           {pagina==="agenda"     && <AgendaPage    klanten={actieveKlanten} agenda={actieveAgenda} setAgenda={setAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="offertes"   && <OffertesPage  klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="financieel" && <FinancieelPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
+          {pagina==="kassa"      && <KassaPage producten={actieveProducten} klanten={actieveKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="contact"    && <ContactPage huidigUser={huidigUser} kleur={kleur} fs={fs} T={T} />}
           {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer users={[]} setUsers={()=>{}} kleur={kleur} fs={fs} T={T} />}
           {pagina==="support"    && !isDemoMode && huidigUser?.is_admin && <SupportInboxPage kleur={kleur} fs={fs} />}
