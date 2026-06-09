@@ -951,7 +951,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
         </div>
 
         <div style={{ marginBottom:"1.25rem" }}>
-          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>{T.gebruikersnaam}</label>
+          <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>{T.gebruikersnaam} <span style={{fontWeight:400, color:"#aaa"}}>(mailadres)</span></label>
           <input value={un} onChange={e=>setUn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
             placeholder={T.gebruikersnaam}
             style={{ width:"100%", padding:"13px 16px", borderRadius:10, border:"1.5px solid #ddd",
@@ -2972,7 +2972,6 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                 background: kleur.licht, color: kleur.donker, cursor: "pointer", fontSize: fs,
                 display: "flex", alignItems: "center", gap: 6 }}>
               ✉ Mailen naar mijn mailadres
-              <span style={{ fontSize: fs - 3, opacity: 0.7 }}>(voorbereiding)</span>
             </button>
             <Btn variant="primary" onClick={doPrint} kleur={kleur} fs={fs}>🖨 Afdrukken</Btn>
           </div>
