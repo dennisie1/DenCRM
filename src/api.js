@@ -132,5 +132,19 @@ export async function haalGebruikersOp()       { return apiFetch('/gebruikers');
 // MAIL
 // ============================================================
 export async function stuurOfferteMail(offerte_id)     { return apiFetch('/mail/offerte', { method: 'POST', body: { offerte_id } }); }
+export async function downloadOffertePDF(offerte_id, referentie) {
+  const token = localStorage.getItem('dencrm_access');
+  const res = await fetch(`${API_URL}/offertes/${offerte_id}/pdf`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('PDF generatie mislukt');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `offerte-${referentie}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 export async function stuurExportMail(van, tot, inhoud) { return apiFetch('/mail/export',  { method: 'POST', body: { van, tot, inhoud } }); }
 export async function stuurTestMail(aan)               { return apiFetch('/mail/test',    { method: 'POST', body: { aan } }); }

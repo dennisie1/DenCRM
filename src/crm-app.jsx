@@ -2194,7 +2194,12 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
                   ✉ Geen mailadres bekend
                 </button>
               )}
-              <Btn onClick={()=>window.print()} kleur={kleur} fs={fs} variant="primary">🖨 Afdrukken / PDF</Btn>
+              <Btn onClick={async ()=>{
+                try {
+                  if (geslagenOfferteId) await API.downloadOffertePDF(geslagenOfferteId, ref);
+                  else window.print();
+                } catch(e) { alert("PDF download mislukt: "+e.message); }
+              }} kleur={kleur} fs={fs} variant="primary">{T.afdrukken}</Btn>
               <Btn onClick={reset} fs={fs}>Nieuwe offerte</Btn>
             </div>
           </div>
@@ -2480,9 +2485,12 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                     border: `1px solid ${openOfferte.betaald ? "#3b6d11" : kleur.hoofd}`, fontWeight: 500 }}>
                   {openOfferte.betaald ? "✓ Betaald" : T.markerenAlsBetaald}
                 </button>
-                <button onClick={() => window.print()}
-                  style={{ padding: "7px 14px", borderRadius: 8, background: kleur.hoofd, color: "#fff", border: "none", cursor: "pointer", fontSize: fs - 1 }}>
-                  🖨 Afdrukken
+                <button onClick={async () => {
+                  try {
+                    await API.downloadOffertePDF(openOfferte.id, openOfferte.referentie);
+                  } catch(e) { window.print(); }
+                }} style={{ padding: "7px 14px", borderRadius: 8, background: kleur.hoofd, color: "#fff", border: "none", cursor: "pointer", fontSize: fs - 1 }}>
+                  🖨 Afdrukken / PDF
                 </button>
                 <button onClick={() => setOpenOfferte(null)}
                   style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#666", padding: "4px 8px", lineHeight: 1 }}>×</button>

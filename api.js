@@ -148,3 +148,11 @@ export async function downloadOffertePDF(offerte_id, referentie) {
 }
 export async function stuurExportMail(van, tot, inhoud) { return apiFetch('/mail/export',  { method: 'POST', body: { van, tot, inhoud } }); }
 export async function stuurTestMail(aan)               { return apiFetch('/mail/test',    { method: 'POST', body: { aan } }); }
+
+// ============================================================
+// SUPPORT
+// ============================================================
+export async function stuurSupportBericht(data)        { return apiFetch('/support', { method: 'POST', body: data }); }
+export async function haalSupportBerichtenOp()         { return apiFetch('/support'); }
+export async function updateSupportStatus(id, status)  { return apiFetch(`/support/${id}/status`, { method: 'PATCH', body: { status } }); }
+export async function verwijderSupportBericht(id)      { return apiFetch(`/support/${id}`, { method: 'DELETE' }); }
