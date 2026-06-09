@@ -166,7 +166,7 @@ const VERTALINGEN = {
     wachtwoordOpslaan: "Wachtwoord opslaan",
     wachtwoordGewijzigd: "Wachtwoord succesvol gewijzigd!",
     wachtwoordKloptNiet: "Huidig wachtwoord klopt niet.",
-    wachtwoordTeKort: "Nieuw wachtwoord moet minimaal 6 tekens zijn.",
+    wachtwoordTeKort: "Wachtwoord moet minimaal 8 tekens, 1 hoofdletter en 1 speciaal teken bevatten.",
     wachtwoordNietOvereen: "Wachtwoorden komen niet overeen.",
     rechten: "Rechten",
     administrator: "Administrator",
@@ -335,7 +335,7 @@ const VERTALINGEN = {
     wachtwoordOpslaan: "Save password",
     wachtwoordGewijzigd: "Password changed successfully!",
     wachtwoordKloptNiet: "Current password is incorrect.",
-    wachtwoordTeKort: "New password must be at least 6 characters.",
+    wachtwoordTeKort: "Password must be at least 8 characters, 1 uppercase letter and 1 special character.",
     wachtwoordNietOvereen: "Passwords do not match.",
     rechten: "Permissions",
     administrator: "Administrator",
@@ -503,7 +503,7 @@ const VERTALINGEN = {
     wachtwoordOpslaan: "Passwort speichern",
     wachtwoordGewijzigd: "Passwort erfolgreich geändert!",
     wachtwoordKloptNiet: "Aktuelles Passwort ist falsch.",
-    wachtwoordTeKort: "Neues Passwort muss mindestens 6 Zeichen lang sein.",
+    wachtwoordTeKort: "Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben und 1 Sonderzeichen enthalten.",
     wachtwoordNietOvereen: "Passwörter stimmen nicht überein.",
     rechten: "Berechtigungen",
     administrator: "Administrator",
@@ -857,7 +857,7 @@ function ActivatiePagina({ token, kleur }) {
               </label>
               <div style={{ position:"relative" }}>
                 <input type={toon1?"text":"password"} value={ww1} onChange={e=>setWw1(e.target.value)}
-                  placeholder="Minimaal 6 tekens"
+                  placeholder="Minimaal 8 tekens"
                   style={{ width:"100%", padding:"11px 40px 11px 12px", borderRadius:8,
                     border:"1.5px solid #ddd", background:"#fafafa", fontSize:14,
                     color:"#1a1a1a", boxSizing:"border-box" }} />
@@ -3023,12 +3023,24 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
 }
 
 // ── INSTELLINGEN PANEEL ───────────────────────────────────────────────────────
-function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, setBgIdx, taal, setTaal, T, onClose }) {
+function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, setBgIdx, taal, setTaal, T, onClose, modulesAan, setModulesAan }) {
+  const [modulesOpen, setModulesOpen] = useState(false);
+
+  const alleModules = [
+    { id:"klanten",    label:T?.klanten||"Klanten",    icon:"👥" },
+    { id:"producten",  label:T?.producten||"Producten",  icon:"📦" },
+    { id:"agenda",     label:T?.agenda||"Agenda",     icon:"📅" },
+    { id:"offertes",   label:T?.offertes||"Offertes",   icon:"📄" },
+    { id:"financieel", label:T?.financieel||"Financieel", icon:"💶" },
+    { id:"contact",    label:T?.contact||"Contact",    icon:"💬" },
+  ];
+
   return (
-    <div style={{ position:"absolute", bottom:60, left:12, width:240,
+    <div style={{ position:"absolute", bottom:60, left:12, width:260,
       backgroundColor:"#ffffff", color:"#1a1a1a",
       border:"1px solid #d0d0d0", borderRadius:12,
-      padding:"1.25rem", boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:500 }}>
+      padding:"1.25rem", boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:500,
+      maxHeight:"80vh", overflowY:"auto" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1rem" }}>
         <span style={{ fontWeight:500, fontSize:14 }}>⚙ {T?.instellingen||"Instellingen"}</span>
         <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:"#888",fontSize:18,lineHeight:1,padding:"2px 6px" }}>×</button>
@@ -3037,12 +3049,18 @@ function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, set
       {/* Taal */}
       <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>TAAL / LANGUAGE / SPRACHE</p>
       <div style={{ display:"flex", gap:8, marginBottom:"1.25rem" }}>
-        {Object.entries(VLAGGEN).map(([code, vlag]) => (
+        {[
+          { code:"nl", img:"afbeeldingen/vlagnederland.png", alt:"Nederlands" },
+          { code:"en", img:"afbeeldingen/vlagengeland.png",  alt:"English" },
+          { code:"de", img:"afbeeldingen/vlagduitsland.png", alt:"Deutsch" },
+        ].map(({ code, img, alt }) => (
           <button key={code} onClick={() => setTaal(code)}
-            style={{ flex:1, padding:"6px", borderRadius:8, cursor:"pointer", fontSize:20,
+            style={{ flex:1, padding:"4px", borderRadius:8, cursor:"pointer",
               background: taal===code ? kleur.licht : "#fafafa",
               border: taal===code ? `2px solid ${kleur.hoofd}` : "1px solid #ddd" }}>
-            {vlag}
+            <img src={img} alt={alt} style={{ width:"100%", height:20, objectFit:"cover", borderRadius:3, display:"block" }}
+              onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="block"; }} />
+            <span style={{ display:"none", fontSize:11, fontWeight:600 }}>{code.toUpperCase()}</span>
           </button>
         ))}
       </div>
@@ -3069,7 +3087,7 @@ function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, set
       </div>
 
       <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>{T?.achtergrondkleur||"ACHTERGRONDKLEUR"}</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, marginBottom:"1.25rem" }}>
         {BGOVS.map((b,i)=>(
           <button key={b.label} onClick={()=>setBgIdx(i)} style={{ padding:"6px 4px", borderRadius:8,
             border:bgIdx===i?`2px solid ${kleur.hoofd}`:"1px solid #ddd",
@@ -3079,6 +3097,49 @@ function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, set
           </button>
         ))}
       </div>
+
+      {/* Modules */}
+      <button onClick={()=>setModulesOpen(o=>!o)}
+        style={{ width:"100%", padding:"8px 12px", borderRadius:8, cursor:"pointer",
+          border:`1px solid ${modulesOpen ? kleur.hoofd : "#ddd"}`,
+          background: modulesOpen ? kleur.licht : "#fafafa",
+          color: modulesOpen ? kleur.donker : "#555",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          fontSize:12, fontWeight:500 }}>
+        <span>⊞ Zet modules aan of uit</span>
+        <span>{modulesOpen ? "▲" : "▼"}</span>
+      </button>
+
+      {modulesOpen && (
+        <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:6 }}>
+          {alleModules.map(m => {
+            const aan = modulesAan[m.id] !== false;
+            return (
+              <div key={m.id} onClick={()=>setModulesAan(prev=>({...prev,[m.id]:!aan}))}
+                style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px",
+                  borderRadius:8, cursor:"pointer",
+                  background: aan ? kleur.licht : "#f5f5f5",
+                  border: `1px solid ${aan ? kleur.hoofd : "#e0e0e0"}` }}>
+                <span style={{ fontSize:16 }}>{m.icon}</span>
+                <span style={{ flex:1, fontSize:12, fontWeight:500,
+                  color: aan ? kleur.donker : "#aaa" }}>{m.label}</span>
+                <div style={{ width:36, height:20, borderRadius:99,
+                  background: aan ? kleur.hoofd : "#ccc",
+                  position:"relative", transition:"background 0.2s" }}>
+                  <div style={{ position:"absolute", top:2,
+                    left: aan ? 18 : 2,
+                    width:16, height:16, borderRadius:"50%",
+                    background:"#fff", transition:"left 0.2s",
+                    boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
+                </div>
+              </div>
+            );
+          })}
+          <p style={{ fontSize:10, color:"#aaa", margin:"4px 0 0", textAlign:"center" }}>
+            Keuzes worden automatisch opgeslagen
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -3277,6 +3338,17 @@ export default function App() {
   const [profielOpen, setProfielOpen] = useState(false);
   const [apiError,    setApiError]    = useState(null);
   const [taal,        setTaal]        = useState(() => localStorage.getItem('dencrm_taal') || 'nl');
+  const [modulesAan,  setModulesAanState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dencrm_modules') || '{}'); } catch { return {}; }
+  });
+
+  function setModulesAan(fn) {
+    setModulesAanState(prev => {
+      const nieuw = typeof fn === 'function' ? fn(prev) : fn;
+      localStorage.setItem('dencrm_modules', JSON.stringify(nieuw));
+      return nieuw;
+    });
+  }
 
   const T = VERTALINGEN[taal] || VERTALINGEN.nl;
 
@@ -3409,7 +3481,7 @@ export default function App() {
     );
   }
 
-  const nav = [
+  const alleNav = [
     { id:"klanten",    label:T.klanten,    icon:"👥" },
     { id:"producten",  label:T.producten,  icon:"📦" },
     { id:"agenda",     label:T.agenda,     icon:"📅" },
@@ -3421,6 +3493,8 @@ export default function App() {
       { id:"support",    label:T.supportInbox||"Support inbox", icon:"📥" },
     ] : []),
   ];
+
+  const nav = alleNav.filter(n => modulesAan[n.id] !== false);
 
   const tekstK      = isDark ? "#e8e8e8" : "#1a1a1a";
   const gebruikersnaam = isDemoMode ? "Demo modus" : huidigUser?.naam;
@@ -3472,6 +3546,7 @@ export default function App() {
             <InstellingenPanel kleur={kleur} kleurIdx={kleurIdx} setKleurIdx={setKleurIdx}
               fs={fs} setFs={setFs} bgIdx={bgIdx} setBgIdx={setBgIdx}
               taal={taal} setTaal={setTaal} T={T}
+              modulesAan={modulesAan} setModulesAan={setModulesAan}
               onClose={()=>setInstellOpen(false)} />
           )}
 

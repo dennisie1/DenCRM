@@ -166,7 +166,7 @@ const VERTALINGEN = {
     wachtwoordOpslaan: "Wachtwoord opslaan",
     wachtwoordGewijzigd: "Wachtwoord succesvol gewijzigd!",
     wachtwoordKloptNiet: "Huidig wachtwoord klopt niet.",
-    wachtwoordTeKort: "Nieuw wachtwoord moet minimaal 6 tekens zijn.",
+    wachtwoordTeKort: "Wachtwoord moet minimaal 8 tekens, 1 hoofdletter en 1 speciaal teken bevatten.",
     wachtwoordNietOvereen: "Wachtwoorden komen niet overeen.",
     rechten: "Rechten",
     administrator: "Administrator",
@@ -335,7 +335,7 @@ const VERTALINGEN = {
     wachtwoordOpslaan: "Save password",
     wachtwoordGewijzigd: "Password changed successfully!",
     wachtwoordKloptNiet: "Current password is incorrect.",
-    wachtwoordTeKort: "New password must be at least 6 characters.",
+    wachtwoordTeKort: "Password must be at least 8 characters, 1 uppercase letter and 1 special character.",
     wachtwoordNietOvereen: "Passwords do not match.",
     rechten: "Permissions",
     administrator: "Administrator",
@@ -503,7 +503,7 @@ const VERTALINGEN = {
     wachtwoordOpslaan: "Passwort speichern",
     wachtwoordGewijzigd: "Passwort erfolgreich geändert!",
     wachtwoordKloptNiet: "Aktuelles Passwort ist falsch.",
-    wachtwoordTeKort: "Neues Passwort muss mindestens 6 Zeichen lang sein.",
+    wachtwoordTeKort: "Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben und 1 Sonderzeichen enthalten.",
     wachtwoordNietOvereen: "Passwörter stimmen nicht überein.",
     rechten: "Berechtigungen",
     administrator: "Administrator",
@@ -527,6 +527,44 @@ const VLAGGEN = {
   en: "🇬🇧",
   de: "🇩🇪",
 };
+
+
+// ── Wachtwoord validatie ──────────────────────────────────────
+function valideerWachtwoord(ww) {
+  const regels = [
+    { ok: ww.length >= 8,           tekst: "Minimaal 8 tekens" },
+    { ok: /[A-Z]/.test(ww),         tekst: "Minimaal 1 hoofdletter" },
+    { ok: /[!@#$%^&*()_+\-=\[\]{};':"\|,.<>\/?`~]/.test(ww), tekst: "Minimaal 1 speciaal teken (!@#$...)" },
+  ];
+  return regels;
+}
+
+function WachtwoordSterkte({ ww }) {
+  if (!ww) return null;
+  const regels = valideerWachtwoord(ww);
+  const aantalOk = regels.filter(r => r.ok).length;
+  const kleuren = ['#e8e8e8', '#e8e8e8', '#e8e8e8'];
+  if (aantalOk >= 1) kleuren[0] = '#e8a32d';
+  if (aantalOk >= 2) kleuren[1] = '#e8a32d';
+  if (aantalOk >= 3) { kleuren[0] = '#3b6d11'; kleuren[1] = '#3b6d11'; kleuren[2] = '#3b6d11'; }
+  return (
+    <div style={{ marginTop:6 }}>
+      <div style={{ display:"flex", gap:4, marginBottom:6 }}>
+        {kleuren.map((k,i) => (
+          <div key={i} style={{ flex:1, height:4, borderRadius:2, background:k, transition:"background 0.2s" }} />
+        ))}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+        {regels.map(r => (
+          <span key={r.tekst} style={{ fontSize:11, color: r.ok ? "#3b6d11" : "#888",
+            display:"flex", alignItems:"center", gap:4 }}>
+            {r.ok ? "✓" : "○"} {r.tekst}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function t(vertalingen, sleutel, fallback) {
   return vertalingen[sleutel] || fallback || sleutel;
@@ -761,7 +799,8 @@ function ActivatiePagina({ token, kleur }) {
 
   async function stelWachtwoordIn() {
     setFout('');
-    if (ww1.length < 6) { setFout('Wachtwoord moet minimaal 6 tekens zijn.'); return; }
+    const regels = valideerWachtwoord(ww1);
+    if (!regels.every(r => r.ok)) { setFout('Wachtwoord voldoet niet aan de eisen.'); return; }
     if (ww1 !== ww2) { setFout('Wachtwoorden komen niet overeen.'); return; }
     setBezig(true);
     try {
@@ -818,7 +857,7 @@ function ActivatiePagina({ token, kleur }) {
               </label>
               <div style={{ position:"relative" }}>
                 <input type={toon1?"text":"password"} value={ww1} onChange={e=>setWw1(e.target.value)}
-                  placeholder="Minimaal 6 tekens"
+                  placeholder="Minimaal 8 tekens"
                   style={{ width:"100%", padding:"11px 40px 11px 12px", borderRadius:8,
                     border:"1.5px solid #ddd", background:"#fafafa", fontSize:14,
                     color:"#1a1a1a", boxSizing:"border-box" }} />
@@ -829,6 +868,8 @@ function ActivatiePagina({ token, kleur }) {
                 </button>
               </div>
             </div>
+
+            <WachtwoordSterkte ww={ww1} />
 
             <div style={{ marginBottom:"1.5rem" }}>
               <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
