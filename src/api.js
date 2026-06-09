@@ -91,6 +91,14 @@ export async function wijzigWachtwoord(huidig, nieuw) {
   return apiFetch('/auth/wachtwoord', { method: 'PATCH', body: { huidig, nieuw } });
 }
 
+export async function controleerActivatieToken(token) {
+  return apiFetch(`/auth/activeer?token=${token}`);
+}
+
+export async function activeerAccount(token, wachtwoord) {
+  return apiFetch('/auth/activeer', { method: 'POST', body: { token, wachtwoord } });
+}
+
 // ============================================================
 // KLANTEN
 // ============================================================

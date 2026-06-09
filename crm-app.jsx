@@ -1029,10 +1029,12 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
                 <div style={{ fontSize:48, marginBottom:"1rem" }}>✉</div>
                 <h3 style={{ margin:"0 0 0.5rem", color:"#1a1a1a" }}>Aanvraag ontvangen!</h3>
                 <p style={{ color:"#666", fontSize:14, lineHeight:1.6 }}>
-                  Zodra de mailserver gekoppeld is ontvangt <strong>{regForm.email}</strong> een activatiemail
-                  met een link om een wachtwoord in te stellen.
+                  Er is een activatiemail verstuurd naar <strong>{regForm.email}</strong> met een link om uw wachtwoord in te stellen.
                 </p>
-                <p style={{ color:"#999", fontSize:12, marginTop:"1rem" }}>[MAIL VOORBEREIDING — wordt actief na koppeling mailserver]</p>
+                <p style={{ color:"#888", fontSize:13, marginTop:"0.75rem", padding:"10px 14px",
+                  background:"#fffbf0", borderRadius:8, border:"1px solid #e8c44a" }}>
+                  📧 Kijk ook in uw spamfolder — soms wordt onze mail helaas gemarkeerd als ongewenst.
+                </p>
                 <button onClick={()=>setRegModal(false)} style={{ marginTop:"1.5rem", padding:"10px 24px",
                   borderRadius:8, background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:14 }}>
                   Sluiten
