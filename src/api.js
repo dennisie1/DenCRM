@@ -177,3 +177,10 @@ export async function slaRapportInstellingOp(data) { return apiFetch('/rapporten
 export async function haalKassaBonnenOp()      { return apiFetch('/kassa'); }
 export async function slaKassaBonOp(data)      { return apiFetch('/kassa', { method: 'POST', body: data }); }
 export async function verwijderKassaBon(id)    { return apiFetch(`/kassa/${id}`, { method: 'DELETE' }); }
+
+// ============================================================
+// PROFIEL
+// ============================================================
+export async function haalProfielOp()        { return apiFetch('/auth/profiel'); }
+export async function updateProfiel(data)    { return apiFetch('/auth/profiel', { method: 'PATCH', body: data }); }
+export async function haalAuditLogOp()       { return apiFetch('/audit'); }

@@ -1203,7 +1203,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
   const [zoek, setZoek] = useState("");
   const [modal, setModal] = useState(null);
   const [sel, setSel] = useState(null);
-  const [form, setForm] = useState({ naam:"", email:"", telefoon:"", adres:"", producten:[], offertes:[] });
+  const [form, setForm] = useState({ naam:"", email:"", telefoon:"", straat:"", postcode:"", stad:"", producten:[], offertes:[] });
   const [tabblad, setTabblad] = useState("info"); // "info" | "afspraken" | "offertes"
   const [openOfferte, setOpenOfferte] = useState(null);
   const [klantDetailModal, setKlantDetailModal] = useState(null); // klant voor popup
@@ -1213,8 +1213,8 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
     k.email.toLowerCase().includes(zoek.toLowerCase())
   );
 
-  function openNieuw() { setForm({ naam:"", email:"", telefoon:"", adres:"", producten:[], offertes:[] }); setModal("nieuw"); }
-  function openBewerk(k) { setForm({...k}); setModal("bewerk"); }
+  function openNieuw() { setForm({ naam:"", email:"", telefoon:"", straat:"", postcode:"", stad:"", producten:[], offertes:[] }); setModal("nieuw"); }
+  function openBewerk(k) { setForm({...k, straat:k.straat||"", postcode:k.postcode||"", stad:k.stad||""}); setModal("bewerk"); }
 
   async function save() {
     if (!form.naam) return;
@@ -1228,7 +1228,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
         const { id } = await API.maakKlantAan({ naam:form.naam, email:form.email, telefoon:form.telefoon, adres:form.adres });
         await API.updateKlant(id, { ...form, producten:form.producten });
       } else {
-        await API.updateKlant(form.id, { naam:form.naam, email:form.email, telefoon:form.telefoon, adres:form.adres, producten:form.producten });
+        await API.updateKlant(form.id, { naam:form.naam, email:form.email, telefoon:form.telefoon, straat:form.straat, postcode:form.postcode, stad:form.stad, producten:form.producten });
       }
       await herlaad();
       setModal(null);
@@ -1300,7 +1300,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
             </div>
             {/* Tabbladen */}
             <div style={{ display:"flex", borderBottom:"0.5px solid var(--color-border-tertiary)", marginBottom:"1rem", gap:0 }}>
-              {[{id:"info",label:T.info},{id:"afspraken",label:`$T.afspraken (${klantAfspraken.length})`},{id:"offertes",label:`$T.offertes (${klantOffertes.length})`}].map(t=>(
+              {[{id:"info",label:T.info},{id:"afspraken",label:T.afspraken+" ("+klantAfspraken.length+")"},{id:"offertes",label:T.offertes+" ("+klantOffertes.length+")"}].map(t=>(
                 <button key={t.id} onClick={()=>setTabblad(t.id)} style={{
                   padding:"7px 14px", border:"none", background:"none", cursor:"pointer",
                   fontSize:fs-1, fontWeight:500,
@@ -1314,7 +1314,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
             {tabblad==="info"&&(
               <>
                 <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:"1rem" }}>
-                  {[{l:T.telefoon,v:sel.telefoon},{l:T.adres,v:sel.adres}].map(r=>(
+                  {[{l:T.telefoon,v:sel.telefoon},{l:T.adres,v:[sel.straat,sel.postcode,sel.stad].filter(Boolean).join(', ')}].map(r=>(
                     <div key={r.l} style={{ display:"flex", gap:8 }}>
                       <span style={{ fontSize:fs-1, color:"var(--color-text-secondary)", minWidth:70 }}>{r.l}</span>
                       <span style={{ fontSize:fs-1 }}>{r.v||"—"}</span>
@@ -1416,7 +1416,11 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
           <FF label={T.naam} fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
           <FF label={T.emailadres} fs={fs}><input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
           <FF label={T.telefoon} fs={fs}><input value={form.telefoon} onChange={e=>setForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label={T.adres} fs={fs}><input value={form.adres} onChange={e=>setForm(f=>({...f,adres:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label="Straat" fs={fs}><input value={form.straat||""} onChange={e=>setForm(f=>({...f,straat:e.target.value}))} placeholder="Straatnaam + huisnummer" style={iSt(fs)} /></FF>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:8 }}>
+            <FF label="Postcode" fs={fs}><input value={form.postcode||""} onChange={e=>setForm(f=>({...f,postcode:e.target.value}))} placeholder="1234 AB" style={iSt(fs)} /></FF>
+            <FF label="Dorp / Stad" fs={fs}><input value={form.stad||""} onChange={e=>setForm(f=>({...f,stad:e.target.value}))} placeholder="Amsterdam" style={iSt(fs)} /></FF>
+          </div>
           <FF label={T.productenKoppelen} fs={fs}>
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
               {producten.map(p=>(
@@ -1493,7 +1497,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
                 {/* Contact */}
                 <div>
                   <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"#888", letterSpacing:"0.05em" }}>{T.telefoon.toUpperCase()} & {T.adres.toUpperCase()}</p>
-                  {[{l:"Telefoon",v:k.telefoon},{l:T.adres,v:k.adres}].map(r=>(
+                  {[{l:"Telefoon",v:k.telefoon},{l:T.adres,v:[k.straat,k.postcode,k.stad].filter(Boolean).join(', ')}].map(r=>(
                     <div key={r.l} style={{ display:"flex", gap:8, marginBottom:4 }}>
                       <span style={{ fontSize:fs-1, color:"#888", minWidth:70 }}>{r.l}</span>
                       <span style={{ fontSize:fs-1 }}>{r.v||"—"}</span>
@@ -2954,7 +2958,11 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               <FF label={T.naam} fs={fs}><input value={nkForm.naam} onChange={e=>setNkForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
               <FF label={T.emailadres} fs={fs}><input type="email" value={nkForm.email} onChange={e=>setNkForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
               <FF label={T.telefoon} fs={fs}><input value={nkForm.telefoon} onChange={e=>setNkForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
-              <FF label={T.adres} fs={fs}><input value={nkForm.adres} onChange={e=>setNkForm(f=>({...f,adres:e.target.value}))} style={iSt(fs)} /></FF>
+              <FF label="Straat" fs={fs}><input value={nkForm.straat||""} onChange={e=>setNkForm(f=>({...f,straat:e.target.value}))} style={iSt(fs)} /></FF>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:8 }}>
+                <FF label="Postcode" fs={fs}><input value={nkForm.postcode||""} onChange={e=>setNkForm(f=>({...f,postcode:e.target.value}))} style={iSt(fs)} /></FF>
+                <FF label="Dorp / Stad" fs={fs}><input value={nkForm.stad||""} onChange={e=>setNkForm(f=>({...f,stad:e.target.value}))} style={iSt(fs)} /></FF>
+              </div>
               <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
                 <Btn onClick={()=>setNieuweKlantModal(false)} fs={fs}>Annuleren</Btn>
                 <Btn variant="primary" onClick={voegKlantToe} kleur={kleur} fs={fs}>Klant toevoegen & selecteren</Btn>
@@ -3919,52 +3927,71 @@ function ProfielPanel({ user, setUsers, onClose, kleur, fs, T }) {
   const [bevestig, setBevestig] = useState("");
   const [toonH, setToonH] = useState(false);
   const [toonN, setToonN] = useState(false);
-  const [melding, setMelding] = useState(null); // {type:"ok"|"fout", tekst}
+  const [melding, setMelding] = useState(null);
+  const [gegevens, setGegevens] = useState(null);
+  const [gegevensForm, setGegevensForm] = useState({});
+  const [gegevensBezig, setGegevensBezig] = useState(false);
+
+  useEffect(() => {
+    if (tab === "gegevens" && !gegevens) {
+      API.haalProfielOp().then(data => {
+        setGegevens(data);
+        setGegevensForm(data);
+      }).catch(() => {});
+    }
+  }, [tab]);
 
   async function slaWwOp() {
     setMelding(null);
-    if (nieuwWw.length < 6) { setMelding({type:"fout", tekst:T.wachtwoordTeKort}); return; }
+    const regels = valideerWachtwoord(nieuwWw);
+    if (!regels.every(r => r.ok)) { setMelding({type:"fout", tekst:"Wachtwoord voldoet niet (min. 8 tekens, 1 hoofdletter, 1 speciaal teken)."}); return; }
     if (nieuwWw !== bevestig) { setMelding({type:"fout", tekst:T.wachtwoordNietOvereen}); return; }
     try {
       await API.wijzigWachtwoord(huidigWw, nieuwWw);
       setHuidigWw(""); setNieuwWw(""); setBevestig("");
       setMelding({type:"ok", tekst:T.wachtwoordGewijzigd});
-    } catch(e) {
-      setMelding({type:"fout", tekst: e.message || "Wijzigen mislukt."});
-    }
+    } catch(e) { setMelding({type:"fout", tekst:e.message||"Wijzigen mislukt."}); }
+  }
+
+  async function slaGegevensOp() {
+    setGegevensBezig(true);
+    try {
+      await API.updateProfiel(gegevensForm);
+      setGegevens(gegevensForm);
+      setMelding({type:"ok", tekst:"Gegevens opgeslagen!"});
+    } catch(e) { setMelding({type:"fout", tekst:e.message||"Opslaan mislukt."}); }
+    finally { setGegevensBezig(false); }
   }
 
   return (
-    <div style={{ position:"absolute", bottom:60, left:12, width:260,
+    <div style={{ position:"absolute", bottom:60, left:12, width:280,
       backgroundColor:"#ffffff", color:"#1a1a1a",
       border:"1px solid #d0d0d0", borderRadius:12,
       boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:500, overflow:"hidden" }}>
-      {/* Header */}
       <div style={{ background:kleur.hoofd, padding:"14px 16px", display:"flex", alignItems:"center", gap:10 }}>
         <Avatar naam={user.naam} size={36} kleur={{licht:"rgba(255,255,255,0.25)", donker:"#fff"}} />
         <div style={{ flex:1, minWidth:0 }}>
           <p style={{ margin:0, fontWeight:600, fontSize:fs, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.naam}</p>
-          <p style={{ margin:0, fontSize:fs-3, color:"rgba(255,255,255,0.75)" }}>@{user.username}{user.isAdmin?" · Admin":""}</p>
+          <p style={{ margin:0, fontSize:fs-3, color:"rgba(255,255,255,0.75)" }}>@{user.username}{user.is_admin?" · Admin":""}</p>
         </div>
-        <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.8)", fontSize:18, lineHeight:1, padding:"2px 4px" }}>×</button>
+        <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.8)",fontSize:18,lineHeight:1,padding:"2px 4px" }}>×</button>
       </div>
 
-      {/* Tabs */}
       <div style={{ display:"flex", borderBottom:"0.5px solid #e8e8e8" }}>
-        {[{id:"info",label:T.profiel},{id:"ww",label:T.wachtwoordWijzigen}].map(t=>(
+        {[{id:"info",label:"Profiel"},{id:"gegevens",label:"Gegevens"},{id:"ww",label:"Wachtwoord"}].map(t=>(
           <button key={t.id} onClick={()=>{setTab(t.id);setMelding(null);}} style={{
-            flex:1, padding:"9px", border:"none", background:"none", cursor:"pointer",
-            fontSize:fs-1, fontWeight:500,
+            flex:1, padding:"8px 4px", border:"none", background:"none", cursor:"pointer",
+            fontSize:fs-2, fontWeight:500,
             color:tab===t.id?kleur.hoofd:"#888",
             borderBottom:tab===t.id?`2px solid ${kleur.hoofd}`:"2px solid transparent"
           }}>{t.label}</button>
         ))}
       </div>
 
-      <div style={{ padding:"1rem" }}>
+      <div style={{ padding:"1rem", maxHeight:420, overflowY:"auto" }}>
         {tab==="info" && (
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {[{l:T.naam, v:user.naam},{l:T.gebruikersnaam, v:`@${user.username}`},{l:"Rechten", v:user.isAdmin?"Administrator":"Standaard gebruiker"}].map(r=>(
+            {[{l:"Naam",v:user.naam},{l:"Gebruikersnaam",v:`@${user.username}`},{l:"Rechten",v:user.is_admin?"Administrator":"Standaard gebruiker"}].map(r=>(
               <div key={r.l}>
                 <p style={{ margin:0, fontSize:fs-3, color:"#888", marginBottom:2 }}>{r.l}</p>
                 <p style={{ margin:0, fontSize:fs-1, fontWeight:500, color:"#1a1a1a" }}>{r.v}</p>
@@ -3973,38 +4000,76 @@ function ProfielPanel({ user, setUsers, onClose, kleur, fs, T }) {
           </div>
         )}
 
+        {tab==="gegevens" && (
+          <div>
+            {!gegevens ? <p style={{ color:"#888", fontSize:fs-1 }}>Laden…</p> : (<>
+              <p style={{ margin:"0 0 10px", fontSize:fs-2, color:"#888" }}>
+                Deze gegevens worden gebruikt op offertes en in uitgaande mails.
+              </p>
+              {[
+                {l:"Volledige naam", k:"naam", verplicht:true},
+                {l:"Bedrijfsnaam", k:"bedrijfsnaam"},
+                {l:"Bedrijfsadres", k:"bedrijf_adres"},
+                {l:"IBAN", k:"iban"},
+                {l:"BTW-nummer", k:"btw_nummer"},
+                {l:"E-mailadres voor rapporten", k:"mail_adres"},
+              ].map(veld=>(
+                <div key={veld.k} style={{ marginBottom:10 }}>
+                  <label style={{ display:"block", fontSize:fs-3, color:"#555", marginBottom:3, fontWeight:500 }}>
+                    {veld.l}{veld.verplicht&&<span style={{color:"#a32d2d"}}> *</span>}
+                  </label>
+                  <input value={gegevensForm[veld.k]||""} onChange={e=>setGegevensForm(f=>({...f,[veld.k]:e.target.value}))}
+                    style={{ width:"100%", padding:"7px 10px", borderRadius:7, border:"1px solid #ddd",
+                      background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
+                </div>
+              ))}
+              {melding && tab==="gegevens" && (
+                <p style={{ fontSize:fs-2, padding:"7px 10px", borderRadius:6, marginBottom:8,
+                  background:melding.type==="ok"?"#eaf3de":"#fcebeb",
+                  color:melding.type==="ok"?"#27500a":"#a32d2d" }}>{melding.tekst}</p>
+              )}
+              <button onClick={slaGegevensOp} disabled={gegevensBezig}
+                style={{ width:"100%", padding:"9px", borderRadius:8, background:kleur.hoofd,
+                  color:"#fff", border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:500, opacity:gegevensBezig?0.7:1 }}>
+                {gegevensBezig?"Opslaan…":"💾 Gegevens opslaan"}
+              </button>
+            </>)}
+          </div>
+        )}
+
         {tab==="ww" && (
           <div>
             <div style={{ marginBottom:10 }}>
-              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>Huidig wachtwoord</label>
+              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>{T.huidigWachtwoord}</label>
               <div style={{ position:"relative" }}>
                 <input type={toonH?"text":"password"} value={huidigWw} onChange={e=>setHuidigWw(e.target.value)}
                   style={{ width:"100%", padding:"8px 32px 8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
                 <button onClick={()=>setToonH(t=>!t)} style={{ position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:13 }}>{toonH?"🙈":"👁"}</button>
               </div>
             </div>
-            <div style={{ marginBottom:10 }}>
-              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>Nieuw wachtwoord</label>
+            <div style={{ marginBottom:6 }}>
+              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>{T.nieuwWachtwoord}</label>
               <div style={{ position:"relative" }}>
                 <input type={toonN?"text":"password"} value={nieuwWw} onChange={e=>setNieuwWw(e.target.value)}
                   style={{ width:"100%", padding:"8px 32px 8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
                 <button onClick={()=>setToonN(t=>!t)} style={{ position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:13 }}>{toonN?"🙈":"👁"}</button>
               </div>
             </div>
-            <div style={{ marginBottom:12 }}>
-              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>Bevestig nieuw wachtwoord</label>
+            <WachtwoordSterkte ww={nieuwWw} />
+            <div style={{ marginBottom:12, marginTop:8 }}>
+              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>{T.bevestigWachtwoord}</label>
               <input type="password" value={bevestig} onChange={e=>setBevestig(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&slaWwOp()}
                 style={{ width:"100%", padding:"8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
             </div>
-            {melding && (
+            {melding && tab==="ww" && (
               <p style={{ margin:"0 0 10px", fontSize:fs-2, padding:"7px 10px", borderRadius:6,
                 background:melding.type==="ok"?"#eaf3de":"#fcebeb",
                 color:melding.type==="ok"?"#27500a":"#a32d2d" }}>{melding.tekst}</p>
             )}
             <button onClick={slaWwOp} style={{ width:"100%", padding:"9px", borderRadius:8,
               background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:500 }}>
-              Wachtwoord opslaan
+              {T.wachtwoordOpslaan}
             </button>
           </div>
         )}
@@ -4030,7 +4095,7 @@ export default function App() {
   const [demoAgenda,    setDemoAgenda]    = useState(DEMO_AGENDA);
 
   // ── UI state ───────────────────────────────────────────────
-  const [pagina,      setPagina]      = useState("klanten");
+  const [pagina,      setPagina]      = useState("kassa");
   const [kleurIdx,    setKleurIdx]    = useState(0);
   const [fs,          setFs]          = useState(14);
   const [bgIdx,       setBgIdx]       = useState(0);
@@ -4197,17 +4262,17 @@ export default function App() {
   }
 
   const alleNav = [
+    { id:"kassa",      label:"Kassa",              icon:"🧾" },
     { id:"klanten",    label:T.klanten,    icon:"👥" },
     { id:"producten",  label:T.producten,  icon:"📦" },
     { id:"agenda",     label:T.agenda,     icon:"📅" },
     { id:"offertes",   label:T.offertes,   icon:"📄" },
     { id:"financieel", label:T.financieel, icon:"💶" },
-    { id:"kassa",      label:"Kassa",              icon:"🧾" },
-    { id:"contact",    label:T.contact||"Contact", icon:"💬" },
     ...(!isDemoMode && huidigUser?.is_admin ? [
       { id:"gebruikers", label:T.gebruikers, icon:"🔐" },
       { id:"support",    label:T.supportInbox||"Support inbox", icon:"📥" },
     ] : []),
+    { id:"contact",    label:T.contact||"Contact", icon:"💬" },
   ];
 
   const nav = alleNav.filter(n => modulesAan[n.id] !== false);
