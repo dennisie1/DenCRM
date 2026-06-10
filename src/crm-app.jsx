@@ -2269,7 +2269,68 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
     setWinkelwagen(prev => prev.map(r => r.id===id ? {...r, [veld]:val} : r));
   }
 
-  const subTotaal = winkelwagen.reduce((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
+  function printBonA4(bon) {
+    const t = bonTemplate;
+    const nu = new Date().toLocaleDateString("nl-NL", {day:"numeric",month:"long",year:"numeric"});
+    const regels = bon.regels.map(r =>
+      `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee">${r.aantal}× ${r.naam||"—"}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">${fmt((parseFloat(r.prijs)||0)*r.aantal)}</td>
+      </tr>`
+    ).join('');
+    const script = '<scr'+'ipt>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/scr'+'ipt>';
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 32px; color: #222; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+      .bedrijf h1 { margin: 0 0 4px; font-size: 22px; color: #185FA5; }
+      .bedrijf p { margin: 2px 0; color: #666; font-size: 11px; }
+      .bon-info { text-align: right; }
+      .bon-info h2 { margin: 0 0 4px; font-size: 16px; color: #185FA5; }
+      .bon-info p { margin: 2px 0; color: #666; font-size: 11px; }
+      hr { border: none; border-top: 2px solid #185FA5; margin: 0 0 16px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+      thead th { background: #185FA5; color: #fff; padding: 8px 12px; text-align: left; font-size: 11px; }
+      thead th:last-child { text-align: right; }
+      .totaal-tabel td { padding: 6px 12px; font-size: 12px; }
+      .totaal-rij td { font-size: 14px; font-weight: bold; color: #185FA5; padding: 10px 12px; background: #e8f0fb; }
+      .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #888; }
+      @media print { body { padding: 16px; } }
+    </style></head><body>
+    <div class="header">
+      <div class="bedrijf">
+        ${t.bedrijfsnaam ? `<h1>${t.bedrijfsnaam}</h1>` : '<h1>DenCRM</h1>'}
+        ${t.adres ? `<p>${t.adres}</p>` : ''}
+        ${t.telefoon ? `<p>Tel: ${t.telefoon}</p>` : ''}
+        ${t.website ? `<p>${t.website}</p>` : ''}
+      </div>
+      <div class="bon-info">
+        <h2>Kassabon</h2>
+        <p><strong>${bon.referentie}</strong></p>
+        <p>Datum: ${nu}</p>
+        ${bon.klantNaam ? `<p>Klant: ${bon.klantNaam}</p>` : ''}
+      </div>
+    </div>
+    <hr>
+    <table>
+      <thead><tr><th>Omschrijving</th><th style="text-align:right">Bedrag</th></tr></thead>
+      <tbody>${regels}</tbody>
+    </table>
+    <table class="totaal-tabel" style="width:300px;margin-left:auto">
+      ${inclBtw && t.toonBtw ? `
+        <tr><td>Subtotaal excl. BTW</td><td style="text-align:right">${fmt(bon.subTotaal)}</td></tr>
+        <tr><td>BTW 21%</td><td style="text-align:right">${fmt(bon.btwBedrag)}</td></tr>
+      ` : ''}
+      <tr class="totaal-rij"><td>Totaal</td><td style="text-align:right">${fmt(bon.totaal)}</td></tr>
+      ${t.toonBetaalmethode ? `<tr><td colspan="2" style="color:#666;font-size:11px">Betaald met: ${bon.betaalmethode}</td></tr>` : ''}
+    </table>
+    ${t.slotTekst ? `<div class="footer">${t.slotTekst}</div>` : ''}
+    ${script}
+    </body></html>`;
+    const w = window.open('', '_blank', 'width=800,height=900');
+    w.document.write(html);
+    w.document.close();
+  }((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
   const btwBedrag = inclBtw ? Math.round(subTotaal * 0.21 * 100) / 100 : 0;
   const totaal    = subTotaal + btwBedrag;
   const fmt = n => "€" + parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
@@ -2376,11 +2437,6 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
         <div style={{ display:"flex", gap:8 }}>
           <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Product zoeken…"
             style={{ ...iSt(fs), flex:1 }} />
-          <button onClick={()=>setTemplateModal(true)}
-            style={{ padding:"8px 12px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
-              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2, whiteSpace:"nowrap" }}>
-            🖨 Bon template
-          </button>
         </div>
         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
           {cats.map(c=>(
@@ -2581,7 +2637,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
       {succesBon && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
           display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem" }}>
-          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:380,
+          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:400,
             textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
             <div style={{ fontSize:56, marginBottom:"0.5rem" }}>✅</div>
             <h2 style={{ margin:"0 0 0.5rem", color:"#27500a" }}>Betaald!</h2>
@@ -2604,11 +2660,34 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
                 </>
               )}
             </div>
+
+            {/* Print opties */}
+            <p style={{ fontSize:fs-2, color:"#888", margin:"0 0 8px", fontWeight:500 }}>Afdrukken als:</p>
             <div style={{ display:"flex", gap:8, marginBottom:8 }}>
               <button onClick={()=>printBon(succesBon)}
                 style={{ flex:1, padding:"11px", borderRadius:10, background:"#f5f5f5",
-                  color:"#333", border:"1px solid #ddd", cursor:"pointer", fontSize:fs-1, fontWeight:500 }}>
-                🖨 Print bon
+                  color:"#333", border:"1px solid #ddd", cursor:"pointer", fontSize:fs-1, fontWeight:500,
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                <span style={{ fontSize:20 }}>🧾</span>
+                <span>Klassieke bon</span>
+                <span style={{ fontSize:fs-3, color:"#888" }}>Kassabon formaat</span>
+              </button>
+              <button onClick={()=>printBonA4(succesBon)}
+                style={{ flex:1, padding:"11px", borderRadius:10, background:"#f5f5f5",
+                  color:"#333", border:"1px solid #ddd", cursor:"pointer", fontSize:fs-1, fontWeight:500,
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                <span style={{ fontSize:20 }}>📄</span>
+                <span>A4 PDF</span>
+                <span style={{ fontSize:fs-3, color:"#888" }}>Factuurformaat</span>
+              </button>
+            </div>
+
+            {/* Bon template + Nieuwe bon */}
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>setTemplateModal(true)}
+                style={{ padding:"10px 14px", borderRadius:10, background:"#f0f4ff",
+                  color:"#2a4ab5", border:"1px solid #c5d0f5", cursor:"pointer", fontSize:fs-2, fontWeight:500 }}>
+                ⚙ Bon template
               </button>
               <button onClick={()=>setSuccesBon(null)}
                 style={{ flex:1, padding:"11px", borderRadius:10, background:kleur.hoofd,
