@@ -2269,7 +2269,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
     setWinkelwagen(prev => prev.map(r => r.id===id ? {...r, [veld]:val} : r));
   }
 
-  function printBonA4(bon) {
+  function printBonA4(bon, subTotaalBon, btwBedragBon, inclBtwBon) {
     const t = bonTemplate;
     const nu = new Date().toLocaleDateString("nl-NL", {day:"numeric",month:"long",year:"numeric"});
     const regels = bon.regels.map(r =>
@@ -2317,9 +2317,9 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
       <tbody>${regels}</tbody>
     </table>
     <table class="totaal-tabel" style="width:300px;margin-left:auto">
-      ${inclBtw && t.toonBtw ? `
-        <tr><td>Subtotaal excl. BTW</td><td style="text-align:right">${fmt(bon.subTotaal)}</td></tr>
-        <tr><td>BTW 21%</td><td style="text-align:right">${fmt(bon.btwBedrag)}</td></tr>
+      ${inclBtwBon && t.toonBtw ? `
+        <tr><td>Subtotaal excl. BTW</td><td style="text-align:right">${fmt(subTotaalBon)}</td></tr>
+        <tr><td>BTW 21%</td><td style="text-align:right">${fmt(btwBedragBon)}</td></tr>
       ` : ''}
       <tr class="totaal-rij"><td>Totaal</td><td style="text-align:right">${fmt(bon.totaal)}</td></tr>
       ${t.toonBetaalmethode ? `<tr><td colspan="2" style="color:#666;font-size:11px">Betaald met: ${bon.betaalmethode}</td></tr>` : ''}
@@ -2330,7 +2330,9 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
     const w = window.open('', '_blank', 'width=800,height=900');
     w.document.write(html);
     w.document.close();
-  }((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
+  }
+
+  const subTotaal = winkelwagen.reduce((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
   const btwBedrag = inclBtw ? Math.round(subTotaal * 0.21 * 100) / 100 : 0;
   const totaal    = subTotaal + btwBedrag;
   const fmt = n => "€" + parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
@@ -2672,7 +2674,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
                 <span>Klassieke bon</span>
                 <span style={{ fontSize:fs-3, color:"#888" }}>Kassabon formaat</span>
               </button>
-              <button onClick={()=>printBonA4(succesBon)}
+              <button onClick={()=>printBonA4(succesBon, succesBon.subTotaal, succesBon.btwBedrag, inclBtw)}
                 style={{ flex:1, padding:"11px", borderRadius:10, background:"#f5f5f5",
                   color:"#333", border:"1px solid #ddd", cursor:"pointer", fontSize:fs-1, fontWeight:500,
                   display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>

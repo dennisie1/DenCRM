@@ -2187,7 +2187,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
 
 // ── KASSA PAGINA ──────────────────────────────────────────────
 function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
-  const [winkelwagen, setWinkelwagen] = useState([]);
+  const [winkelwagen, setWinkelwagen] = useState([{ id:"w0", product_id:null, naam:"", prijs:"", aantal:1, los:true }]);
   const [klantId, setKlantId] = useState("");
   const [klantVrij, setKlantVrij] = useState("");
 
@@ -2473,7 +2473,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
       </div>
 
       {/* ── Rechter kolom: bon ── */}
-      <div style={{ width:320, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+      <div style={{ width:420, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
         <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
           borderRadius:12, padding:"1rem", flex:1, display:"flex", flexDirection:"column" }}>
           <h3 style={{ margin:"0 0 12px", fontSize:fs+1, fontWeight:600 }}>🧾 Bon</h3>
@@ -2500,8 +2500,9 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
                 padding:"6px 8px", borderRadius:8, background:"var(--color-background-secondary)" }}>
                 {r.los ? (
                   <div style={{ flex:1, display:"flex", flexDirection:"column", gap:4 }}>
-                    <input value={r.naam} onChange={e=>updateLosRegel(r.id,"naam",e.target.value)}
-                      placeholder="Omschrijving" style={{ ...iSt(fs-1), padding:"4px 8px" }} />
+                    <textarea value={r.naam} onChange={e=>updateLosRegel(r.id,"naam",e.target.value)}
+                      placeholder="Omschrijving" rows={2}
+                      style={{ ...iSt(fs-1), padding:"4px 8px", resize:"none", fontFamily:"inherit" }} />
                     <div style={{ display:"flex", gap:4, alignItems:"center" }}>
                       <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>€</span>
                       <input type="number" value={r.prijs} onChange={e=>updateLosRegel(r.id,"prijs",e.target.value)}
@@ -2594,7 +2595,8 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
 
       {/* ── Bon template modal ── */}
       {templateModal && (
-        <Modal title="🖨 Bon template aanpassen" onClose={()=>setTemplateModal(false)} fs={fs}>
+        <div style={{ position:"fixed", inset:0, zIndex:1100 }}>
+        <Modal title="🖨 Bon template aanpassen" onClose={()=>{ setTemplateModal(false); }} fs={fs}>
           <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1rem" }}>
             Pas de opmaak van uw printbon aan. Deze instellingen worden lokaal opgeslagen.
           </p>
@@ -2633,6 +2635,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
             <Btn variant="primary" onClick={()=>setTemplateModal(false)} kleur={kleur} fs={fs}>✓ Opslaan</Btn>
           </div>
         </Modal>
+        </div>
       )}
 
       {/* ── Succes bon popup ── */}
