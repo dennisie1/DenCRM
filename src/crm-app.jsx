@@ -2190,7 +2190,16 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
   const [winkelwagen, setWinkelwagen] = useState([]);
   const [klantId, setKlantId] = useState("");
   const [klantVrij, setKlantVrij] = useState("");
-  const [inclBtw, setInclBtw] = useState(true);
+
+  // BTW instelling opslaan per gebruiker in localStorage
+  const [inclBtw, setInclBtwState] = useState(() =>
+    localStorage.getItem('dencrm_kassa_btw') === 'aan'
+  );
+  function setInclBtw(v) {
+    setInclBtwState(v);
+    localStorage.setItem('dencrm_kassa_btw', v ? 'aan' : 'uit');
+  }
+
   const [betaalmethode, setBetaalmethode] = useState("contant");
   const [zoek, setZoek] = useState("");
   const [toonTeller, setToonTeller] = useState(true);
@@ -2198,6 +2207,421 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
   const [bezig, setBezig] = useState(false);
   const [succesBon, setSuccesBon] = useState(null);
   const [activeCat, setActiveCat] = useState("Alle");
+  const [templateModal, setTemplateModal] = useState(false);
+  const [bonTemplate, setBonTemplateState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dencrm_bon_template') || 'null') || {
+      bedrijfsnaam: "",
+      adres: "",
+      telefoon: "",
+      website: "",
+      slotTekst: "Bedankt voor uw aankoop!",
+      toonBtw: true,
+      toonBetaalmethode: true,
+    }; } catch { return {
+      bedrijfsnaam: "", adres: "", telefoon: "", website: "",
+      slotTekst: "Bedankt voor uw aankoop!", toonBtw: true, toonBetaalmethode: true,
+    }; }
+  });
+
+  function setBonTemplate(v) {
+    setBonTemplateState(v);
+    localStorage.setItem('dencrm_bon_template', JSON.stringify(v));
+  }
+
+  const vandaag = new Date().toISOString().slice(0,10);
+
+  useEffect(() => {
+    if (!isDemoMode) {
+      API.haalKassaBonnenOp()
+        .then(data => setDagBonnen(data.filter(b => b.datum === vandaag)))
+        .catch(() => {});
+    }
+  }, []);
+
+  const cats = ["Alle", ...new Set(producten.map(p=>p.categorie).filter(Boolean))];
+  const gefilterd = producten.filter(p => {
+    const catOk = activeCat === "Alle" || p.categorie === activeCat;
+    const zoekOk = !zoek || p.naam.toLowerCase().includes(zoek.toLowerCase());
+    return catOk && zoekOk;
+  });
+
+  function voegToe(product) {
+    setWinkelwagen(prev => {
+      const bestaand = prev.find(r => r.product_id === product.id);
+      if (bestaand) return prev.map(r => r.product_id===product.id ? {...r, aantal:r.aantal+1} : r);
+      return [...prev, { id:"w"+uid(), product_id:product.id, naam:product.naam, prijs:product.prijs, aantal:1 }];
+    });
+  }
+
+  function updateAantal(id, delta) {
+    setWinkelwagen(prev => prev.map(r => r.id===id ? {...r, aantal:Math.max(1,r.aantal+delta)} : r));
+  }
+
+  function verwijderRegel(id) {
+    setWinkelwagen(prev => prev.filter(r => r.id !== id));
+  }
+
+  function voegLosToe() {
+    setWinkelwagen(prev => [...prev, { id:"w"+uid(), product_id:null, naam:"", prijs:"", aantal:1, los:true }]);
+  }
+
+  function updateLosRegel(id, veld, val) {
+    setWinkelwagen(prev => prev.map(r => r.id===id ? {...r, [veld]:val} : r));
+  }
+
+  const subTotaal = winkelwagen.reduce((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
+  const btwBedrag = inclBtw ? Math.round(subTotaal * 0.21 * 100) / 100 : 0;
+  const totaal    = subTotaal + btwBedrag;
+  const fmt = n => "€" + parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
+
+  const dagTotaal = dagBonnen.reduce((s,b) => s + parseFloat(b.totaal_incl_btw||0), 0);
+
+  async function afrekenen() {
+    if (winkelwagen.length === 0) return;
+    setBezig(true);
+    const ref = `KASSA-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*10000).toString().padStart(4,'0')}`;
+    const bon = {
+      klant_id: klantId || null,
+      klant_naam_vrij: !klantId ? klantVrij || null : null,
+      referentie: ref,
+      regels: winkelwagen.map(r => ({ product_id:r.product_id, naam:r.naam, prijs:parseFloat(r.prijs)||0, aantal:r.aantal })),
+      totaal_excl_btw: subTotaal,
+      totaal_incl_btw: totaal,
+      incl_btw: inclBtw,
+      betaalmethode,
+    };
+    try {
+      if (!isDemoMode) {
+        const { id } = await API.slaKassaBonOp(bon);
+        bon.id = id;
+        setDagBonnen(prev => [{ ...bon, datum:vandaag, totaal_incl_btw:totaal }, ...prev]);
+      }
+      setSuccesBon({ ...bon, totaal, subTotaal, btwBedrag, regels:winkelwagen, betaalmethode, klantNaam: klantId ? klanten.find(k=>k.id===klantId)?.naam : klantVrij });
+      setWinkelwagen([]); setKlantId(""); setKlantVrij("");
+    } catch(e) { alert("Afrekenen mislukt: "+e.message); }
+    finally { setBezig(false); }
+  }
+
+  function printBon(bon) {
+    const t = bonTemplate;
+    const nu = new Date().toLocaleString("nl-NL");
+    const regels = bon.regels.map(r =>
+      `<tr><td>${r.aantal}× ${r.naam}</td><td style="text-align:right">${fmt((parseFloat(r.prijs)||0)*r.aantal)}</td></tr>`
+    ).join('');
+    const script = '<scr'+'ipt>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</scr'+'ipt>';
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      body { font-family: monospace; font-size: 12px; max-width: 300px; margin: 0 auto; padding: 10px; }
+      h2 { text-align: center; font-size: 14px; margin: 0 0 4px; }
+      p { text-align: center; margin: 2px 0; font-size: 11px; }
+      hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      td { padding: 2px 0; }
+      .totaal { font-weight: bold; font-size: 13px; }
+      .slot { text-align: center; margin-top: 12px; font-size: 11px; }
+    </style></head><body>
+    ${t.bedrijfsnaam ? `<h2>${t.bedrijfsnaam}</h2>` : ''}
+    ${t.adres ? `<p>${t.adres}</p>` : ''}
+    ${t.telefoon ? `<p>Tel: ${t.telefoon}</p>` : ''}
+    ${t.website ? `<p>${t.website}</p>` : ''}
+    <hr>
+    <p>${nu}</p>
+    <p>${bon.referentie}</p>
+    ${bon.klantNaam ? `<p>Klant: ${bon.klantNaam}</p>` : ''}
+    <hr>
+    <table>${regels}</table>
+    <hr>
+    ${inclBtw && t.toonBtw ? `<table><tr><td>Subtotaal excl. BTW</td><td style="text-align:right">${fmt(bon.subTotaal)}</td></tr><tr><td>BTW 21%</td><td style="text-align:right">${fmt(bon.btwBedrag)}</td></tr></table>` : ''}
+    <table><tr class="totaal"><td>TOTAAL</td><td style="text-align:right">${fmt(bon.totaal)}</td></tr></table>
+    ${t.toonBetaalmethode ? `<p style="margin-top:4px">Betaald met: ${bon.betaalmethode}</p>` : ''}
+    ${t.slotTekst ? `<p class="slot">${t.slotTekst}</p>` : ''}
+    ${script}
+    </body></html>`;
+    const w = window.open('', '_blank', 'width=400,height=600');
+    w.document.write(html);
+    w.document.close();
+  }
+
+  return (
+    <div style={{ display:"flex", gap:16, height:"calc(100vh - 160px)" }}>
+
+      {/* ── Linker kolom: producten ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
+
+        {/* Dagomzet teller */}
+        {toonTeller && (
+          <div style={{ background:kleur.hoofd, borderRadius:12, padding:"12px 16px",
+            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <p style={{ margin:0, fontSize:fs-2, color:"rgba(255,255,255,0.8)" }}>Vandaag verkocht</p>
+              <p style={{ margin:0, fontSize:fs+8, fontWeight:700, color:"#fff" }}>{fmt(dagTotaal)}</p>
+              <p style={{ margin:0, fontSize:fs-3, color:"rgba(255,255,255,0.7)" }}>{dagBonnen.length} {dagBonnen.length===1?"bon":"bonnen"}</p>
+            </div>
+            <button onClick={()=>setToonTeller(false)}
+              style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8,
+                color:"#fff", cursor:"pointer", padding:"6px 10px", fontSize:fs-2 }}>
+              Verberg
+            </button>
+          </div>
+        )}
+        {!toonTeller && (
+          <button onClick={()=>setToonTeller(true)}
+            style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2, textAlign:"left" }}>
+            📊 Toon dagomzet teller
+          </button>
+        )}
+
+        {/* Zoek + categoriefilter */}
+        <div style={{ display:"flex", gap:8 }}>
+          <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Product zoeken…"
+            style={{ ...iSt(fs), flex:1 }} />
+          <button onClick={()=>setTemplateModal(true)}
+            style={{ padding:"8px 12px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2, whiteSpace:"nowrap" }}>
+            🖨 Bon template
+          </button>
+        </div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setActiveCat(c)}
+              style={{ padding:"5px 12px", borderRadius:99, border:"none", cursor:"pointer", fontSize:fs-2,
+                background: activeCat===c ? kleur.hoofd : "var(--color-background-secondary)",
+                color: activeCat===c ? "#fff" : "var(--color-text-secondary)" }}>
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {/* Productenraster */}
+        <div style={{ overflowY:"auto", flex:1 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(130px,1fr))", gap:8 }}>
+            {gefilterd.map(p=>(
+              <button key={p.id} onClick={()=>voegToe(p)}
+                style={{ padding:"12px 8px", borderRadius:10, border:`1px solid ${kleur.hoofd}22`,
+                  background:"var(--color-background-primary)", cursor:"pointer", textAlign:"left",
+                  transition:"all 0.1s" }}
+                onMouseEnter={e=>{ e.currentTarget.style.background=kleur.licht; e.currentTarget.style.borderColor=kleur.hoofd; }}
+                onMouseLeave={e=>{ e.currentTarget.style.background="var(--color-background-primary)"; e.currentTarget.style.borderColor=`${kleur.hoofd}22`; }}>
+                <p style={{ margin:"0 0 4px", fontSize:fs-1, fontWeight:500, color:"var(--color-text-primary)",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.naam}</p>
+                {p.categorie&&<p style={{ margin:"0 0 6px", fontSize:fs-3, color:"var(--color-text-secondary)" }}>{p.categorie}</p>}
+                <p style={{ margin:0, fontSize:fs, fontWeight:700, color:kleur.hoofd }}>{fmt(p.prijs)}</p>
+              </button>
+            ))}
+            {gefilterd.length===0&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, padding:"1rem" }}>Geen producten gevonden.</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Rechter kolom: bon ── */}
+      <div style={{ width:320, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
+          borderRadius:12, padding:"1rem", flex:1, display:"flex", flexDirection:"column" }}>
+          <h3 style={{ margin:"0 0 12px", fontSize:fs+1, fontWeight:600 }}>🧾 Bon</h3>
+
+          {/* Klant (optioneel) */}
+          <div style={{ marginBottom:10 }}>
+            <KlantZoekBox klanten={klanten} value={klantId} onChange={id=>{ setKlantId(id); if(id) setKlantVrij(""); }} fs={fs} />
+            {!klantId && (
+              <input value={klantVrij} onChange={e=>setKlantVrij(e.target.value)}
+                placeholder="Of typ klantnaam (optioneel)"
+                style={{ ...iSt(fs), marginTop:6 }} />
+            )}
+          </div>
+
+          {/* Winkelwagen */}
+          <div style={{ flex:1, overflowY:"auto", marginBottom:8 }}>
+            {winkelwagen.length===0 && (
+              <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, textAlign:"center", padding:"2rem 0" }}>
+                Klik een product om toe te voegen
+              </p>
+            )}
+            {winkelwagen.map(r=>(
+              <div key={r.id} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6,
+                padding:"6px 8px", borderRadius:8, background:"var(--color-background-secondary)" }}>
+                {r.los ? (
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", gap:4 }}>
+                    <input value={r.naam} onChange={e=>updateLosRegel(r.id,"naam",e.target.value)}
+                      placeholder="Omschrijving" style={{ ...iSt(fs-1), padding:"4px 8px" }} />
+                    <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+                      <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>€</span>
+                      <input type="number" value={r.prijs} onChange={e=>updateLosRegel(r.id,"prijs",e.target.value)}
+                        placeholder="0.00" min="0" step="0.01"
+                        style={{ ...iSt(fs-1), padding:"4px 8px", flex:1 }} />
+                    </div>
+                  </div>
+                ) : (
+                  <span style={{ flex:1, fontSize:fs-1, fontWeight:500,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.naam}</span>
+                )}
+                <div style={{ display:"flex", alignItems:"center", gap:3, flexShrink:0 }}>
+                  <button onClick={()=>updateAantal(r.id,-1)}
+                    style={{ width:22,height:22,borderRadius:"50%",border:`1px solid ${kleur.hoofd}`,
+                      background:kleur.licht,color:kleur.donker,cursor:"pointer",fontSize:14,padding:0 }}>−</button>
+                  <span style={{ fontSize:fs-1, fontWeight:600, minWidth:16, textAlign:"center" }}>{r.aantal}</span>
+                  <button onClick={()=>updateAantal(r.id,1)}
+                    style={{ width:22,height:22,borderRadius:"50%",border:`1px solid ${kleur.hoofd}`,
+                      background:kleur.licht,color:kleur.donker,cursor:"pointer",fontSize:14,padding:0 }}>+</button>
+                </div>
+                <span style={{ fontSize:fs-1, fontWeight:600, color:kleur.hoofd, minWidth:50, textAlign:"right" }}>
+                  {fmt((parseFloat(r.prijs)||0)*r.aantal)}
+                </span>
+                <button onClick={()=>verwijderRegel(r.id)}
+                  style={{ background:"none",border:"none",cursor:"pointer",color:"#a32d2d",fontSize:14,padding:"0 2px" }}>✕</button>
+              </div>
+            ))}
+            <button onClick={voegLosToe}
+              style={{ width:"100%", padding:"6px", borderRadius:8, marginTop:4,
+                border:`1px dashed ${kleur.hoofd}`, background:"transparent",
+                color:kleur.hoofd, cursor:"pointer", fontSize:fs-2 }}>
+              + Losse regel toevoegen
+            </button>
+          </div>
+
+          {/* BTW toggle */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"6px 8px", background:"var(--color-background-secondary)", borderRadius:8, marginBottom:8 }}>
+            <div>
+              <span style={{ fontSize:fs-2, fontWeight:500 }}>BTW (21%) toevoegen</span>
+              <span style={{ fontSize:fs-3, color:"var(--color-text-secondary)", display:"block" }}>
+                Standaard uit — instelling wordt onthouden
+              </span>
+            </div>
+            <div onClick={()=>setInclBtw(!inclBtw)}
+              style={{ width:36,height:20,borderRadius:99,cursor:"pointer",flexShrink:0,
+                background:inclBtw?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
+              <div style={{ position:"absolute",top:2,left:inclBtw?18:2,width:16,height:16,
+                borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+            </div>
+          </div>
+
+          {/* Totaal */}
+          <div style={{ borderTop:"0.5px solid var(--color-border-tertiary)", paddingTop:8, marginBottom:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-1, color:"var(--color-text-secondary)", marginBottom:4 }}>
+              <span>Subtotaal</span><span>{fmt(subTotaal)}</span>
+            </div>
+            {inclBtw&&<div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-1, color:"var(--color-text-secondary)", marginBottom:4 }}>
+              <span>BTW 21%</span><span>{fmt(btwBedrag)}</span>
+            </div>}
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs+2, fontWeight:700, color:kleur.hoofd }}>
+              <span>Totaal</span><span>{fmt(totaal)}</span>
+            </div>
+          </div>
+
+          {/* Betaalmethode */}
+          <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+            {["contant","pin","overig"].map(m=>(
+              <button key={m} onClick={()=>setBetaalmethode(m)}
+                style={{ flex:1, padding:"6px", borderRadius:8, cursor:"pointer", fontSize:fs-2,
+                  border:`1.5px solid ${betaalmethode===m?kleur.hoofd:"var(--color-border-secondary)"}`,
+                  background:betaalmethode===m?kleur.hoofd:"var(--color-background-primary)",
+                  color:betaalmethode===m?"#fff":"var(--color-text-secondary)",
+                  fontWeight:betaalmethode===m?600:400 }}>
+                {m==="contant"?"💵 Contant":m==="pin"?"💳 Pin":"📋 Overig"}
+              </button>
+            ))}
+          </div>
+
+          {/* Afrekenen knop */}
+          <button onClick={afrekenen} disabled={bezig||winkelwagen.length===0}
+            style={{ width:"100%", padding:"14px", borderRadius:10, border:"none",
+              background:winkelwagen.length>0?kleur.hoofd:"#ccc",
+              color:"#fff", cursor:winkelwagen.length>0?"pointer":"not-allowed",
+              fontSize:fs+1, fontWeight:700, transition:"all 0.15s" }}>
+            {bezig ? "Bezig…" : `✓ Afrekenen ${winkelwagen.length>0?fmt(totaal):""}`}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Bon template modal ── */}
+      {templateModal && (
+        <Modal title="🖨 Bon template aanpassen" onClose={()=>setTemplateModal(false)} fs={fs}>
+          <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1rem" }}>
+            Pas de opmaak van uw printbon aan. Deze instellingen worden lokaal opgeslagen.
+          </p>
+          {[
+            {l:"Bedrijfsnaam", k:"bedrijfsnaam", ph:"Uw bedrijfsnaam"},
+            {l:"Adres", k:"adres", ph:"Straat 1, 1234 AB Stad"},
+            {l:"Telefoonnummer", k:"telefoon", ph:"06-12345678"},
+            {l:"Website", k:"website", ph:"www.uwsite.nl"},
+            {l:"Slottekst (onderaan de bon)", k:"slotTekst", ph:"Bedankt voor uw aankoop!"},
+          ].map(veld=>(
+            <div key={veld.k} style={{ marginBottom:10 }}>
+              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:3, fontWeight:500 }}>{veld.l}</label>
+              <input value={bonTemplate[veld.k]||""} onChange={e=>setBonTemplate({...bonTemplate,[veld.k]:e.target.value})}
+                placeholder={veld.ph} style={iSt(fs)} />
+            </div>
+          ))}
+          <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:"1rem" }}>
+            {[
+              {l:"BTW-bedrag tonen op bon", k:"toonBtw"},
+              {l:"Betaalmethode tonen op bon", k:"toonBetaalmethode"},
+            ].map(opt=>(
+              <div key={opt.k} style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                padding:"8px 10px", borderRadius:8, background:"var(--color-background-secondary)" }}>
+                <span style={{ fontSize:fs-2 }}>{opt.l}</span>
+                <div onClick={()=>setBonTemplate({...bonTemplate,[opt.k]:!bonTemplate[opt.k]})}
+                  style={{ width:36,height:20,borderRadius:99,cursor:"pointer",
+                    background:bonTemplate[opt.k]?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
+                  <div style={{ position:"absolute",top:2,left:bonTemplate[opt.k]?18:2,width:16,height:16,
+                    borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+            <Btn onClick={()=>setTemplateModal(false)} fs={fs}>Sluiten</Btn>
+            <Btn variant="primary" onClick={()=>setTemplateModal(false)} kleur={kleur} fs={fs}>✓ Opslaan</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Succes bon popup ── */}
+      {succesBon && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem" }}>
+          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:380,
+            textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize:56, marginBottom:"0.5rem" }}>✅</div>
+            <h2 style={{ margin:"0 0 0.5rem", color:"#27500a" }}>Betaald!</h2>
+            <p style={{ color:"#555", fontSize:fs, marginBottom:"0.25rem" }}>{succesBon.referentie}</p>
+            <p style={{ color:kleur.hoofd, fontSize:fs+6, fontWeight:700, margin:"0 0 1rem" }}>{fmt(succesBon.totaal)}</p>
+            <div style={{ background:"#f5f5f5", borderRadius:8, padding:"10px", marginBottom:"1rem",
+              fontSize:fs-1, textAlign:"left" }}>
+              {succesBon.regels.map(r=>(
+                <div key={r.id} style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span>{r.aantal}× {r.naam||"—"}</span>
+                  <span>{fmt((parseFloat(r.prijs)||0)*r.aantal)}</span>
+                </div>
+              ))}
+              {inclBtw && (
+                <>
+                  <div style={{ borderTop:"1px solid #ddd", margin:"6px 0" }} />
+                  <div style={{ display:"flex", justifyContent:"space-between", color:"#666" }}>
+                    <span>BTW 21%</span><span>{fmt(succesBon.btwBedrag)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+              <button onClick={()=>printBon(succesBon)}
+                style={{ flex:1, padding:"11px", borderRadius:10, background:"#f5f5f5",
+                  color:"#333", border:"1px solid #ddd", cursor:"pointer", fontSize:fs-1, fontWeight:500 }}>
+                🖨 Print bon
+              </button>
+              <button onClick={()=>setSuccesBon(null)}
+                style={{ flex:1, padding:"11px", borderRadius:10, background:kleur.hoofd,
+                  color:"#fff", border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:600 }}>
+                Nieuwe bon
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
   const vandaag = new Date().toISOString().slice(0,10);
 
@@ -3153,7 +3577,7 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
   const [filterVan,   setFilterVan]   = useState("");
   const [filterTot,   setFilterTot]   = useState("");
   const [filterBetaald, setFilterBetaald] = useState("alle");
-  const [toonKassa,   setToonKassa]   = useState(false);
+  const [toonKassa,   setToonKassa]   = useState(true);
   const [kassaBonnen, setKassaBonnen] = useState([]);
   const [openOfferte, setOpenOfferte] = useState(null);
   const [openKlant,   setOpenKlant]   = useState(null);
