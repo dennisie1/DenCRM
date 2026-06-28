@@ -2187,7 +2187,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
 
 // ── KASSA PAGINA ──────────────────────────────────────────────
 function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
-  const [winkelwagen, setWinkelwagen] = useState([{ id:"w0", product_id:null, naam:"", prijs:"", aantal:1, los:true }]);
+  const [winkelwagen, setWinkelwagen] = useState([]);
   const [klantId, setKlantId] = useState("");
   const [klantVrij, setKlantVrij] = useState("");
 
@@ -2229,6 +2229,14 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
   }
 
   const vandaag = new Date().toISOString().slice(0,10);
+
+  // Zorg altijd voor minstens één lege losse regel bij opstarten
+  useEffect(() => {
+    setWinkelwagen(prev => prev.length === 0
+      ? [{ id:"w0", product_id:null, naam:"", prijs:"", aantal:1, los:true }]
+      : prev);
+  }, []);
+
 
   useEffect(() => {
     if (!isDemoMode) {
@@ -2473,7 +2481,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
       </div>
 
       {/* ── Rechter kolom: bon ── */}
-      <div style={{ width:420, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+      <div style={{ width:600, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
         <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
           borderRadius:12, padding:"1rem", flex:1, display:"flex", flexDirection:"column" }}>
           <h3 style={{ margin:"0 0 12px", fontSize:fs+1, fontWeight:600 }}>🧾 Bon</h3>
@@ -2490,8 +2498,8 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
 
           {/* Winkelwagen */}
           <div style={{ flex:1, overflowY:"auto", marginBottom:8 }}>
-            {winkelwagen.length===0 && (
-              <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, textAlign:"center", padding:"2rem 0" }}>
+            {winkelwagen.filter(r=>!r.los).length===0 && winkelwagen.filter(r=>r.los).every(r=>!r.naam) && (
+              <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, textAlign:"center", padding:"0.5rem 0" }}>
                 Klik een product om toe te voegen
               </p>
             )}
@@ -3052,6 +3060,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   const [btwNr, setBtwNr] = useState("");
   const [opgeslagen, setOpgeslagen] = useState(false);
   const [geslagenOfferteId, setGeslagenOfferteId] = useState(null);
+  const [mailModus, setMailModus] = useState("dencrm");
   const [nieuweKlantModal, setNieuweKlantModal] = useState(false);
   const [nkForm, setNkForm] = useState({ naam:"", email:"", telefoon:"", adres:"" });
   const [catFilter, setCatFilter] = useState("Alle");
@@ -3330,21 +3339,56 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               ):(
                 <span style={{ fontSize:fs-1, color:"green", padding:"8px 12px" }}>✓ Opgeslagen</span>
               )}
-              {/* Mail knop */}
+
+              {/* Mail knop met keuzeopties */}
               {klant?.email ? (
-                <button
-                  onClick={async ()=>{
-                    if (!opgeslagen) { alert("Sla de offerte eerst op voor u hem mailt."); return; }
-                    try {
-                      await API.stuurOfferteMail(geslagenOfferteId);
-                      alert(`Offerte verstuurd naar ${klant.email}`);
-                    } catch(e) { alert("Mailen mislukt: " + e.message); }
-                  }}
-                  style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
-                    background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs,
-                    display:"flex", alignItems:"center", gap:6, fontWeight:400 }}>
-                  ✉ Mailen naar klant
-                </button>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {/* Toggle */}
+                  <div style={{ display:"flex", borderRadius:8, overflow:"hidden",
+                    border:`1px solid ${kleur.hoofd}`, fontSize:fs-2 }}>
+                    <button
+                      onClick={()=>setMailModus("dencrm")}
+                      style={{ flex:1, padding:"6px 10px", border:"none", cursor:"pointer",
+                        background: mailModus==="dencrm" ? kleur.hoofd : "var(--color-background-primary)",
+                        color: mailModus==="dencrm" ? "#fff" : "var(--color-text-secondary)",
+                        fontWeight: mailModus==="dencrm" ? 600 : 400 }}>
+                      📤 Via DenCRM
+                    </button>
+                    <button
+                      onClick={()=>setMailModus("mailto")}
+                      style={{ flex:1, padding:"6px 10px", border:"none", cursor:"pointer",
+                        borderLeft:`1px solid ${kleur.hoofd}`,
+                        background: mailModus==="mailto" ? kleur.hoofd : "var(--color-background-primary)",
+                        color: mailModus==="mailto" ? "#fff" : "var(--color-text-secondary)",
+                        fontWeight: mailModus==="mailto" ? 600 : 400 }}>
+                      📧 Via eigen pakket
+                    </button>
+                  </div>
+                  {/* Mail actie knop */}
+                  {mailModus==="dencrm" ? (
+                    <button
+                      onClick={async ()=>{
+                        if (!opgeslagen) { alert("Sla de offerte eerst op voor u hem mailt."); return; }
+                        try {
+                          await API.stuurOfferteMail(geslagenOfferteId);
+                          alert(`Offerte verstuurd naar ${klant.email}`);
+                        } catch(e) { alert("Mailen mislukt: " + e.message); }
+                      }}
+                      style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+                        background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs,
+                        display:"flex", alignItems:"center", gap:6 }}>
+                      ✉ Verstuur via DenCRM naar {klant.email}
+                    </button>
+                  ) : (
+                    <a
+                      href={`mailto:${klant.email}?subject=${encodeURIComponent(`Offerte ${ref}`)}&body=${encodeURIComponent(`Beste ${klant.naam},\n\nHierbij ontvangt u offerte ${ref}.\n\nMet vriendelijke groet`)}`}
+                      style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+                        background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs,
+                        display:"flex", alignItems:"center", gap:6, textDecoration:"none" }}>
+                      📧 Openen in e-mailprogramma
+                    </a>
+                  )}
+                </div>
               ) : (
                 <button disabled title="Er is geen mailadres gekoppeld aan deze klant"
                   style={{ padding:"8px 14px", borderRadius:8, border:"1px solid #ddd",
