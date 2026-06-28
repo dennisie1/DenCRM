@@ -184,3 +184,11 @@ export async function verwijderKassaBon(id)    { return apiFetch(`/kassa/${id}`,
 export async function haalProfielOp()        { return apiFetch('/auth/profiel'); }
 export async function updateProfiel(data)    { return apiFetch('/auth/profiel', { method: 'PATCH', body: data }); }
 export async function haalAuditLogOp()       { return apiFetch('/audit'); }
+
+// ============================================================
+// WERKBONNEN
+// ============================================================
+export async function haalWerkbonnenOp()           { return apiFetch('/werkbonnen'); }
+export async function maakWerkbonAan(data)         { return apiFetch('/werkbonnen', { method: 'POST', body: data }); }
+export async function updateWerkbon(id, data)      { return apiFetch(`/werkbonnen/${id}`, { method: 'PUT', body: data }); }
+export async function verwijderWerkbon(id)         { return apiFetch(`/werkbonnen/${id}`, { method: 'DELETE' }); }

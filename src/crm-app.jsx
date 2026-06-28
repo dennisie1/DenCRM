@@ -2187,7 +2187,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
 
 // ── KASSA PAGINA ──────────────────────────────────────────────
 function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
-  const [winkelwagen, setWinkelwagen] = useState([{ id:"w0", product_id:null, naam:"", prijs:"", aantal:1, los:true }]);
+  const [winkelwagen, setWinkelwagen] = useState([]);
   const [klantId, setKlantId] = useState("");
   const [klantVrij, setKlantVrij] = useState("");
 
@@ -2229,6 +2229,14 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
   }
 
   const vandaag = new Date().toISOString().slice(0,10);
+
+  // Zorg altijd voor minstens één lege losse regel bij opstarten
+  useEffect(() => {
+    setWinkelwagen(prev => prev.length === 0
+      ? [{ id:"w0", product_id:null, naam:"", prijs:"", aantal:1, los:true }]
+      : prev);
+  }, []);
+
 
   useEffect(() => {
     if (!isDemoMode) {
@@ -2473,7 +2481,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
       </div>
 
       {/* ── Rechter kolom: bon ── */}
-      <div style={{ width:420, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+      <div style={{ width:600, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
         <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
           borderRadius:12, padding:"1rem", flex:1, display:"flex", flexDirection:"column" }}>
           <h3 style={{ margin:"0 0 12px", fontSize:fs+1, fontWeight:600 }}>🧾 Bon</h3>
@@ -2490,8 +2498,8 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
 
           {/* Winkelwagen */}
           <div style={{ flex:1, overflowY:"auto", marginBottom:8 }}>
-            {winkelwagen.length===0 && (
-              <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, textAlign:"center", padding:"2rem 0" }}>
+            {winkelwagen.filter(r=>!r.los).length===0 && winkelwagen.filter(r=>r.los).every(r=>!r.naam) && (
+              <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1, textAlign:"center", padding:"0.5rem 0" }}>
                 Klik een product om toe te voegen
               </p>
             )}
@@ -2702,6 +2710,399 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── WERKBONNEN / REPARATIES ──────────────────────────────────
+const WERKBON_STATUSSEN = [
+  { id:"nieuw",       label:"Nieuw",        kleur:"#185FA5", bg:"#e8f0fb" },
+  { id:"in_behandeling", label:"In behandeling", kleur:"#7a5800", bg:"#fffbf0" },
+  { id:"wacht_onderdelen", label:"Wacht op onderdelen", kleur:"#7a3500", bg:"#fff3e8" },
+  { id:"klaar",       label:"Klaar",        kleur:"#27500a", bg:"#eaf3de" },
+  { id:"afgeleverd",  label:"Afgeleverd",   kleur:"#444",    bg:"#f0f0f0" },
+];
+
+function WerkbonnenPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T }) {
+  const [werkbonnen, setWerkbonnen] = useState([]);
+  const [laden, setLaden] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("alle");
+  const [zoek, setZoek] = useState("");
+  const [nkModal, setNkModal] = useState(false);
+  const [nkForm, setNkForm] = useState({ naam:"", email:"", telefoon:"" });
+
+  const leegForm = () => ({
+    klant_id:"", product_omschrijving:"",
+    datum_inname: new Date().toISOString().slice(0,16),
+    datum_klaar:"", klacht:"", notitie:"", onderdelen:[], status:"nieuw",
+  });
+  const [form, setForm] = useState(leegForm);
+
+  useEffect(() => { laad(); }, []);
+
+  async function laad() {
+    setLaden(true);
+    try { if (!isDemoMode) { const data = await API.haalWerkbonnenOp(); setWerkbonnen(data); } }
+    catch(e) { console.error(e); }
+    finally { setLaden(false); }
+  }
+
+  function openNieuw() { setForm(leegForm()); setEditId(null); setModal(true); }
+
+  function openEdit(w) {
+    setForm({
+      klant_id: w.klant_id||"", product_omschrijving: w.product_omschrijving||"",
+      datum_inname: w.datum_inname ? w.datum_inname.slice(0,16) : "",
+      datum_klaar: w.datum_klaar||"", klacht: w.klacht||"",
+      notitie: w.notitie||"", onderdelen: w.onderdelen||[], status: w.status||"nieuw",
+    });
+    setEditId(w.id); setModal(true);
+  }
+
+  async function slaOp() {
+    const data = {
+      klant_id: form.klant_id||null, product_omschrijving: form.product_omschrijving||null,
+      datum_inname: form.datum_inname||null, datum_klaar: form.datum_klaar||null,
+      klacht: form.klacht||null, notitie: form.notitie||null,
+      onderdelen: form.onderdelen.filter(o=>o.naam), status: form.status,
+    };
+    try {
+      if (editId) {
+        await API.updateWerkbon(editId, data);
+      } else {
+        const ref = `WB-${new Date().toISOString().slice(0,10).replace(/-/g,"")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`;
+        await API.maakWerkbonAan({...data, referentie:ref});
+      }
+      await laad(); setModal(false);
+    } catch(e) { alert("Opslaan mislukt: "+e.message); }
+  }
+
+  async function verwijder(id) {
+    if (!confirm("Werkbon verwijderen?")) return;
+    try { await API.verwijderWerkbon(id); await laad(); setDetail(null); }
+    catch(e) { alert("Verwijderen mislukt: "+e.message); }
+  }
+
+  async function maakNieuweKlant() {
+    if (!nkForm.naam) return;
+    try {
+      const { id } = await API.maakKlantAan({ naam:nkForm.naam, email:nkForm.email, telefoon:nkForm.telefoon });
+      await herlaad();
+      setForm(f=>({...f, klant_id:id}));
+      setNkModal(false); setNkForm({naam:"",email:"",telefoon:""});
+    } catch(e) { alert("Klant aanmaken mislukt: "+e.message); }
+  }
+
+  function voegOnderdeelToe() {
+    setForm(f=>({...f, onderdelen:[...f.onderdelen,{id:uid(),naam:"",aantal:1,prijs:""}]}));
+  }
+  function updateOnderdeel(id,veld,val) {
+    setForm(f=>({...f, onderdelen:f.onderdelen.map(o=>o.id===id?{...o,[veld]:val}:o)}));
+  }
+  function verwijderOnderdeel(id) {
+    setForm(f=>({...f, onderdelen:f.onderdelen.filter(o=>o.id!==id)}));
+  }
+
+  function printWerkbon(w) {
+    const klant = klanten.find(k=>k.id===w.klant_id);
+    const fmtP = n => n?"€"+parseFloat(n).toLocaleString("nl-NL",{minimumFractionDigits:2}):"—";
+    const totaal = (w.onderdelen||[]).reduce((s,o)=>s+(parseFloat(o.prijs)||0)*o.aantal,0);
+    const script = "<scr"+"ipt>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/scr"+"ipt>";
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+      body{font-family:Arial,sans-serif;font-size:12px;margin:0;padding:28px}
+      h1{font-size:20px;color:#185FA5;margin:0 0 4px}
+      .hdr{display:flex;justify-content:space-between;margin-bottom:20px}
+      .lbl{font-size:10px;color:#888;font-weight:600;letter-spacing:.05em;margin-bottom:2px}
+      .val{font-size:12px;margin-bottom:10px;white-space:pre-wrap}
+      hr{border:none;border-top:2px solid #185FA5;margin:14px 0}
+      table{width:100%;border-collapse:collapse;margin-top:8px}
+      th{background:#185FA5;color:#fff;padding:7px 10px;text-align:left;font-size:11px}
+      td{padding:6px 10px;border-bottom:1px solid #eee;font-size:11px}
+      .footer{margin-top:30px;font-size:11px;color:#888;text-align:center}
+      @media print{body{padding:16px}}
+    </style></head><body>
+    <div class="hdr">
+      <div><h1>Werkbon / Reparatie</h1><p style="color:#666;font-size:11px">${w.referentie}</p></div>
+      <div style="text-align:right">
+        <p style="font-size:11px;color:#666">Inname: ${w.datum_inname?new Date(w.datum_inname).toLocaleString("nl-NL"):"—"}</p>
+        <p style="font-size:11px;color:#666">Klaar voor: ${w.datum_klaar||"—"}</p>
+      </div>
+    </div><hr>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div class="lbl">KLANT</div><div class="val"><strong>${w.klant_naam||"—"}</strong><br>${klant?.email||""} ${klant?.telefoon?`· ${klant.telefoon}`:""}</div>
+        <div class="lbl">PRODUCT</div><div class="val">${w.product_omschrijving||"—"}</div>
+      </div>
+      <div>
+        <div class="lbl">KLACHT / REDEN</div><div class="val">${w.klacht||"—"}</div>
+        <div class="lbl">STATUS</div><div class="val">${WERKBON_STATUSSEN.find(s=>s.id===w.status)?.label||w.status}</div>
+      </div>
+    </div>
+    ${(w.onderdelen||[]).length>0?`<hr><div class="lbl">ONDERDELEN</div>
+    <table><tr><th>Onderdeel</th><th>Aantal</th><th style="text-align:right">Prijs</th><th style="text-align:right">Totaal</th></tr>
+    ${(w.onderdelen||[]).map(o=>`<tr><td>${o.naam}</td><td>${o.aantal}</td><td style="text-align:right">${fmtP(o.prijs)}</td><td style="text-align:right">${fmtP((parseFloat(o.prijs)||0)*o.aantal)}</td></tr>`).join("")}
+    <tr><td colspan="3" style="text-align:right;font-weight:bold">Totaal:</td><td style="text-align:right;font-weight:bold">${fmtP(totaal)}</td></tr></table>`:""}
+    ${w.notitie?`<hr><div class="lbl">NOTITIE</div><div class="val">${w.notitie}</div>`:""}
+    <div class="footer">Handtekening klant: _____________________________ &nbsp;&nbsp; Datum: _____________</div>
+    ${script}</body></html>`;
+    const win = window.open("","_blank","width=800,height=900");
+    win.document.write(html); win.document.close();
+  }
+
+  const gefilterd = werkbonnen
+    .filter(w=>filterStatus==="alle"||w.status===filterStatus)
+    .filter(w=>!zoek||(w.klant_naam||"").toLowerCase().includes(zoek.toLowerCase())
+             ||w.referentie.toLowerCase().includes(zoek.toLowerCase())
+             ||(w.product_omschrijving||"").toLowerCase().includes(zoek.toLowerCase()));
+
+  const statusBadge = (status) => {
+    const s = WERKBON_STATUSSEN.find(x=>x.id===status)||WERKBON_STATUSSEN[0];
+    return <span style={{ fontSize:fs-3, padding:"2px 8px", borderRadius:99, background:s.bg, color:s.kleur, fontWeight:500 }}>{s.label}</span>;
+  };
+
+  const fmtP = n => n ? "€"+parseFloat(n).toLocaleString("nl-NL",{minimumFractionDigits:2}) : "";
+
+  return (
+    <div style={{ display:"flex", gap:16, height:"calc(100vh - 160px)" }}>
+      {/* ── Lijst ── */}
+      <div style={{ width:340, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+        <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Zoek op klant, product, referentie…" style={iSt(fs)} />
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          <button onClick={()=>setFilterStatus("alle")}
+            style={{ padding:"4px 10px", borderRadius:99, border:"none", cursor:"pointer", fontSize:fs-3,
+              background:filterStatus==="alle"?kleur.hoofd:"var(--color-background-secondary)",
+              color:filterStatus==="alle"?"#fff":"var(--color-text-secondary)" }}>
+            Alle ({werkbonnen.length})
+          </button>
+          {WERKBON_STATUSSEN.map(s=>(
+            <button key={s.id} onClick={()=>setFilterStatus(s.id)}
+              style={{ padding:"4px 10px", borderRadius:99, border:"none", cursor:"pointer", fontSize:fs-3,
+                background:filterStatus===s.id?s.kleur:s.bg, color:filterStatus===s.id?"#fff":s.kleur }}>
+              {s.label} ({werkbonnen.filter(w=>w.status===s.id).length})
+            </button>
+          ))}
+        </div>
+        <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuwe werkbon</Btn>
+        <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+          {laden&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs-1 }}>Laden…</p>}
+          {!laden&&gefilterd.length===0&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs-1 }}>Geen werkbonnen gevonden.</p>}
+          {gefilterd.map(w=>(
+            <div key={w.id} onClick={()=>setDetail(w)}
+              style={{ background:"var(--color-background-primary)",
+                border:`1px solid ${detail?.id===w.id?kleur.hoofd:"var(--color-border-tertiary)"}`,
+                borderRadius:10, padding:"10px 12px", cursor:"pointer",
+                borderLeft:`4px solid ${WERKBON_STATUSSEN.find(s=>s.id===w.status)?.kleur||kleur.hoofd}` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                <span style={{ fontSize:fs-2, fontWeight:600, color:kleur.hoofd }}>{w.referentie}</span>
+                {statusBadge(w.status)}
+              </div>
+              <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>{w.klant_naam||"Geen klant"}</p>
+              {w.product_omschrijving&&<p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{w.product_omschrijving}</p>}
+              {w.datum_klaar&&<p style={{ margin:"2px 0 0", fontSize:fs-3, color:"var(--color-text-secondary)" }}>Klaar: {w.datum_klaar}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Detail ── */}
+      <div style={{ flex:1, background:"var(--color-background-primary)",
+        border:"0.5px solid var(--color-border-tertiary)", borderRadius:16, padding:"1.5rem", overflowY:"auto" }}>
+        {!detail ? (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+            height:"100%", color:"var(--color-text-secondary)", fontSize:fs }}>
+            Selecteer een werkbon om details te zien
+          </div>
+        ) : (<>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem", flexWrap:"wrap", gap:8 }}>
+            <div>
+              <h2 style={{ margin:0, fontSize:fs+4 }}>{detail.referentie}</h2>
+              <p style={{ margin:"4px 0 0", fontSize:fs-1, color:"var(--color-text-secondary)" }}>
+                Aangemaakt: {new Date(detail.aangemaakt_op).toLocaleString("nl-NL")}
+              </p>
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={()=>printWerkbon(detail)}
+                style={{ padding:"7px 12px", borderRadius:8, background:"var(--color-background-secondary)",
+                  border:"1px solid var(--color-border-secondary)", cursor:"pointer", fontSize:fs-1 }}>
+                🖨 Afdrukken
+              </button>
+              <button onClick={()=>openEdit(detail)}
+                style={{ padding:"7px 12px", borderRadius:8, background:kleur.licht,
+                  border:`1px solid ${kleur.hoofd}`, color:kleur.donker, cursor:"pointer", fontSize:fs-1 }}>
+                ✎ Bewerken
+              </button>
+              <button onClick={()=>{ verwijder(detail.id); }}
+                style={{ padding:"7px 12px", borderRadius:8, background:"#fcebeb",
+                  border:"none", color:"#a32d2d", cursor:"pointer", fontSize:fs-1 }}>
+                ✕ Verwijderen
+              </button>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:6, marginBottom:"1.5rem", flexWrap:"wrap" }}>
+            {WERKBON_STATUSSEN.map(s=>(
+              <button key={s.id} onClick={async()=>{
+                  const updated={...detail,status:s.id};
+                  setDetail(updated); setWerkbonnen(prev=>prev.map(w=>w.id===detail.id?updated:w));
+                  if (!isDemoMode) await API.updateWerkbon(detail.id,{...detail,status:s.id});
+                }}
+                style={{ padding:"5px 12px", borderRadius:99, cursor:"pointer", fontSize:fs-2, border:"none",
+                  background:detail.status===s.id?s.kleur:s.bg, color:detail.status===s.id?"#fff":s.kleur,
+                  fontWeight:detail.status===s.id?700:400 }}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:"1.5rem" }}>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>KLANT</p>
+              <p style={{ margin:0, fontSize:fs, fontWeight:500 }}>{detail.klant_naam||"—"}</p>
+              {detail.klant_email&&<p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>{detail.klant_email}</p>}
+              {detail.klant_telefoon&&<p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>{detail.klant_telefoon}</p>}
+            </div>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>PRODUCT</p>
+              <p style={{ margin:0, fontSize:fs }}>{detail.product_omschrijving||"—"}</p>
+            </div>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>DATUM INNAME</p>
+              <p style={{ margin:0, fontSize:fs }}>{detail.datum_inname?new Date(detail.datum_inname).toLocaleString("nl-NL"):"—"}</p>
+            </div>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>KLAAR VOOR</p>
+              <p style={{ margin:0, fontSize:fs }}>{detail.datum_klaar||"—"}</p>
+            </div>
+          </div>
+          {detail.klacht&&(
+            <div style={{ marginBottom:"1.5rem" }}>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>KLACHT / REDEN</p>
+              <p style={{ margin:0, fontSize:fs, whiteSpace:"pre-wrap", background:"var(--color-background-secondary)", padding:"10px", borderRadius:8 }}>{detail.klacht}</p>
+            </div>
+          )}
+          {detail.onderdelen?.length>0&&(
+            <div style={{ marginBottom:"1.5rem" }}>
+              <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>BENODIGDE ONDERDELEN</p>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead><tr style={{ background:"var(--color-background-secondary)" }}>
+                  <th style={{ padding:"6px 10px", textAlign:"left", fontSize:fs-2 }}>Onderdeel</th>
+                  <th style={{ padding:"6px 10px", textAlign:"center", fontSize:fs-2 }}>Aantal</th>
+                  <th style={{ padding:"6px 10px", textAlign:"right", fontSize:fs-2 }}>Prijs</th>
+                  <th style={{ padding:"6px 10px", textAlign:"right", fontSize:fs-2 }}>Totaal</th>
+                </tr></thead>
+                <tbody>
+                  {detail.onderdelen.map(o=>(
+                    <tr key={o.id} style={{ borderBottom:"0.5px solid var(--color-border-tertiary)" }}>
+                      <td style={{ padding:"6px 10px", fontSize:fs-1 }}>{o.naam}</td>
+                      <td style={{ padding:"6px 10px", textAlign:"center", fontSize:fs-1 }}>{o.aantal}</td>
+                      <td style={{ padding:"6px 10px", textAlign:"right", fontSize:fs-1 }}>{fmtP(o.prijs)}</td>
+                      <td style={{ padding:"6px 10px", textAlign:"right", fontSize:fs-1, fontWeight:500 }}>{fmtP((parseFloat(o.prijs)||0)*o.aantal)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan={3} style={{ padding:"8px 10px", textAlign:"right", fontWeight:600, fontSize:fs }}>Totaal onderdelen:</td>
+                    <td style={{ padding:"8px 10px", textAlign:"right", fontWeight:700, fontSize:fs, color:kleur.hoofd }}>
+                      {fmtP(detail.onderdelen.reduce((s,o)=>s+(parseFloat(o.prijs)||0)*o.aantal,0))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+          {detail.notitie&&(
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>NOTITIE</p>
+              <p style={{ margin:0, fontSize:fs, whiteSpace:"pre-wrap", background:"var(--color-background-secondary)", padding:"10px", borderRadius:8 }}>{detail.notitie}</p>
+            </div>
+          )}
+        </>)}
+      </div>
+
+      {/* ── Werkbon modal ── */}
+      {modal&&(
+        <Modal title={editId?"Werkbon bewerken":"Nieuwe werkbon"} onClose={()=>setModal(false)} fs={fs}>
+          <FF label="Status" fs={fs}>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {WERKBON_STATUSSEN.map(s=>(
+                <button key={s.id} onClick={()=>setForm(f=>({...f,status:s.id}))}
+                  style={{ padding:"5px 12px", borderRadius:99, cursor:"pointer", fontSize:fs-2, border:"none",
+                    background:form.status===s.id?s.kleur:s.bg, color:form.status===s.id?"#fff":s.kleur,
+                    fontWeight:form.status===s.id?700:400 }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </FF>
+          <FF label="Klant (optioneel)" fs={fs}>
+            <KlantZoekBox klanten={klanten} value={form.klant_id} onChange={id=>setForm(f=>({...f,klant_id:id}))} fs={fs} />
+            <button onClick={()=>setNkModal(true)}
+              style={{ marginTop:6, padding:"5px 10px", borderRadius:6, border:`1px dashed ${kleur.hoofd}`,
+                background:"transparent", color:kleur.hoofd, cursor:"pointer", fontSize:fs-2 }}>
+              + Nieuwe klant aanmaken en koppelen
+            </button>
+          </FF>
+          <FF label="Te repareren product (optioneel)" fs={fs}>
+            <input value={form.product_omschrijving} onChange={e=>setForm(f=>({...f,product_omschrijving:e.target.value}))}
+              placeholder="Bijv. Samsung TV model X, Laptop merk Y…" style={iSt(fs)} />
+          </FF>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label="Datum inname (optioneel)" fs={fs}>
+              <input type="datetime-local" value={form.datum_inname} onChange={e=>setForm(f=>({...f,datum_inname:e.target.value}))} style={iSt(fs)} />
+            </FF>
+            <FF label="Klaar voor datum (optioneel)" fs={fs}>
+              <input type="date" value={form.datum_klaar} onChange={e=>setForm(f=>({...f,datum_klaar:e.target.value}))} style={iSt(fs)} />
+            </FF>
+          </div>
+          <FF label="Klacht / Reden voor reparatie (optioneel)" fs={fs}>
+            <textarea value={form.klacht} onChange={e=>setForm(f=>({...f,klacht:e.target.value}))}
+              rows={3} placeholder="Beschrijf de klacht of het gewenste werk…" style={{...iSt(fs),resize:"vertical"}} />
+          </FF>
+          <div style={{ marginBottom:"1rem" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <label style={{ fontSize:fs-1, fontWeight:500 }}>Benodigde onderdelen (optioneel)</label>
+              <button onClick={voegOnderdeelToe}
+                style={{ padding:"4px 10px", borderRadius:6, border:`1px solid ${kleur.hoofd}`,
+                  background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2 }}>
+                + Onderdeel
+              </button>
+            </div>
+            {form.onderdelen.map(o=>(
+              <div key={o.id} style={{ display:"flex", gap:6, marginBottom:6, alignItems:"center" }}>
+                <input value={o.naam} onChange={e=>updateOnderdeel(o.id,"naam",e.target.value)}
+                  placeholder="Naam onderdeel" style={{ ...iSt(fs-1), flex:2 }} />
+                <input type="number" value={o.aantal} onChange={e=>updateOnderdeel(o.id,"aantal",parseInt(e.target.value)||1)}
+                  min={1} style={{ ...iSt(fs-1), width:56 }} />
+                <input type="number" value={o.prijs} onChange={e=>updateOnderdeel(o.id,"prijs",e.target.value)}
+                  placeholder="€" step="0.01" style={{ ...iSt(fs-1), width:72 }} />
+                <button onClick={()=>verwijderOnderdeel(o.id)}
+                  style={{ background:"none",border:"none",cursor:"pointer",color:"#a32d2d",fontSize:16 }}>✕</button>
+              </div>
+            ))}
+          </div>
+          <FF label="Notitie (optioneel)" fs={fs}>
+            <textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))}
+              rows={3} placeholder="Interne notitie, niet op de bon…" style={{...iSt(fs),resize:"vertical"}} />
+          </FF>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" onClick={slaOp} kleur={kleur} fs={fs}>💾 Opslaan</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Nieuwe klant modal ── */}
+      {nkModal&&(
+        <Modal title="Nieuwe klant aanmaken" onClose={()=>setNkModal(false)} fs={fs}>
+          <FF label="Naam" fs={fs}><input value={nkForm.naam} onChange={e=>setNkForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label="E-mailadres" fs={fs}><input type="email" value={nkForm.email} onChange={e=>setNkForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label="Telefoon" fs={fs}><input value={nkForm.telefoon} onChange={e=>setNkForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setNkModal(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" onClick={maakNieuweKlant} kleur={kleur} fs={fs} disabled={!nkForm.naam}>Aanmaken & koppelen</Btn>
+          </div>
+        </Modal>
       )}
     </div>
   );
@@ -3052,6 +3453,13 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   const [btwNr, setBtwNr] = useState("");
   const [opgeslagen, setOpgeslagen] = useState(false);
   const [geslagenOfferteId, setGeslagenOfferteId] = useState(null);
+  const [mailModus, setMailModusState] = useState(() =>
+    localStorage.getItem('dencrm_mail_modus') || 'dencrm'
+  );
+  function setMailModus(v) {
+    setMailModusState(v);
+    localStorage.setItem('dencrm_mail_modus', v);
+  }
   const [nieuweKlantModal, setNieuweKlantModal] = useState(false);
   const [nkForm, setNkForm] = useState({ naam:"", email:"", telefoon:"", adres:"" });
   const [catFilter, setCatFilter] = useState("Alle");
@@ -3311,6 +3719,37 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
       {/* ─ STAP 3: Tekst & bedrijfsgegevens + voorbeeld ─ */}
       {stap===3&&(
         <div>
+          {/* Mail voorkeur toggle — bovenaan */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1rem",
+            padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)",
+            border:`1px solid ${kleur.hoofd}22` }}>
+            <span style={{ fontSize:fs-1, color:"var(--color-text-secondary)", fontWeight:500 }}>
+              ✉ Mail versturen via:
+            </span>
+            <div style={{ display:"flex", borderRadius:8, overflow:"hidden",
+              border:`1px solid ${kleur.hoofd}`, fontSize:fs-2 }}>
+              <button onClick={()=>setMailModus("dencrm")}
+                style={{ padding:"6px 14px", border:"none", cursor:"pointer",
+                  background: mailModus==="dencrm" ? kleur.hoofd : "var(--color-background-primary)",
+                  color: mailModus==="dencrm" ? "#fff" : "var(--color-text-secondary)",
+                  fontWeight: mailModus==="dencrm" ? 600 : 400 }}>
+                📤 DenCRM mail
+              </button>
+              <button onClick={()=>setMailModus("mailto")}
+                style={{ padding:"6px 14px", border:"none", cursor:"pointer",
+                  borderLeft:`1px solid ${kleur.hoofd}`,
+                  background: mailModus==="mailto" ? kleur.hoofd : "var(--color-background-primary)",
+                  color: mailModus==="mailto" ? "#fff" : "var(--color-text-secondary)",
+                  fontWeight: mailModus==="mailto" ? 600 : 400 }}>
+                📧 Eigen pakket (Outlook e.d.)
+              </button>
+            </div>
+            {mailModus==="mailto" && (
+              <span style={{ fontSize:fs-3, color:"var(--color-text-secondary)", fontStyle:"italic" }}>
+                PDF zelf toevoegen als bijlage
+              </span>
+            )}
+          </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:"1rem" }}>
             <FF label={T.uwBedrijfsnaam} fs={fs}><input value={bedrijfsnaam} onChange={e=>setBedrijfsnaam(e.target.value)} style={iSt(fs)} /></FF>
             <FF label={T.uwAdres} fs={fs}><input value={bedrijfAdres} onChange={e=>setBedrijfAdres(e.target.value)} style={iSt(fs)} /></FF>
@@ -3322,7 +3761,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
             <textarea value={template} onChange={e=>setTemplate(e.target.value)} rows={6}
               style={{...iSt(fs), resize:"vertical", fontFamily:"monospace"}} />
           </FF>
-          <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginBottom:"1.5rem", flexWrap:"wrap" }}>
+          <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginBottom:"0.75rem", flexWrap:"wrap" }}>
             <Btn onClick={()=>setStap(2)} fs={fs}>← Terug</Btn>
             <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
               {!opgeslagen?(
@@ -3332,24 +3771,29 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               )}
               {/* Mail knop */}
               {klant?.email ? (
-                <button
-                  onClick={async ()=>{
-                    if (!opgeslagen) { alert("Sla de offerte eerst op voor u hem mailt."); return; }
-                    try {
-                      await API.stuurOfferteMail(geslagenOfferteId);
-                      alert(`Offerte verstuurd naar ${klant.email}`);
-                    } catch(e) { alert("Mailen mislukt: " + e.message); }
-                  }}
-                  style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
-                    background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs,
-                    display:"flex", alignItems:"center", gap:6, fontWeight:400 }}>
-                  ✉ Mailen naar klant
-                </button>
+                mailModus==="dencrm" ? (
+                  <button onClick={async ()=>{
+                      if (!opgeslagen) { alert("Sla de offerte eerst op voor u hem mailt."); return; }
+                      try {
+                        await API.stuurOfferteMail(geslagenOfferteId);
+                        alert(`Offerte verstuurd naar ${klant.email}`);
+                      } catch(e) { alert("Mailen mislukt: " + e.message); }
+                    }}
+                    style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+                      background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs, fontWeight:500 }}>
+                    ✉ Mailen naar klant
+                  </button>
+                ) : (
+                  <a href={`mailto:${klant.email}?subject=${encodeURIComponent(`Offerte ${ref}`)}&body=${encodeURIComponent(`Beste ${klant.naam},\n\nHierbij ontvangt u offerte ${ref}.\n\nMet vriendelijke groet`)}`}
+                    style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+                      background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs, fontWeight:500,
+                      textDecoration:"none", display:"inline-flex", alignItems:"center" }}>
+                    📧 Mailen naar klant
+                  </a>
+                )
               ) : (
-                <button disabled title="Er is geen mailadres gekoppeld aan deze klant"
-                  style={{ padding:"8px 14px", borderRadius:8, border:"1px solid #ddd",
-                    background:"transparent", color:"#bbb", cursor:"not-allowed", fontSize:fs,
-                    display:"flex", alignItems:"center", gap:6, opacity:0.5 }}>
+                <button disabled style={{ padding:"8px 14px", borderRadius:8, border:"1px solid #ddd",
+                  background:"transparent", color:"#bbb", cursor:"not-allowed", fontSize:fs, opacity:0.5 }}>
                   ✉ Geen mailadres bekend
                 </button>
               )}
@@ -3362,6 +3806,15 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               <Btn onClick={reset} fs={fs}>Nieuwe offerte</Btn>
             </div>
           </div>
+
+          {/* Notitie bij eigen pakket */}
+          {mailModus==="mailto" && klant?.email && (
+            <div style={{ fontSize:fs-1, color:"#7a5800", margin:"-4px 0 12px",
+              padding:"8px 12px", borderRadius:8, background:"#fffbf0",
+              border:"1px solid #e8c44a" }}>
+              📎 U gebruikt uw eigen e-mailprogramma. Download eerst de PDF via "Afdrukken/PDF" en voeg deze zelf als bijlage toe aan uw e-mail.
+            </div>
+          )}
           <p style={{ fontSize:fs-1, fontWeight:500, color:"var(--color-text-secondary)", marginBottom:12 }}>Voorbeeld offerte</p>
           <OffertePreview offerte={{ regels, inclBtw, referentie:ref, datum:new Date().toISOString().slice(0,10),
             bedrijfsnaam, bedrijfAdres, iban, btwNr, template }} klant={klant} kleur={kleur} />
@@ -4488,11 +4941,12 @@ export default function App() {
 
   const alleNav = [
     { id:"kassa",      label:"Kassa",              icon:"🧾" },
+    { id:"werkbonnen", label:"Werkbonnen & Reparaties", icon:"🔧" },
     { id:"klanten",    label:T.klanten,    icon:"👥" },
     { id:"producten",  label:T.producten,  icon:"📦" },
     { id:"agenda",     label:T.agenda,     icon:"📅" },
     { id:"offertes",   label:T.offertes,   icon:"📄" },
-    { id:"financieel", label:T.financieel, icon:"💶" },
+    { id:"financieel", label:"Financieel overzicht", icon:"💶" },
     ...(!isDemoMode && huidigUser?.is_admin ? [
       { id:"gebruikers", label:T.gebruikers, icon:"🔐" },
       { id:"support",    label:T.supportInbox||"Support inbox", icon:"📥" },
@@ -4607,6 +5061,7 @@ export default function App() {
           {pagina==="offertes"   && <OffertesPage  klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="financieel" && <FinancieelPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="kassa"      && <KassaPage producten={actieveProducten} klanten={actieveKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
+          {pagina==="werkbonnen" && <WerkbonnenPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="contact"    && <ContactPage huidigUser={huidigUser} kleur={kleur} fs={fs} T={T} />}
           {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer users={[]} setUsers={()=>{}} kleur={kleur} fs={fs} T={T} />}
           {pagina==="support"    && !isDemoMode && huidigUser?.is_admin && <SupportInboxPage kleur={kleur} fs={fs} />}
