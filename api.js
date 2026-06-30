@@ -199,6 +199,12 @@ export async function verwijderWerkbon(id)         { return apiFetch(`/werkbonne
 export async function updateGebruikerLidmaatschap(id, data) {
   return apiFetch(`/gebruikers/${id}`, { method: 'PATCH', body: data });
 }
+export async function verwijderGebruiker(id) {
+  return apiFetch(`/gebruikers/${id}`, { method: 'DELETE' });
+}
+export async function blokkeerGebruiker(id, blokkeren) {
+  return apiFetch(`/gebruikers/${id}`, { method: 'PATCH', body: { is_actief: !blokkeren } });
+}
 
 // ============================================================
 // REVIEWS
@@ -218,3 +224,10 @@ export function declaratieBijlageUrl(id) {
   const token = localStorage.getItem('dencrm_access');
   return `${API_URL}/declaraties/${id}/bijlage?token=${encodeURIComponent(token||'')}`;
 }
+
+// ============================================================
+// WACHTWOORD VERGETEN / RESET
+// ============================================================
+export async function vraagWachtwoordResetAan(email) { return apiFetch('/auth/wachtwoord-vergeten', { method: 'POST', body: { email } }); }
+export async function controleerResetToken(token)     { return apiFetch(`/auth/wachtwoord-reset?token=${token}`); }
+export async function resetWachtwoord(token, wachtwoord) { return apiFetch('/auth/wachtwoord-reset', { method: 'POST', body: { token, wachtwoord } }); }

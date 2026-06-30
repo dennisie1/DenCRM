@@ -921,6 +921,148 @@ function ActivatiePagina({ token, kleur }) {
     </div>
   );
 }
+
+// ── WACHTWOORD RESET PAGINA ─────────────────────────────────────
+function WachtwoordResetPagina({ token, kleur }) {
+  const [fase, setFase] = useState('laden'); // laden | formulier | klaar | fout
+  const [naam, setNaam] = useState('');
+  const [ww1, setWw1] = useState('');
+  const [ww2, setWw2] = useState('');
+  const [toon1, setToon1] = useState(false);
+  const [toon2, setToon2] = useState(false);
+  const [fout, setFout] = useState('');
+  const [bezig, setBezig] = useState(false);
+
+  useEffect(() => {
+    API.controleerResetToken(token)
+      .then(data => { setNaam(data.naam); setFase('formulier'); })
+      .catch(() => setFase('fout'));
+  }, [token]);
+
+  async function stelNieuwWachtwoordIn() {
+    setFout('');
+    const regels = valideerWachtwoord(ww1);
+    if (!regels.every(r => r.ok)) { setFout('Wachtwoord voldoet niet aan de eisen.'); return; }
+    if (ww1 !== ww2) { setFout('Wachtwoorden komen niet overeen.'); return; }
+    setBezig(true);
+    try {
+      await API.resetWachtwoord(token, ww1);
+      setFase('klaar');
+    } catch(e) {
+      setFout(e.message || 'Wachtwoord wijzigen mislukt.');
+    } finally { setBezig(false); }
+  }
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)" }}>
+      <div style={{ background:"#fff", borderRadius:24, padding:"3rem", width:"100%", maxWidth:440,
+        boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
+
+        <div style={{ textAlign:"center", marginBottom:"2rem" }}>
+          <img src="afbeeldingen/dencrm.png" alt="DenCRM"
+            style={{ height:100, objectFit:"contain" }}
+            onError={e=>{ e.target.style.display="none"; }} />
+          <h1 style={{ margin:"1rem 0 0", fontSize:24, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
+        </div>
+
+        {fase === 'laden' && (
+          <p style={{ textAlign:"center", color:"#888" }}>Link controleren…</p>
+        )}
+
+        {fase === 'fout' && (
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:48, marginBottom:"1rem" }}>❌</div>
+            <h2 style={{ color:"#a32d2d" }}>Link ongeldig of verlopen</h2>
+            <p style={{ color:"#666", fontSize:14 }}>
+              Deze resetlink is verlopen (na 10 minuten) of al gebruikt.<br/>
+              Vraag een nieuwe link aan via "Wachtwoord vergeten".
+            </p>
+            <button onClick={()=>window.location.href='/'}
+              style={{ marginTop:"1.5rem", padding:"10px 24px", borderRadius:8,
+                background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:14 }}>
+              Terug naar inloggen
+            </button>
+          </div>
+        )}
+
+        {fase === 'formulier' && (
+          <>
+            <h2 style={{ margin:"0 0 0.5rem", fontSize:20, color:"#1a1a1a" }}>Nieuw wachtwoord, {naam}</h2>
+            <p style={{ color:"#666", fontSize:14, marginBottom:"1.5rem" }}>
+              Stel hieronder uw nieuwe wachtwoord in.
+            </p>
+
+            <div style={{ marginBottom:"1rem" }}>
+              <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
+                Nieuw wachtwoord
+              </label>
+              <div style={{ position:"relative" }}>
+                <input type={toon1?"text":"password"} value={ww1} onChange={e=>setWw1(e.target.value)}
+                  placeholder="Minimaal 8 tekens"
+                  style={{ width:"100%", padding:"11px 40px 11px 12px", borderRadius:8,
+                    border:"1.5px solid #ddd", background:"#fafafa", fontSize:14,
+                    color:"#1a1a1a", boxSizing:"border-box" }} />
+                <button onClick={()=>setToon1(t=>!t)} style={{ position:"absolute", right:10,
+                  top:"50%", transform:"translateY(-50%)", background:"none",
+                  border:"none", cursor:"pointer", color:"#aaa", fontSize:16 }}>
+                  {toon1?"🙈":"👁"}
+                </button>
+              </div>
+            </div>
+
+            <WachtwoordSterkte ww={ww1} />
+
+            <div style={{ marginBottom:"1.5rem", marginTop:12 }}>
+              <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>
+                Wachtwoord bevestigen
+              </label>
+              <div style={{ position:"relative" }}>
+                <input type={toon2?"text":"password"} value={ww2}
+                  onChange={e=>setWw2(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&stelNieuwWachtwoordIn()}
+                  placeholder="Herhaal uw wachtwoord"
+                  style={{ width:"100%", padding:"11px 40px 11px 12px", borderRadius:8,
+                    border:"1.5px solid #ddd", background:"#fafafa", fontSize:14,
+                    color:"#1a1a1a", boxSizing:"border-box" }} />
+                <button onClick={()=>setToon2(t=>!t)} style={{ position:"absolute", right:10,
+                  top:"50%", transform:"translateY(-50%)", background:"none",
+                  border:"none", cursor:"pointer", color:"#aaa", fontSize:16 }}>
+                  {toon2?"🙈":"👁"}
+                </button>
+              </div>
+            </div>
+
+            {fout && <p style={{ color:"#a32d2d", fontSize:13, background:"#fcebeb",
+              padding:"8px 12px", borderRadius:6, marginBottom:"1rem" }}>{fout}</p>}
+
+            <button onClick={stelNieuwWachtwoordIn} disabled={bezig}
+              style={{ width:"100%", padding:"13px", borderRadius:10,
+                background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:600, opacity:bezig?0.7:1 }}>
+              {bezig ? "Bezig…" : "✓ Wachtwoord wijzigen"}
+            </button>
+          </>
+        )}
+
+        {fase === 'klaar' && (
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:56, marginBottom:"1rem" }}>🎉</div>
+            <h2 style={{ color:"#27500a", margin:"0 0 0.5rem" }}>Wachtwoord gewijzigd!</h2>
+            <p style={{ color:"#666", fontSize:14, marginBottom:"1.5rem" }}>
+              U kunt nu inloggen met uw nieuwe wachtwoord.
+            </p>
+            <button onClick={()=>window.location.href='/'}
+              style={{ padding:"12px 28px", borderRadius:10, background:kleur.hoofd,
+                color:"#fff", border:"none", cursor:"pointer", fontSize:15, fontWeight:600 }}>
+              Naar inloggen →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
   const T = VERTALINGEN[taal] || VERTALINGEN.nl;
   const [un, setUn] = useState(""); const [pw, setPw] = useState("");
@@ -931,19 +1073,33 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
   const [regErr, setRegErr] = useState("");
   const [regOk, setRegOk] = useState(false);
   const [reviews, setReviews] = useState([]);
+  const [wwVergetenModal, setWwVergetenModal] = useState(false);
+  const [wwVergetenEmail, setWwVergetenEmail] = useState("");
+  const [wwVergetenFase, setWwVergetenFase] = useState("formulier"); // formulier | bezig | klaar
+  const [wwVergetenErr, setWwVergetenErr] = useState("");
+  const [pogingen, setPogingen] = useState(0);
+  const [geblokkeerd, setGeblokkeerd] = useState(false);
 
   useEffect(() => {
     API.haalReviewsOp().then(data => setReviews(data.filter(r=>r.tekst).slice(0,6))).catch(()=>{});
   }, []);
 
   async function doLogin() {
+    if (geblokkeerd) return;
     if (!un || !pw) { setErr("Vul gebruikersnaam en wachtwoord in."); return; }
     setBezig(true); setErr("");
     try {
       const gebruiker = await API.login(un, pw);
       onLogin(gebruiker);
     } catch (e) {
-      setErr(e.message || "Inloggen mislukt.");
+      const nieuwePogingen = pogingen + 1;
+      setPogingen(nieuwePogingen);
+      if (nieuwePogingen >= 3) {
+        setGeblokkeerd(true);
+        setErr("Te vaak foutief ingelogd. Ververs de pagina om het opnieuw te proberen.");
+      } else {
+        setErr(e.message || "Inloggen mislukt.");
+      }
     } finally { setBezig(false); }
   }
 
@@ -1049,15 +1205,22 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
         {err && <p style={{ color:"#A32D2D", fontSize:14, marginBottom:"1.25rem", background:"#FCEBEB",
           padding:"10px 14px", borderRadius:8 }}>{err}</p>}
 
-        <button onClick={doLogin} style={{ width:"100%", padding:"14px", borderRadius:10,
-          background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer",
+        <button onClick={doLogin} disabled={geblokkeerd} style={{ width:"100%", padding:"14px", borderRadius:10,
+          background: geblokkeerd ? "#bbb" : kleur.hoofd, color:"#fff", border:"none",
+          cursor: geblokkeerd ? "not-allowed" : "pointer",
           fontSize:16, fontWeight:600, letterSpacing:"0.02em",
-          boxShadow:`0 4px 16px ${kleur.hoofd}55`,
+          boxShadow: geblokkeerd ? "none" : `0 4px 16px ${kleur.hoofd}55`,
           opacity: bezig ? 0.7 : 1 }}>
-          {bezig ? T.bezig : T.inloggen}
+          {geblokkeerd ? "Geblokkeerd — ververs de pagina" : (bezig ? T.bezig : T.inloggen)}
         </button>
 
-        <div style={{ marginTop:"1.25rem", display:"flex", flexDirection:"column", gap:10 }}>
+        <button onClick={()=>{ setWwVergetenModal(true); setWwVergetenEmail(""); setWwVergetenFase("formulier"); }}
+          style={{ width:"100%", padding:"8px", marginTop:8, background:"none", border:"none",
+            cursor:"pointer", fontSize:13, color:kleur.hoofd, textAlign:"center" }}>
+          Wachtwoord vergeten?
+        </button>
+
+        <div style={{ marginTop:"1rem", display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ flex:1, height:"0.5px", background:"#e8e8e8" }} />
             <span style={{ fontSize:13, color:"#bbb" }}>of</span>
@@ -1165,14 +1328,90 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
           </div>
         </div>
       )}
+
+      {/* Wachtwoord vergeten modal */}
+      {wwVergetenModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:2000, padding:"1rem" }}
+          onClick={e=>e.target===e.currentTarget && setWwVergetenModal(false)}>
+          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:420,
+            boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
+
+            {wwVergetenFase === "formulier" && (
+              <>
+                <h2 style={{ margin:"0 0 0.5rem", fontSize:20, color:"#1a1a1a" }}>Wachtwoord vergeten?</h2>
+                <p style={{ color:"#666", fontSize:14, marginBottom:"1.25rem", lineHeight:1.5 }}>
+                  Vul uw e-mailadres in. Als dit adres bij ons bekend is, ontvangt u een link om uw wachtwoord opnieuw in te stellen.
+                </p>
+                <input type="email" value={wwVergetenEmail} onChange={e=>setWwVergetenEmail(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter" && document.getElementById("wwv-verstuur-btn")?.click()}
+                  placeholder="uw@emailadres.nl"
+                  style={{ width:"100%", padding:"11px 14px", borderRadius:8, border:"1.5px solid #ddd",
+                    background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box", marginBottom:"1rem" }} />
+                {wwVergetenErr && <p style={{ color:"#a32d2d", fontSize:13, background:"#fcebeb",
+                  padding:"8px 12px", borderRadius:6, marginBottom:"1rem" }}>{wwVergetenErr}</p>}
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={()=>setWwVergetenModal(false)}
+                    style={{ flex:1, padding:"11px", borderRadius:10, background:"#f5f5f5",
+                      color:"#666", border:"1px solid #ddd", cursor:"pointer", fontSize:13 }}>
+                    Annuleren
+                  </button>
+                  <button id="wwv-verstuur-btn" onClick={async ()=>{
+                      if (!wwVergetenEmail || !wwVergetenEmail.includes("@")) {
+                        setWwVergetenErr("Vul een geldig e-mailadres in."); return;
+                      }
+                      setWwVergetenErr(""); setWwVergetenFase("bezig");
+                      try {
+                        await API.vraagWachtwoordResetAan(wwVergetenEmail);
+                        setWwVergetenFase("klaar");
+                      } catch(e) {
+                        // Toon ook bij fout dezelfde geruststellende boodschap (geen account-enumeratie)
+                        setWwVergetenFase("klaar");
+                      }
+                    }}
+                    style={{ flex:1, padding:"11px", borderRadius:10, background:kleur.hoofd,
+                      color:"#fff", border:"none", cursor:"pointer", fontSize:13, fontWeight:600 }}>
+                    Versturen
+                  </button>
+                </div>
+              </>
+            )}
+
+            {wwVergetenFase === "bezig" && (
+              <p style={{ textAlign:"center", color:"#888", padding:"1rem 0" }}>Bezig…</p>
+            )}
+
+            {wwVergetenFase === "klaar" && (
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:48, marginBottom:"0.75rem" }}>📧</div>
+                <h2 style={{ margin:"0 0 0.75rem", color:"#1a1a1a", fontSize:18 }}>Controleer uw mail</h2>
+                <p style={{ color:"#666", fontSize:14, lineHeight:1.6, marginBottom:"1.5rem" }}>
+                  Mocht u een geldig e-mailadres hebben ingevuld, ontvangt u een mail om uw wachtwoord te herstellen.
+                  De link is 10 minuten geldig.
+                </p>
+                <p style={{ color:"#888", fontSize:13, marginBottom:"1.5rem", padding:"10px 14px",
+                  background:"#fffbf0", borderRadius:8, border:"1px solid #e8c44a" }}>
+                  📧 Kijk ook in uw spamfolder — soms wordt onze mail helaas gemarkeerd als ongewenst.
+                </p>
+                <button onClick={()=>setWwVergetenModal(false)}
+                  style={{ padding:"10px 24px", borderRadius:10, background:kleur.hoofd,
+                    color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
+                  Sluiten
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── GEBRUIKERSBEHEER ─────────────────────────────────────────────────────────
-function GebruikersBeheer({ users, setUsers, kleur, fs, T }) {
+function GebruikersBeheer({ users, setUsers, kleur, fs, T, huidigUserId }) {
   const [gebruikers, setGebruikers] = useState([]);
   const [laden, setLaden] = useState(true);
+  const [verwijderModal, setVerwijderModal] = useState(null); // gebruiker object of null
 
   useEffect(() => {
     API.haalGebruikersOp().then(data => {
@@ -1190,13 +1429,27 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T }) {
     nieuw.setDate(nieuw.getDate() + dagen);
     const tot = nieuw.toISOString().slice(0,10);
     try {
-      await fetch(`/api/gebruikers/${id}`, {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dencrm_access')},
-        body: JSON.stringify({ lidmaatschap_tot: tot })
-      });
+      await API.updateGebruikerLidmaatschap(id, { lidmaatschap_tot: tot });
       setGebruikers(prev => prev.map(g => g.id===id ? {...g, lidmaatschap_tot:tot} : g));
     } catch(e) { alert("Bijwerken mislukt: "+e.message); }
+  }
+
+  async function toggleBlokkeren(u) {
+    const blokkeren = u.is_actief; // als hij nu actief is, gaan we blokkeren
+    if (blokkeren && !confirm(`${u.naam} blokkeren? Deze gebruiker kan dan niet meer inloggen, maar alle data blijft bewaard.`)) return;
+    try {
+      await API.blokkeerGebruiker(u.id, blokkeren);
+      setGebruikers(prev => prev.map(g => g.id===u.id ? {...g, is_actief: !blokkeren} : g));
+    } catch(e) { alert("Bijwerken mislukt: "+e.message); }
+  }
+
+  async function bevestigVerwijderen() {
+    if (!verwijderModal) return;
+    try {
+      await API.verwijderGebruiker(verwijderModal.id);
+      setGebruikers(prev => prev.filter(g => g.id !== verwijderModal.id));
+      setVerwijderModal(null);
+    } catch(e) { alert("Verwijderen mislukt: "+e.message); }
   }
 
   function fmtDatum(iso) {
@@ -1251,7 +1504,7 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T }) {
                   <span style={{ fontWeight:600 }}>Laatste login:</span> {u.laatste_login ? new Date(u.laatste_login).toLocaleString("nl-NL") : "Nooit"}
                 </div>
               </div>
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
                 <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)", alignSelf:"center", marginRight:4 }}>
                   Verleng lidmaatschap:
                 </span>
@@ -1262,11 +1515,50 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T }) {
                     {opt.l}
                   </button>
                 ))}
+
+                {u.id !== huidigUserId && (
+                  <>
+                    <span style={{ width:1, height:18, background:"var(--color-border-tertiary)", margin:"0 4px" }} />
+                    <button onClick={()=>toggleBlokkeren(u)}
+                      style={{ padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:fs-3, border:"none",
+                        background: u.is_actief ? "#fffbf0" : "#eaf3de",
+                        color: u.is_actief ? "#7a5800" : "#27500a" }}>
+                      {u.is_actief ? "🔒 Blokkeren" : "🔓 Deblokkeren"}
+                    </button>
+                    <button onClick={()=>setVerwijderModal(u)}
+                      style={{ padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:fs-3,
+                        background:"#fcebeb", color:"#a32d2d", border:"none" }}>
+                      🗑 Verwijderen
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Verwijder bevestiging */}
+      {verwijderModal && (
+        <Modal title="⚠ Gebruiker verwijderen" onClose={()=>setVerwijderModal(null)} fs={fs}>
+          <p style={{ fontSize:fs, color:"var(--color-text-primary)", marginBottom:"1rem", lineHeight:1.6 }}>
+            Weet u zeker dat u <strong>{verwijderModal.naam}</strong> ({verwijderModal.username}) wilt verwijderen?
+          </p>
+          <div style={{ background:"#fcebeb", borderRadius:10, padding:"12px 14px", marginBottom:"1.25rem" }}>
+            <p style={{ margin:0, fontSize:fs-1, color:"#a32d2d", fontWeight:600 }}>
+              Deze actie kan niet ongedaan worden gemaakt.
+            </p>
+            <p style={{ margin:"6px 0 0", fontSize:fs-2, color:"#a32d2d", lineHeight:1.5 }}>
+              Alle gekoppelde data wordt permanent verwijderd: klanten, offertes, kassa bonnen,
+              werkbonnen, declaraties, agenda-afspraken, producten en alle overige gegevens van deze gebruiker.
+            </p>
+          </div>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+            <Btn onClick={()=>setVerwijderModal(null)} fs={fs}>Annuleren</Btn>
+            <Btn variant="danger" onClick={bevestigVerwijderen} fs={fs}>🗑 Definitief verwijderen</Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -2010,6 +2302,8 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
   const [form, setForm] = useState({ klantId:"", datum:"", tijd:"", tijdTot:"", notitie:"" });
   const [filterDatum, setFilterDatum] = useState(new Date().toISOString().slice(0,10));
   const [hover, setHover] = useState(null);
+  const [agendaNkModal, setAgendaNkModal] = useState(false);
+  const [agendaNkForm, setAgendaNkForm] = useState({ naam:"", email:"", telefoon:"" });
 
   // Werkweek instellingen (bewaard in localStorage)
   const [werkweekInst, setWerkweekInstState] = useState(() => {
@@ -2091,8 +2385,8 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
       setModal(false); return;
     }
     try {
-      const data = { klant_id:form.klantId, datum:form.datum,
-        tijd_van:form.tijd, tijd_tot:form.tijdTot||null, notitie:form.notitie||null };
+      const data = { klant_id:form.klantId||null, datum:form.datum,
+        tijd_van:form.tijd, tijd_tot:(form.tijdTot && form.tijdTot.trim()) ? form.tijdTot : null, notitie:form.notitie||null };
       if (editId) await API.updateAfspraak(editId, data);
       else await API.maakAfspraakAan(data);
       await herlaad();
@@ -2357,6 +2651,11 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
         <Modal title={editId?T.afspraakBewerken:T.nieuweAfspraak} onClose={()=>setModal(false)} fs={fs}>
           <FF label={T.klantZoeken} fs={fs}>
             <KlantZoekBox klanten={klanten} value={form.klantId} onChange={id=>setForm(f=>({...f,klantId:id}))} fs={fs} />
+            <button onClick={()=>setAgendaNkModal(true)}
+              style={{ marginTop:6, padding:"5px 10px", borderRadius:6, border:`1px dashed ${kleur.hoofd}`,
+                background:"transparent", color:kleur.hoofd, cursor:"pointer", fontSize:fs-2 }}>
+              + Nieuwe klant aanmaken
+            </button>
           </FF>
           <FF label={T.datum} fs={fs}>
             <input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
@@ -2372,6 +2671,30 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
               <Btn onClick={()=>setModal(false)} fs={fs}>{T.annuleren}</Btn>
               <Btn variant="primary" onClick={save} kleur={kleur} fs={fs} disabled={!form.klantId}>{T.opslaan}</Btn>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Nieuwe klant modal ── */}
+      {agendaNkModal && (
+        <Modal title="Nieuwe klant aanmaken" onClose={()=>setAgendaNkModal(false)} fs={fs}>
+          <FF label="Naam" fs={fs}><input value={agendaNkForm.naam} onChange={e=>setAgendaNkForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label="E-mailadres" fs={fs}><input type="email" value={agendaNkForm.email} onChange={e=>setAgendaNkForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label="Telefoon" fs={fs}><input value={agendaNkForm.telefoon} onChange={e=>setAgendaNkForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setAgendaNkModal(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" kleur={kleur} fs={fs} disabled={!agendaNkForm.naam}
+              onClick={async()=>{
+                try {
+                  const { id } = await API.maakKlantAan({ naam:agendaNkForm.naam, email:agendaNkForm.email, telefoon:agendaNkForm.telefoon });
+                  await herlaad();
+                  setForm(f=>({...f, klantId:id}));
+                  setAgendaNkModal(false);
+                  setAgendaNkForm({naam:"",email:"",telefoon:""});
+                } catch(e) { alert("Aanmaken mislukt: "+e.message); }
+              }}>
+              Aanmaken & koppelen
+            </Btn>
           </div>
         </Modal>
       )}
@@ -4063,9 +4386,15 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   const [nieuweKlantModal, setNieuweKlantModal] = useState(false);
   const [nkForm, setNkForm] = useState({ naam:"", email:"", telefoon:"", adres:"" });
   const [catFilter, setCatFilter] = useState("Alle");
+  const [kortingType, setKortingType] = useState("percentage"); // percentage | bedrag
+  const [kortingWaarde, setKortingWaarde] = useState("");
 
   const klant = klanten.find(k=>k.id===klantId);
-  const exclBtw = regels.reduce((s,r)=>s+(parseFloat(r.prijs)||0),0);
+  const exclBtwVoorKorting = regels.reduce((s,r)=>s+(parseFloat(r.prijs)||0),0);
+  const kortingBedrag = kortingType === "percentage"
+    ? Math.round(exclBtwVoorKorting * (parseFloat(kortingWaarde)||0) / 100 * 100) / 100
+    : Math.min(parseFloat(kortingWaarde)||0, exclBtwVoorKorting);
+  const exclBtw = Math.max(0, exclBtwVoorKorting - kortingBedrag);
   const btwBedrag = inclBtw ? Math.round(exclBtw*0.21) : 0;
   const totaalInclBtw = exclBtw + btwBedrag;
   const vandaagISO = new Date().toISOString().slice(0,10);
@@ -4091,8 +4420,11 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
 
   async function slaOp() {
     if (!klantId||regels.length===0) return;
+    const regelsMetKorting = kortingBedrag > 0
+      ? [...regels, { id:"korting", naam:"Korting", beschrijving: kortingType==="percentage" ? `${kortingWaarde}% korting` : "", prijs: -kortingBedrag, isVariabel:false }]
+      : regels;
     if (isDemoMode) {
-      const offerte = { id:"o"+uid(), referentie:ref, datum:vandaagISO, regels, totaalInclBtw, inclBtw,
+      const offerte = { id:"o"+uid(), referentie:ref, datum:vandaagISO, regels:regelsMetKorting, totaalInclBtw, inclBtw,
         bedrijfsnaam, bedrijfAdres, iban, btwNr, template };
       setKlanten(p=>p.map(k=>k.id===klantId?{...k,offertes:[...(k.offertes||[]),offerte]}:k));
       setOpgeslagen(true); return;
@@ -4109,7 +4441,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
         bedrijfsnaam, bedrijf_adres: bedrijfAdres,
         iban, btw_nummer: btwNr,
         offerte_tekst: template,
-        regels: regels.map((r,i) => ({ naam:r.naam, beschrijving:r.beschrijving||"", prijs:parseFloat(r.prijs)||0, volgorde:i, isVariabel:r.isVariabel||false })),
+        regels: regelsMetKorting.map((r,i) => ({ naam:r.naam, beschrijving:r.beschrijving||"", prijs:parseFloat(r.prijs)||0, volgorde:i, isVariabel:r.isVariabel||false })),
       });
       await herlaad();
       setGeslagenOfferteId(id);
@@ -4120,6 +4452,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   function reset() {
     setStap(1); setKlantId(""); setRegels([]); setInclBtw(true);
     setRef(`OFF-${new Date().getFullYear()}-001`); setOpgeslagen(false); setCatFilter("Alle");
+    setKortingType("percentage"); setKortingWaarde("");
   }
 
   const stapLabels = [T.klantKiezen, T.productenEnRegels, T.tekstEnVoorbeeld];
@@ -4289,12 +4622,39 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
             </div>
           )}
 
-          <button onClick={addLegeRegel} style={{ width:"100%", padding:"9px", borderRadius:8,
-            background:"var(--color-background-primary)", color:"var(--color-text-primary)",
-            border:"0.5px solid var(--color-border-secondary)", cursor:"pointer", fontSize:fs,
+          <button onClick={addLegeRegel} style={{ width:"100%", padding:"11px", borderRadius:8,
+            background:kleur.licht, color:kleur.donker,
+            border:`1.5px dashed ${kleur.hoofd}`, cursor:"pointer", fontSize:fs, fontWeight:500,
             display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:"1rem" }}>
-            + Voeg eenmalig nog niet bestaand product toe
+            ➕ Voeg eenmalig nog niet bestaand product toe
           </button>
+
+          {/* Korting */}
+          <div style={{ marginBottom:"1rem", padding:"12px 14px", background:"var(--color-background-secondary)", borderRadius:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <span style={{ fontSize:fs, fontWeight:500 }}>🏷 Korting</span>
+              <div style={{ display:"flex", borderRadius:6, overflow:"hidden", border:`1px solid ${kleur.hoofd}` }}>
+                <button onClick={()=>setKortingType("percentage")}
+                  style={{ padding:"4px 10px", border:"none", cursor:"pointer", fontSize:fs-2,
+                    background:kortingType==="percentage"?kleur.hoofd:"var(--color-background-primary)",
+                    color:kortingType==="percentage"?"#fff":"var(--color-text-secondary)" }}>%</button>
+                <button onClick={()=>setKortingType("bedrag")}
+                  style={{ padding:"4px 10px", border:"none", cursor:"pointer", fontSize:fs-2,
+                    background:kortingType==="bedrag"?kleur.hoofd:"var(--color-background-primary)",
+                    color:kortingType==="bedrag"?"#fff":"var(--color-text-secondary)" }}>€</button>
+              </div>
+            </div>
+            <input type="number" value={kortingWaarde} onChange={e=>setKortingWaarde(e.target.value)}
+              placeholder={kortingType==="percentage"?"0 %":"€ 0,00"} min="0"
+              step={kortingType==="percentage"?"1":"0.01"}
+              style={{ width:"100%", padding:"7px 10px", borderRadius:6, border:"1px solid #ddd",
+                background:"#fff", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
+            {kortingBedrag > 0 && (
+              <p style={{ margin:"6px 0 0", fontSize:fs-2, color:"#a32d2d" }}>
+                Korting toegepast: −€{kortingBedrag.toLocaleString("nl-NL",{minimumFractionDigits:2})}
+              </p>
+            )}
+          </div>
 
           <div style={{ margin:"0 0 1rem", padding:"12px 14px", background:"var(--color-background-secondary)", borderRadius:8 }}>
             <Toggle aan={inclBtw} onToggle={()=>setInclBtw(v=>!v)} label={T.btwToevoegen} fs={fs} />
@@ -4302,7 +4662,8 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
 
           {regels.length>0&&(
             <div style={{ textAlign:"right", fontSize:fs-1, color:"var(--color-text-secondary)", marginBottom:"1rem" }}>
-              Subtotaal excl. BTW: <strong>€{exclBtw.toLocaleString("nl-NL",{minimumFractionDigits:2})}</strong>
+              {kortingBedrag > 0 && <>Subtotaal: €{exclBtwVoorKorting.toLocaleString("nl-NL",{minimumFractionDigits:2})} &nbsp;·&nbsp; </>}
+              Na korting excl. BTW: <strong>€{exclBtw.toLocaleString("nl-NL",{minimumFractionDigits:2})}</strong>
               {inclBtw&&<> &nbsp;·&nbsp; Totaal incl. BTW: <strong style={{ color:kleur.hoofd }}>€{totaalInclBtw.toLocaleString("nl-NL",{minimumFractionDigits:2})}</strong></>}
             </div>
           )}
@@ -4416,7 +4777,9 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
             </div>
           )}
           <p style={{ fontSize:fs-1, fontWeight:500, color:"var(--color-text-secondary)", marginBottom:12 }}>Voorbeeld offerte</p>
-          <OffertePreview offerte={{ regels, inclBtw, referentie:ref, datum:new Date().toISOString().slice(0,10),
+          <OffertePreview offerte={{
+            regels: kortingBedrag > 0 ? [...regels, { id:"korting", naam:"Korting", beschrijving: kortingType==="percentage" ? `${kortingWaarde}% korting` : "", prijs: -kortingBedrag, isVariabel:false }] : regels,
+            inclBtw, referentie:ref, datum:new Date().toISOString().slice(0,10),
             bedrijfsnaam, bedrijfAdres, iban, btwNr, template }} klant={klant} kleur={kleur} />
         </div>
       )}
@@ -4548,7 +4911,11 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
 
   function fmtDatum(iso) {
     if (!iso) return "—";
-    return new Date(iso + "T12:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" });
+    // Werkt zowel met "2026-06-30" als met volledige ISO timestamps
+    const datumDeel = iso.toString().slice(0,10);
+    const d = new Date(datumDeel + "T12:00:00");
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" });
   }
 
   // Losse factuur helpers
@@ -5039,12 +5406,15 @@ function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, set
   const [abonnementOpen, setAbonnementOpen] = useState(false);
 
   const alleModules = [
-    { id:"klanten",    label:T?.klanten||"Klanten",    icon:"👥" },
-    { id:"producten",  label:T?.producten||"Producten",  icon:"📦" },
-    { id:"agenda",     label:T?.agenda||"Agenda",     icon:"📅" },
-    { id:"offertes",   label:T?.offertes||"Offertes",   icon:"📄" },
-    { id:"financieel", label:T?.financieel||"Financieel", icon:"💶" },
-    { id:"contact",    label:T?.contact||"Contact",    icon:"💬" },
+    { id:"kassa",       label:"Kassa",                      icon:"🧾" },
+    { id:"werkbonnen",  label:"Werkbonnen & Reparaties",     icon:"🔧" },
+    { id:"klanten",     label:T?.klanten||"Klanten",         icon:"👥" },
+    { id:"producten",   label:T?.producten||"Producten",     icon:"📦" },
+    { id:"agenda",      label:T?.agenda||"Agenda",           icon:"📅" },
+    { id:"offertes",    label:T?.offertes||"Offertes",       icon:"📄" },
+    { id:"financieel",  label:"Financieel overzicht",        icon:"💶" },
+    { id:"declaraties", label:"Declaraties & Boekhouding",   icon:"🧮" },
+    { id:"contact",     label:T?.contact||"Contact",         icon:"💬" },
   ];
 
   return (
@@ -5480,6 +5850,11 @@ export default function App() {
     return <ActivatiePagina token={activatieToken} kleur={kleur} />;
   }
 
+  const resetToken = new URLSearchParams(window.location.search).get('reset');
+  if (resetToken) {
+    return <WachtwoordResetPagina token={resetToken} kleur={kleur} />;
+  }
+
   // ── Bij opstarten: kijk of er nog een token is ────────────
   useEffect(() => {
     if (API.heeftTokens()) {
@@ -5851,7 +6226,7 @@ export default function App() {
           {pagina==="werkbonnen" && <WerkbonnenPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="declaraties" && <DeclaratiesPage kleur={kleur} fs={fs} isDemoMode={isDemoMode} T={T} />}
           {pagina==="contact"    && <ContactPage huidigUser={huidigUser} kleur={kleur} fs={fs} T={T} />}
-          {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer users={[]} setUsers={()=>{}} kleur={kleur} fs={fs} T={T} />}
+          {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer users={[]} setUsers={()=>{}} kleur={kleur} fs={fs} T={T} huidigUserId={huidigUser?.id} />}
           {pagina==="support"    && !isDemoMode && huidigUser?.is_admin && <SupportInboxPage kleur={kleur} fs={fs} />}
         </main>
       </div>
