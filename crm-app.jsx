@@ -1077,6 +1077,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
   const [wwVergetenEmail, setWwVergetenEmail] = useState("");
   const [wwVergetenFase, setWwVergetenFase] = useState("formulier"); // formulier | bezig | klaar
   const [wwVergetenErr, setWwVergetenErr] = useState("");
+  const [voorwaardenModal, setVoorwaardenModal] = useState(false);
   const [pogingen, setPogingen] = useState(0);
   const [geblokkeerd, setGeblokkeerd] = useState(false);
 
@@ -1119,7 +1120,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
 
       {/* Reviews sidebar — los gepositioneerd, beïnvloedt centrering niet */}
       {reviews.length > 0 && window.innerWidth > 1100 && (
-        <div style={{ position:"absolute", left:"calc(50% + 280px)", top:"50%", transform:"translateY(-50%)",
+        <div style={{ position:"absolute", right:"calc(50% + 280px)", top:"50%", transform:"translateY(-50%)",
           width:320, flexShrink:0, display:"flex", flexDirection:"column", gap:12,
           maxHeight:"85vh", overflowY:"auto" }}
           className="reviews-sidebar">
@@ -1248,6 +1249,12 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
             </div>
           </button>
         </div>
+
+        <button onClick={()=>setVoorwaardenModal(true)}
+          style={{ width:"100%", padding:"8px", marginTop:14, background:"none", border:"none",
+            cursor:"pointer", fontSize:11, color:"#aaa", textAlign:"center" }}>
+          Algemene voorwaarden & privacy
+        </button>
       </div>
 
       {/* Account aanmaken modal */}
@@ -1325,6 +1332,125 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Algemene voorwaarden modal */}
+      {voorwaardenModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:2000, padding:"1rem" }}
+          onClick={e=>e.target===e.currentTarget && setVoorwaardenModal(false)}>
+          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:640,
+            maxHeight:"85vh", overflowY:"auto", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.25rem" }}>
+              <h2 style={{ margin:0, fontSize:20, color:"#1a1a1a" }}>Algemene voorwaarden & privacy</h2>
+              <button onClick={()=>setVoorwaardenModal(false)} style={{ background:"none", border:"none",
+                cursor:"pointer", fontSize:22, color:"#666", padding:"4px 8px", lineHeight:1 }}>×</button>
+            </div>
+
+            <div style={{ fontSize:13.5, color:"#444", lineHeight:1.7 }}>
+              <p style={{ color:"#888", fontSize:12, marginBottom:"1.25rem" }}>
+                Laatst bijgewerkt: {new Date().toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"})}
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>1. Algemeen</h3>
+              <p>
+                Deze algemene voorwaarden zijn van toepassing op het gebruik van DenCRM, een online CRM-applicatie
+                voor het beheren van klanten, offertes, facturen en aanverwante bedrijfsadministratie ("de Dienst").
+                Door een account aan te maken en/of de Dienst te gebruiken, gaat u akkoord met deze voorwaarden.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>2. Het account en gebruik</h3>
+              <p>
+                U bent zelf verantwoordelijk voor het geheimhouden van uw inloggegevens en voor alle activiteiten
+                die plaatsvinden via uw account. Het is niet toegestaan de Dienst te gebruiken voor onwettige
+                doeleinden, of op een manier die de werking van de Dienst voor andere gebruikers verstoort.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>3. Lidmaatschap en betaling</h3>
+              <p>
+                DenCRM werkt op basis van vooraf aangeschafte periodes (bijvoorbeeld 1 maand, 6 maanden of 1 jaar).
+                Er is geen sprake van een doorlopend abonnement met automatische incasso; na afloop van de periode
+                vervalt de toegang totdat een nieuwe periode wordt aangeschaft. Reeds betaalde periodes worden niet
+                gerestitueerd, behoudens wettelijke verplichtingen.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>4. Uw gegevens</h3>
+              <p>
+                Wij gaan zo zorgvuldig mogelijk om met de gegevens die u in DenCRM invoert, waaronder klantgegevens,
+                offertes, financiële informatie en overige bedrijfsdata. Wij nemen passende technische en
+                organisatorische maatregelen om deze gegevens te beveiligen, waaronder versleutelde verbindingen
+                (HTTPS), beveiligde wachtwoordopslag en regelmatige back-ups.
+              </p>
+              <p>
+                Ondanks deze maatregelen kan geen enkel systeem 100% beveiligd worden gegarandeerd. DenCRM en haar
+                beheerder(s) kunnen niet aansprakelijk worden gehouden voor schade die voortvloeit uit ongeautoriseerde
+                toegang tot, verlies van, of diefstal van gegevens, voor zover dit niet het directe gevolg is van opzet
+                of grove nalatigheid van onze kant. Wij adviseren gebruikers dringend om zelf geen zeer gevoelige
+                gegevens (zoals BSN-nummers, medische gegevens of betaalkaartgegevens) in het systeem op te slaan.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>5. Beschikbaarheid</h3>
+              <p>
+                Wij streven naar een zo hoog mogelijke beschikbaarheid van de Dienst, maar garanderen geen
+                ononderbroken of foutloze werking. Onderhoud, storingen of overmacht kunnen leiden tot tijdelijke
+                onbeschikbaarheid. Wij zijn niet aansprakelijk voor schade die voortvloeit uit het (tijdelijk)
+                niet beschikbaar zijn van de Dienst.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>6. Aansprakelijkheid</h3>
+              <p>
+                Het gebruik van DenCRM is voor eigen risico. Voor zover wettelijk toegestaan, is onze
+                aansprakelijkheid voor directe of indirecte schade — waaronder gederfde winst, gegevensverlies of
+                bedrijfsschade — beperkt tot het bedrag dat u in de voorafgaande 12 maanden voor de Dienst heeft
+                betaald. Deze beperking geldt niet bij opzet of grove schuld.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>7. Privacy en verwerking persoonsgegevens</h3>
+              <p>
+                Bij gebruik van DenCRM verwerkt u mogelijk persoonsgegevens van uw eigen klanten (zoals namen,
+                adressen en contactgegevens). U bent zelf verantwoordelijke in de zin van de AVG/GDPR voor deze
+                verwerking; DenCRM treedt hierbij op als verwerker. Wij verwerken deze gegevens uitsluitend in
+                opdracht van u en niet voor eigen doeleinden, behalve waar nodig voor het functioneren van de Dienst
+                zelf (bijvoorbeeld het versturen van offertes namens u).
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>8. Reviews</h3>
+              <p>
+                Indien u een review achterlaat via de Dienst, gaat u ermee akkoord dat de naam van uw bedrijf,
+                samen met uw beoordeling en eventuele tekst, getoond kan worden aan bezoekers van DenCRM, onder
+                meer op het inlogscherm.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>9. Wijzigingen</h3>
+              <p>
+                Wij behouden ons het recht voor deze voorwaarden te wijzigen. Wezenlijke wijzigingen worden, indien
+                redelijkerwijs mogelijk, vooraf gecommuniceerd. Voortgezet gebruik van de Dienst na een wijziging
+                geldt als acceptatie van de gewijzigde voorwaarden.
+              </p>
+
+              <h3 style={{ fontSize:14, color:"#185FA5", margin:"1.25rem 0 0.5rem" }}>10. Contact</h3>
+              <p>
+                Voor vragen over deze voorwaarden of over de verwerking van uw gegevens kunt u contact opnemen via{" "}
+                <a href="mailto:info@dencrm.nl" style={{ color:"#185FA5" }}>info@dencrm.nl</a>.
+              </p>
+
+              <p style={{ marginTop:"1.5rem", padding:"10px 14px", background:"#fffbf0", borderRadius:8,
+                fontSize:12, color:"#7a5800", border:"1px solid #e8c44a" }}>
+                ⚠ Dit is een algemene tekst en vormt geen juridisch advies. Het wordt aangeraden deze voorwaarden
+                te laten controleren of opstellen door een jurist, voordat deze definitief in gebruik worden genomen
+                voor een commerciële dienst.
+              </p>
+            </div>
+
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.5rem" }}>
+              <button onClick={()=>setVoorwaardenModal(false)}
+                style={{ padding:"10px 24px", borderRadius:10, background:kleur.hoofd,
+                  color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
+                Sluiten
+              </button>
+            </div>
           </div>
         </div>
       )}
