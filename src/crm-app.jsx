@@ -5406,12 +5406,15 @@ function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, set
   const [abonnementOpen, setAbonnementOpen] = useState(false);
 
   const alleModules = [
-    { id:"klanten",    label:T?.klanten||"Klanten",    icon:"👥" },
-    { id:"producten",  label:T?.producten||"Producten",  icon:"📦" },
-    { id:"agenda",     label:T?.agenda||"Agenda",     icon:"📅" },
-    { id:"offertes",   label:T?.offertes||"Offertes",   icon:"📄" },
-    { id:"financieel", label:T?.financieel||"Financieel", icon:"💶" },
-    { id:"contact",    label:T?.contact||"Contact",    icon:"💬" },
+    { id:"kassa",       label:"Kassa",                      icon:"🧾" },
+    { id:"werkbonnen",  label:"Werkbonnen & Reparaties",     icon:"🔧" },
+    { id:"klanten",     label:T?.klanten||"Klanten",         icon:"👥" },
+    { id:"producten",   label:T?.producten||"Producten",     icon:"📦" },
+    { id:"agenda",      label:T?.agenda||"Agenda",           icon:"📅" },
+    { id:"offertes",    label:T?.offertes||"Offertes",       icon:"📄" },
+    { id:"financieel",  label:"Financieel overzicht",        icon:"💶" },
+    { id:"declaraties", label:"Declaraties & Boekhouding",   icon:"🧮" },
+    { id:"contact",     label:T?.contact||"Contact",         icon:"💬" },
   ];
 
   return (
