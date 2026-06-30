@@ -192,3 +192,29 @@ export async function haalWerkbonnenOp()           { return apiFetch('/werkbonne
 export async function maakWerkbonAan(data)         { return apiFetch('/werkbonnen', { method: 'POST', body: data }); }
 export async function updateWerkbon(id, data)      { return apiFetch(`/werkbonnen/${id}`, { method: 'PUT', body: data }); }
 export async function verwijderWerkbon(id)         { return apiFetch(`/werkbonnen/${id}`, { method: 'DELETE' }); }
+
+// ============================================================
+// GEBRUIKERS BEHEER (admin)
+// ============================================================
+export async function updateGebruikerLidmaatschap(id, data) {
+  return apiFetch(`/gebruikers/${id}`, { method: 'PATCH', body: data });
+}
+
+// ============================================================
+// REVIEWS
+// ============================================================
+export async function plaatsReview(sterren, tekst) { return apiFetch('/reviews', { method: 'POST', body: { sterren, tekst } }); }
+export async function weigerReview()               { return apiFetch('/reviews/weiger', { method: 'POST' }); }
+export async function haalReviewsOp()               { return apiFetch('/reviews'); }
+
+// ============================================================
+// DECLARATIES & BOEKHOUDING
+// ============================================================
+export async function haalDeclaratiesOp()        { return apiFetch('/declaraties'); }
+export async function maakDeclaratieAan(data)     { return apiFetch('/declaraties', { method: 'POST', body: data }); }
+export async function updateDeclaratie(id, data)  { return apiFetch(`/declaraties/${id}`, { method: 'PUT', body: data }); }
+export async function verwijderDeclaratie(id)     { return apiFetch(`/declaraties/${id}`, { method: 'DELETE' }); }
+export function declaratieBijlageUrl(id) {
+  const token = localStorage.getItem('dencrm_access');
+  return `${API_URL}/declaraties/${id}/bijlage?token=${encodeURIComponent(token||'')}`;
+}

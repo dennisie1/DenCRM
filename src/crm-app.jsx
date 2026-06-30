@@ -657,7 +657,7 @@ const DARK_BGS = ["#1e2430","#111318","#0f1e2e"];
 function uid() { return Math.random().toString(36).slice(2,9); }
 
 // ── Klant zoekbox met autocomplete ──────────────────────────────────────────
-function KlantZoekBox({ klanten, value, onChange, fs }) {
+function KlantZoekBox({ klanten, value, onChange, fs, placeholder }) {
   const [query, setQuery] = useState(value ? (klanten.find(k=>k.id===value)?.naam||"") : "");
   const [open, setOpen] = useState(false);
   const ref = useRef();
@@ -680,7 +680,7 @@ function KlantZoekBox({ klanten, value, onChange, fs }) {
         value={query}
         onChange={e => { setQuery(e.target.value); onChange(""); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        placeholder="Typ om te zoeken…"
+        placeholder={placeholder || "Typ om te zoeken…"}
         style={{ width:"100%", padding:"8px 12px", borderRadius:8, border:"1px solid #c0c0c0",
           background:"#f9f9f9", color:"#1a1a1a", fontSize:fs, boxSizing:"border-box" }}
       />
@@ -930,6 +930,11 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
   const [regForm, setRegForm] = useState({ naam:"", bedrijf:"", email:"" });
   const [regErr, setRegErr] = useState("");
   const [regOk, setRegOk] = useState(false);
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    API.haalReviewsOp().then(data => setReviews(data.filter(r=>r.tekst).slice(0,6))).catch(()=>{});
+  }, []);
 
   async function doLogin() {
     if (!un || !pw) { setErr("Vul gebruikersnaam en wachtwoord in."); return; }
@@ -954,7 +959,36 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
 
   return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
-      background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)" }}>
+      background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)", position:"relative", padding:"1rem" }}>
+
+      {/* Reviews sidebar — los gepositioneerd, beïnvloedt centrering niet */}
+      {reviews.length > 0 && window.innerWidth > 1100 && (
+        <div style={{ position:"absolute", left:"calc(50% + 280px)", top:"50%", transform:"translateY(-50%)",
+          width:320, flexShrink:0, display:"flex", flexDirection:"column", gap:12,
+          maxHeight:"85vh", overflowY:"auto" }}
+          className="reviews-sidebar">
+          <p style={{ color:"#fff", fontSize:14, fontWeight:600, margin:"0 0 4px", opacity:0.9 }}>
+            💬 Wat gebruikers zeggen
+          </p>
+          {reviews.map((r,i) => (
+            <div key={i} style={{ background:"rgba(255,255,255,0.08)", borderRadius:12, padding:"14px 16px",
+              backdropFilter:"blur(8px)", border:"1px solid rgba(255,255,255,0.12)" }}>
+              <div style={{ marginBottom:6 }}>
+                {[1,2,3,4,5].map(s => (
+                  <span key={s} style={{ color: s<=r.sterren ? "#f5b400" : "rgba(255,255,255,0.2)", fontSize:14 }}>★</span>
+                ))}
+              </div>
+              <p style={{ color:"rgba(255,255,255,0.9)", fontSize:13, lineHeight:1.5, margin:"0 0 8px" }}>
+                "{r.tekst}"
+              </p>
+              <p style={{ color:"rgba(255,255,255,0.6)", fontSize:11, margin:0, fontWeight:500 }}>
+                — {r.bedrijfsnaam || "DenCRM gebruiker"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ background:"#fff", borderRadius:24, border:"1px solid #e0e0e0",
         padding:"3rem 3rem 2.5rem", width:"100%", maxWidth:480,
         boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
@@ -1137,80 +1171,120 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
 
 // ── GEBRUIKERSBEHEER ─────────────────────────────────────────────────────────
 function GebruikersBeheer({ users, setUsers, kleur, fs, T }) {
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ naam:"", username:"", ww:"", isAdmin:false });
-  const [editId, setEditId] = useState(null);
-  const [err, setErr] = useState("");
+  const [gebruikers, setGebruikers] = useState([]);
+  const [laden, setLaden] = useState(true);
 
-  function openNieuw() { setForm({ naam:"", username:"", ww:"", isAdmin:false }); setEditId(null); setErr(""); setModal(true); }
-  function openEdit(u) { setForm({ naam:u.naam, username:u.username, ww:"", isAdmin:u.isAdmin }); setEditId(u.id); setErr(""); setModal(true); }
+  useEffect(() => {
+    API.haalGebruikersOp().then(data => {
+      setGebruikers(data);
+      setLaden(false);
+    }).catch(() => setLaden(false));
+  }, []);
 
-  function save() {
-    if (!form.naam||!form.username) { setErr(T.naamEnUsernameVerplicht); return; }
-    if (!editId&&!form.ww) { setErr(T.wachtwoordVerplicht); return; }
-    if (users.find(u=>u.username===form.username&&u.id!==editId)) { setErr(T.gebruikersnaamInGebruik); return; }
-    if (editId) setUsers(p=>p.map(u=>u.id===editId?{...u,naam:form.naam,username:form.username,isAdmin:form.isAdmin,...(form.ww?{passHash:simpleHash(form.ww)}:{})}:u));
-    else setUsers(p=>[...p,{ id:"u"+uid(), naam:form.naam, username:form.username, passHash:simpleHash(form.ww), isAdmin:form.isAdmin }]);
-    setModal(false);
+  async function updateLidmaatschap(id, dagen) {
+    const huidig = gebruikers.find(g=>g.id===id);
+    const basis = huidig?.lidmaatschap_tot && new Date(huidig.lidmaatschap_tot) > new Date()
+      ? new Date(huidig.lidmaatschap_tot)
+      : new Date();
+    const nieuw = new Date(basis);
+    nieuw.setDate(nieuw.getDate() + dagen);
+    const tot = nieuw.toISOString().slice(0,10);
+    try {
+      await fetch(`/api/gebruikers/${id}`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dencrm_access')},
+        body: JSON.stringify({ lidmaatschap_tot: tot })
+      });
+      setGebruikers(prev => prev.map(g => g.id===id ? {...g, lidmaatschap_tot:tot} : g));
+    } catch(e) { alert("Bijwerken mislukt: "+e.message); }
   }
+
+  function fmtDatum(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("nl-NL", {day:"numeric",month:"short",year:"numeric"});
+  }
+
+  function lidmaatschapStatus(tot) {
+    if (!tot) return { label:"Geen", kleur:"#a32d2d", bg:"#fcebeb" };
+    const d = new Date(tot);
+    const nu = new Date();
+    const diff = Math.ceil((d - nu) / (1000*60*60*24));
+    if (diff < 0) return { label:"Verlopen", kleur:"#a32d2d", bg:"#fcebeb" };
+    if (diff < 14) return { label:`Verloopt over ${diff}d`, kleur:"#7a5800", bg:"#fffbf0" };
+    return { label:`Geldig t/m ${fmtDatum(tot)}`, kleur:"#27500a", bg:"#eaf3de" };
+  }
+
+  if (laden) return <p style={{ color:"var(--color-text-secondary)" }}>Laden…</p>;
 
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"1rem" }}>
-        <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuwe gebruiker</Btn>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1rem" }}>
+        <h3 style={{ margin:0, fontSize:fs+2 }}>Gebruikers ({gebruikers.length})</h3>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {users.map(u=>(
-          <div key={u.id} style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
-            borderRadius:12, padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
-            <Avatar naam={u.naam} kleur={kleur} />
-            <div style={{ flex:1 }}>
-              <p style={{ margin:0, fontWeight:500, fontSize:fs }}>{u.naam}</p>
-              <p style={{ margin:0, fontSize:fs-1, color:"var(--color-text-secondary)" }}>@{u.username}</p>
+        {gebruikers.map(u => {
+          const lid = lidmaatschapStatus(u.lidmaatschap_tot);
+          return (
+            <div key={u.id} style={{ background:"var(--color-background-primary)",
+              border:"0.5px solid var(--color-border-tertiary)",
+              borderRadius:12, padding:"14px 16px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+                <Avatar naam={u.naam} kleur={kleur} />
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <p style={{ margin:0, fontWeight:500, fontSize:fs }}>{u.naam}</p>
+                    {u.is_admin && <Badge kleur={kleur}>Admin</Badge>}
+                    {!u.is_actief && <span style={{ fontSize:fs-3, padding:"2px 8px", borderRadius:99, background:"#fcebeb", color:"#a32d2d" }}>Inactief</span>}
+                  </div>
+                  <p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)" }}>@{u.username} · {u.email||"geen email"}</p>
+                </div>
+                <span style={{ fontSize:fs-2, padding:"3px 10px", borderRadius:99, background:lid.bg, color:lid.kleur, fontWeight:500 }}>
+                  {lid.label}
+                </span>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, fontSize:fs-2,
+                color:"var(--color-text-secondary)", marginBottom:10 }}>
+                <div>
+                  <span style={{ fontWeight:600 }}>Aangemaakt:</span> {fmtDatum(u.aangemaakt_op)}
+                </div>
+                <div>
+                  <span style={{ fontWeight:600 }}>Laatste login:</span> {u.laatste_login ? new Date(u.laatste_login).toLocaleString("nl-NL") : "Nooit"}
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)", alignSelf:"center", marginRight:4 }}>
+                  Verleng lidmaatschap:
+                </span>
+                {[{l:"+1 maand", d:30},{l:"+6 maanden", d:182},{l:"+1 jaar", d:365}].map(opt=>(
+                  <button key={opt.d} onClick={()=>updateLidmaatschap(u.id, opt.d)}
+                    style={{ padding:"4px 10px", borderRadius:6, border:`1px solid ${kleur.hoofd}`,
+                      background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-3 }}>
+                    {opt.l}
+                  </button>
+                ))}
+              </div>
             </div>
-            {u.isAdmin&&<Badge kleur={kleur}>Admin</Badge>}
-            <div style={{ display:"flex", gap:6 }}>
-              <Btn onClick={()=>openEdit(u)} fs={fs}>✎ Bewerken</Btn>
-              {u.id!=="u1"&&<Btn variant="danger" onClick={()=>{ if(confirm("Verwijderen?")) setUsers(p=>p.filter(x=>x.id!==u.id)); }} fs={fs}>✕</Btn>}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      {modal&&(
-          <Modal title={editId?T.gebruikerBewerken:T.nieuweGebruiker} onClose={()=>setModal(false)} fs={fs}>
-          <FF label={T.volledigeNaam} fs={fs}><input value={form.naam} onChange={e=>setForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
-          <FF label={T.gebruikersnaam} fs={fs}><input value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} style={iSt(fs)} /></FF>
-            <FF label={editId?T.nieuwWachtwoordOptioneel:T.wachtwoordWijzigen} fs={fs}>
-            <input type="password" value={form.ww} onChange={e=>setForm(f=>({...f,ww:e.target.value}))} style={iSt(fs)} />
-          </FF>
-          <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:fs, cursor:"pointer", marginBottom:"1rem", color:"#1a1a1a" }}>
-            <input type="checkbox" checked={form.isAdmin} onChange={e=>setForm(f=>({...f,isAdmin:e.target.checked}))} />
-            Admin-rechten
-          </label>
-          {err&&<p style={{ color:"#A32D2D", fontSize:fs-1, background:"#FCEBEB", padding:"8px 12px", borderRadius:6, marginBottom:"1rem" }}>{err}</p>}
-          <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-            <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
-            <Btn variant="primary" onClick={save} kleur={kleur} fs={fs}>Opslaan</Btn>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
 
 // ── KLANTEN ──────────────────────────────────────────────────────────────────
-function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemoMode, herlaad, T }) {
+function KlantenPage({ klanten, setKlanten, producten, agenda, werkbonnen, kassaBonnen, kleur, fs, isDemoMode, herlaad, T }) {
   const [zoek, setZoek] = useState("");
   const [modal, setModal] = useState(null);
   const [sel, setSel] = useState(null);
   const [form, setForm] = useState({ naam:"", email:"", telefoon:"", straat:"", postcode:"", stad:"", producten:[], offertes:[] });
   const [tabblad, setTabblad] = useState("info"); // "info" | "afspraken" | "offertes"
   const [openOfferte, setOpenOfferte] = useState(null);
+  const [openKassaBon, setOpenKassaBon] = useState(null);
   const [klantDetailModal, setKlantDetailModal] = useState(null); // klant voor popup
 
   const filtered = klanten.filter(k=>
-    k.naam.toLowerCase().includes(zoek.toLowerCase()) ||
-    k.email.toLowerCase().includes(zoek.toLowerCase())
+    (k.naam||"").toLowerCase().includes(zoek.toLowerCase()) ||
+    (k.email||"").toLowerCase().includes(zoek.toLowerCase())
   );
 
   function openNieuw() { setForm({ naam:"", email:"", telefoon:"", straat:"", postcode:"", stad:"", producten:[], offertes:[] }); setModal("nieuw"); }
@@ -1225,8 +1299,8 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
     }
     try {
       if (modal==="nieuw") {
-        const { id } = await API.maakKlantAan({ naam:form.naam, email:form.email, telefoon:form.telefoon, adres:form.adres });
-        await API.updateKlant(id, { ...form, producten:form.producten });
+        const { id } = await API.maakKlantAan({ naam:form.naam, email:form.email, telefoon:form.telefoon, straat:form.straat, postcode:form.postcode, stad:form.stad });
+        if (form.producten?.length) await API.updateKlant(id, { naam:form.naam, email:form.email, telefoon:form.telefoon, straat:form.straat, postcode:form.postcode, stad:form.stad, producten:form.producten });
       } else {
         await API.updateKlant(form.id, { naam:form.naam, email:form.email, telefoon:form.telefoon, straat:form.straat, postcode:form.postcode, stad:form.stad, producten:form.producten });
       }
@@ -1253,6 +1327,8 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
 
   // Offertes voor geselecteerde klant
   const klantOffertes = sel ? (sel.offertes||[]) : [];
+  const klantWerkbonnen = sel ? (werkbonnen||[]).filter(w=>w.klant_id===sel.id) : [];
+  const klantKassa = sel ? (kassaBonnen||[]).filter(b=>b.klant_id===sel.id) : [];
 
   return (
     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"1.5rem" }}>
@@ -1300,7 +1376,13 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
             </div>
             {/* Tabbladen */}
             <div style={{ display:"flex", borderBottom:"0.5px solid var(--color-border-tertiary)", marginBottom:"1rem", gap:0 }}>
-              {[{id:"info",label:T.info},{id:"afspraken",label:T.afspraken+" ("+klantAfspraken.length+")"},{id:"offertes",label:T.offertes+" ("+klantOffertes.length+")"}].map(t=>(
+              {[
+                {id:"info",label:T.info},
+                {id:"afspraken",label:T.afspraken+" ("+klantAfspraken.length+")"},
+                {id:"offertes",label:T.offertes+" ("+klantOffertes.length+")"},
+                {id:"werkbonnen",label:"Werkbonnen ("+klantWerkbonnen.length+")"},
+                {id:"kassa",label:"Kassa ("+klantKassa.length+")"},
+              ].map(t=>(
                 <button key={t.id} onClick={()=>setTabblad(t.id)} style={{
                   padding:"7px 14px", border:"none", background:"none", cursor:"pointer",
                   fontSize:fs-1, fontWeight:500,
@@ -1402,6 +1484,62 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
                 </div>
               </div>
             )}
+
+            {tabblad==="werkbonnen"&&(
+              <div>
+                {klantWerkbonnen.length===0&&<p style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>Geen werkbonnen gevonden.</p>}
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {klantWerkbonnen.map(w=>{
+                    const st = WERKBON_STATUSSEN?.find(s=>s.id===w.status);
+                    return (
+                      <div key={w.id} style={{ background:"var(--color-background-secondary)", borderRadius:8, padding:"10px 12px",
+                        borderLeft:`3px solid ${st?.kleur||kleur.hoofd}` }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                          <div>
+                            <p style={{ margin:0, fontWeight:500, fontSize:fs }}>{w.referentie}</p>
+                            <p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)" }}>{w.product_omschrijving||"—"}</p>
+                          </div>
+                          <span style={{ fontSize:fs-3, padding:"2px 8px", borderRadius:99,
+                            background:st?.bg||kleur.licht, color:st?.kleur||kleur.donker }}>{st?.label||w.status}</span>
+                        </div>
+                        {w.datum_klaar&&<p style={{ margin:"4px 0 0", fontSize:fs-3, color:"var(--color-text-secondary)" }}>Klaar: {w.datum_klaar}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {tabblad==="kassa"&&(
+              <div>
+                {klantKassa.length===0&&<p style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>Geen kassa bonnen gevonden.</p>}
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {klantKassa.map(b=>(
+                    <div key={b.id} onClick={()=>setOpenKassaBon(b)}
+                      style={{ background:"var(--color-background-secondary)", borderRadius:8, padding:"10px 12px", cursor:"pointer" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <div>
+                          <p style={{ margin:0, fontWeight:500, fontSize:fs }}>{b.referentie}</p>
+                          <p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)" }}>
+                            {b.datum||""} · {b.betaalmethode||""} · {(b.regels||[]).length} artikel{(b.regels||[]).length!==1?"en":""}
+                          </p>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                          <span style={{ fontSize:fs, fontWeight:700, color:kleur.hoofd }}>
+                            €{parseFloat(b.totaal_incl_btw||0).toLocaleString("nl-NL",{minimumFractionDigits:2})}
+                          </span>
+                          <button onClick={e=>{e.stopPropagation();setOpenKassaBon(b);}}
+                            style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
+                              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2, fontWeight:500 }}>
+                            🧾 Openen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ):(
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:200,
@@ -1462,6 +1600,63 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, kleur, fs, isDemo
           </div>
         </div>
       )}
+
+      {/* Kassa bon viewer modal */}
+      {openKassaBon&&(()=>{
+        const fmtB = n => "€" + parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
+        const regels = openKassaBon.regels || [];
+        const subTotaal = regels.reduce((s,r)=>s+(parseFloat(r.prijs)||0)*(r.aantal||1),0);
+        const btwBedrag = openKassaBon.incl_btw ? Math.round(subTotaal*0.21*100)/100 : 0;
+        return (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex",
+            alignItems:"flex-start", justifyContent:"center", zIndex:1000, padding:"1rem", overflowY:"auto" }}
+            onClick={e=>e.target===e.currentTarget&&setOpenKassaBon(null)}>
+            <div style={{ background:"#fff", borderRadius:12, padding:"1.5rem", width:"100%", maxWidth:420, marginTop:"1rem" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1rem" }}>
+                <div>
+                  <h2 style={{ margin:0, fontSize:fs+2, fontWeight:600, color:"#1a1a1a" }}>🧾 {openKassaBon.referentie}</h2>
+                  <p style={{ margin:"2px 0 0", fontSize:fs-2, color:"#888" }}>
+                    {sel?.naam} · {openKassaBon.datum} · {openKassaBon.betaalmethode}
+                  </p>
+                </div>
+                <button onClick={()=>setOpenKassaBon(null)} style={{ background:"none", border:"none",
+                  cursor:"pointer", fontSize:22, color:"#666", padding:"4px 8px", lineHeight:1 }}>×</button>
+              </div>
+
+              <div style={{ background:"#f5f5f5", borderRadius:8, padding:"12px", marginBottom:"1rem" }}>
+                {regels.length===0 && <p style={{ fontSize:fs-1, color:"#888", margin:0 }}>Geen artikelen gevonden.</p>}
+                {regels.map((r,i)=>(
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:6, fontSize:fs-1 }}>
+                    <span>{r.aantal||1}× {r.naam||"—"}</span>
+                    <span style={{ fontWeight:500 }}>{fmtB((parseFloat(r.prijs)||0)*(r.aantal||1))}</span>
+                  </div>
+                ))}
+                {openKassaBon.incl_btw && (
+                  <>
+                    <div style={{ borderTop:"1px solid #ddd", margin:"8px 0" }} />
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-2, color:"#666" }}>
+                      <span>Subtotaal excl. BTW</span><span>{fmtB(subTotaal)}</span>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-2, color:"#666" }}>
+                      <span>BTW 21%</span><span>{fmtB(btwBedrag)}</span>
+                    </div>
+                  </>
+                )}
+                <div style={{ borderTop:"1px solid #ddd", margin:"8px 0" }} />
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs+2, fontWeight:700, color:kleur.hoofd }}>
+                  <span>Totaal</span><span>{fmtB(openKassaBon.totaal_incl_btw)}</span>
+                </div>
+              </div>
+
+              <button onClick={()=>setOpenKassaBon(null)}
+                style={{ width:"100%", padding:"10px", borderRadius:8, background:kleur.hoofd,
+                  color:"#fff", border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:500 }}>
+                Sluiten
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Klant detail popup (dubbelklik) */}
       {klantDetailModal&&(()=>{
@@ -2207,6 +2402,8 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
   const [bezig, setBezig] = useState(false);
   const [succesBon, setSuccesBon] = useState(null);
   const [activeCat, setActiveCat] = useState("Alle");
+  const [kassaNkModal, setKassaNkModal] = useState(false);
+  const [kassaNkForm, setKassaNkForm] = useState({ naam:"", email:"", telefoon:"" });
   const [templateModal, setTemplateModal] = useState(false);
   const [bonTemplate, setBonTemplateState] = useState(() => {
     try { return JSON.parse(localStorage.getItem('dencrm_bon_template') || 'null') || {
@@ -2340,7 +2537,14 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
     w.document.close();
   }
 
-  const subTotaal = winkelwagen.reduce((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
+  const [kortingType, setKortingType] = useState("percentage"); // percentage | bedrag
+  const [kortingWaarde, setKortingWaarde] = useState("");
+
+  const subTotaalVoorKorting = winkelwagen.reduce((s,r) => s + (parseFloat(r.prijs)||0)*r.aantal, 0);
+  const kortingBedrag = kortingType === "percentage"
+    ? Math.round(subTotaalVoorKorting * (parseFloat(kortingWaarde)||0) / 100 * 100) / 100
+    : Math.min(parseFloat(kortingWaarde)||0, subTotaalVoorKorting);
+  const subTotaal = Math.max(0, subTotaalVoorKorting - kortingBedrag);
   const btwBedrag = inclBtw ? Math.round(subTotaal * 0.21 * 100) / 100 : 0;
   const totaal    = subTotaal + btwBedrag;
   const fmt = n => "€" + parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
@@ -2368,7 +2572,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
         setDagBonnen(prev => [{ ...bon, datum:vandaag, totaal_incl_btw:totaal }, ...prev]);
       }
       setSuccesBon({ ...bon, totaal, subTotaal, btwBedrag, regels:winkelwagen, betaalmethode, klantNaam: klantId ? klanten.find(k=>k.id===klantId)?.naam : klantVrij });
-      setWinkelwagen([]); setKlantId(""); setKlantVrij("");
+      setWinkelwagen([]); setKlantId(""); setKlantVrij(""); setKortingType("percentage"); setKortingWaarde("");
     } catch(e) { alert("Afrekenen mislukt: "+e.message); }
     finally { setBezig(false); }
   }
@@ -2488,11 +2692,17 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
 
           {/* Klant (optioneel) */}
           <div style={{ marginBottom:10 }}>
-            <KlantZoekBox klanten={klanten} value={klantId} onChange={id=>{ setKlantId(id); if(id) setKlantVrij(""); }} fs={fs} />
+            <KlantZoekBox klanten={klanten} value={klantId}
+              onChange={id=>setKlantId(id)}
+              placeholder="Typ hier om naar een klant te zoeken..."
+              fs={fs} />
             {!klantId && (
-              <input value={klantVrij} onChange={e=>setKlantVrij(e.target.value)}
-                placeholder="Of typ klantnaam (optioneel)"
-                style={{ ...iSt(fs), marginTop:6 }} />
+              <button onClick={()=>setKassaNkModal(true)}
+                style={{ marginTop:6, padding:"5px 10px", borderRadius:6,
+                  border:`1px dashed ${kleur.hoofd}`, background:"transparent",
+                  color:kleur.hoofd, cursor:"pointer", fontSize:fs-2 }}>
+                + Nieuwe klant aanmaken
+              </button>
             )}
           </div>
 
@@ -2563,11 +2773,38 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
             </div>
           </div>
 
+          {/* Korting */}
+          <div style={{ marginBottom:8, padding:"8px", background:"var(--color-background-secondary)", borderRadius:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <span style={{ fontSize:fs-2, fontWeight:500 }}>🏷 Korting</span>
+              <div style={{ display:"flex", borderRadius:6, overflow:"hidden", border:`1px solid ${kleur.hoofd}` }}>
+                <button onClick={()=>setKortingType("percentage")}
+                  style={{ padding:"3px 8px", border:"none", cursor:"pointer", fontSize:fs-3,
+                    background:kortingType==="percentage"?kleur.hoofd:"var(--color-background-primary)",
+                    color:kortingType==="percentage"?"#fff":"var(--color-text-secondary)" }}>%</button>
+                <button onClick={()=>setKortingType("bedrag")}
+                  style={{ padding:"3px 8px", border:"none", cursor:"pointer", fontSize:fs-3,
+                    background:kortingType==="bedrag"?kleur.hoofd:"var(--color-background-primary)",
+                    color:kortingType==="bedrag"?"#fff":"var(--color-text-secondary)" }}>€</button>
+              </div>
+            </div>
+            <input type="number" value={kortingWaarde} onChange={e=>setKortingWaarde(e.target.value)}
+              placeholder={kortingType==="percentage"?"0 %":"€ 0,00"} min="0"
+              step={kortingType==="percentage"?"1":"0.01"}
+              style={{ ...iSt(fs-1), padding:"5px 8px" }} />
+          </div>
+
           {/* Totaal */}
           <div style={{ borderTop:"0.5px solid var(--color-border-tertiary)", paddingTop:8, marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-1, color:"var(--color-text-secondary)", marginBottom:4 }}>
-              <span>Subtotaal</span><span>{fmt(subTotaal)}</span>
+              <span>Subtotaal</span><span>{fmt(subTotaalVoorKorting)}</span>
             </div>
+            {kortingBedrag>0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-1, color:"#a32d2d", marginBottom:4 }}>
+                <span>Korting {kortingType==="percentage"?`(${kortingWaarde}%)`:""}</span>
+                <span>−{fmt(kortingBedrag)}</span>
+              </div>
+            )}
             {inclBtw&&<div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-1, color:"var(--color-text-secondary)", marginBottom:4 }}>
               <span>BTW 21%</span><span>{fmt(btwBedrag)}</span>
             </div>}
@@ -2600,6 +2837,29 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T }) {
           </button>
         </div>
       </div>
+
+      {kassaNkModal && (
+        <Modal title="Nieuwe klant aanmaken" onClose={()=>setKassaNkModal(false)} fs={fs}>
+          <FF label="Naam" fs={fs}><input value={kassaNkForm.naam} onChange={e=>setKassaNkForm(f=>({...f,naam:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label="E-mailadres" fs={fs}><input type="email" value={kassaNkForm.email} onChange={e=>setKassaNkForm(f=>({...f,email:e.target.value}))} style={iSt(fs)} /></FF>
+          <FF label="Telefoon" fs={fs}><input value={kassaNkForm.telefoon} onChange={e=>setKassaNkForm(f=>({...f,telefoon:e.target.value}))} style={iSt(fs)} /></FF>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setKassaNkModal(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" kleur={kleur} fs={fs} disabled={!kassaNkForm.naam}
+              onClick={async()=>{
+                try {
+                  const { id } = await API.maakKlantAan({ naam:kassaNkForm.naam, email:kassaNkForm.email, telefoon:kassaNkForm.telefoon });
+                  await herlaad();
+                  setKlantId(id);
+                  setKassaNkModal(false);
+                  setKassaNkForm({naam:"",email:"",telefoon:""});
+                } catch(e) { alert("Aanmaken mislukt: "+e.message); }
+              }}>
+              Aanmaken & koppelen
+            </Btn>
+          </div>
+        </Modal>
+      )}
 
       {/* ── Bon template modal ── */}
       {templateModal && (
@@ -3107,6 +3367,346 @@ function WerkbonnenPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
     </div>
   );
 }
+// ── DECLARATIES & BOEKHOUDING ─────────────────────────────────
+const DECLARATIE_CATEGORIEEN = [
+  { id:"kantoor",      label:"Kantoorbenodigdheden", icon:"📎" },
+  { id:"reiskosten",   label:"Reiskosten",            icon:"🚗" },
+  { id:"software",     label:"Software/abonnementen", icon:"💻" },
+  { id:"marketing",    label:"Marketing",              icon:"📢" },
+  { id:"voorraad",     label:"Voorraad/inkoop",        icon:"📦" },
+  { id:"huisvesting",  label:"Huisvesting",            icon:"🏢" },
+  { id:"verzekering",  label:"Verzekeringen",          icon:"🛡" },
+  { id:"overig",       label:"Overig",                 icon:"📄" },
+];
+
+function DeclaratiesPage({ kleur, fs, isDemoMode, T }) {
+  const [declaraties, setDeclaraties] = useState([]);
+  const [laden, setLaden] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [filterCat, setFilterCat] = useState("alle");
+  const [zoek, setZoek] = useState("");
+
+  const leegForm = () => ({
+    omschrijving:"", categorie:"overig", datum:new Date().toISOString().slice(0,10),
+    leverancier:"", bedrag_excl_btw:"", btw_percentage:21, btw_aftrekbaar:true,
+    betaalmethode:"bankoverschrijving", notitie:"",
+    bijlage_naam:null, bijlage_type:null, bijlage_base64:null, bijlage_preview:null,
+  });
+  const [form, setForm] = useState(leegForm);
+
+  useEffect(() => { laad(); }, []);
+
+  async function laad() {
+    setLaden(true);
+    try { if (!isDemoMode) { const data = await API.haalDeclaratiesOp(); setDeclaraties(data); } }
+    catch(e) { console.error(e); }
+    finally { setLaden(false); }
+  }
+
+  function openNieuw() { setForm(leegForm()); setEditId(null); setModal(true); }
+
+  function openEdit(d) {
+    setForm({
+      omschrijving:d.omschrijving, categorie:d.categorie, datum:d.datum,
+      leverancier:d.leverancier||"", bedrag_excl_btw:d.bedrag_excl_btw, btw_percentage:d.btw_percentage,
+      btw_aftrekbaar:!!d.btw_aftrekbaar, betaalmethode:d.betaalmethode||"bankoverschrijving",
+      notitie:d.notitie||"", bijlage_naam:d.bijlage_naam, bijlage_type:d.bijlage_type,
+      bijlage_base64:null, bijlage_preview:null,
+    });
+    setEditId(d.id); setModal(true);
+  }
+
+  function handleBestand(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert("Bestand is te groot (max 8MB)."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(",")[1];
+      setForm(f => ({ ...f, bijlage_naam:file.name, bijlage_type:file.type, bijlage_base64:base64, bijlage_preview: file.type.startsWith("image/") ? reader.result : null }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function slaOp() {
+    if (!form.omschrijving) { alert("Vul een omschrijving in."); return; }
+    try {
+      if (editId) await API.updateDeclaratie(editId, form);
+      else await API.maakDeclaratieAan(form);
+      await laad();
+      setModal(false);
+    } catch(e) { alert("Opslaan mislukt: " + e.message); }
+  }
+
+  async function verwijder(id) {
+    if (!confirm("Declaratie verwijderen?")) return;
+    try { await API.verwijderDeclaratie(id); await laad(); setDetail(null); }
+    catch(e) { alert("Verwijderen mislukt: " + e.message); }
+  }
+
+  const gefilterd = declaraties
+    .filter(d => filterCat==="alle" || d.categorie===filterCat)
+    .filter(d => !zoek || d.omschrijving.toLowerCase().includes(zoek.toLowerCase())
+               || (d.leverancier||"").toLowerCase().includes(zoek.toLowerCase()));
+
+  const fmt = n => "€" + parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
+  const totaalExcl = gefilterd.reduce((s,d)=>s+(parseFloat(d.bedrag_excl_btw)||0),0);
+  const totaalIncl = gefilterd.reduce((s,d)=>s+(parseFloat(d.bedrag_incl_btw)||0),0);
+  const totaalBtw  = totaalIncl - totaalExcl;
+
+  const catInfo = (id) => DECLARATIE_CATEGORIEEN.find(c=>c.id===id) || DECLARATIE_CATEGORIEEN[7];
+
+  return (
+    <div style={{ display:"flex", gap:16, height:"calc(100vh - 160px)" }}>
+
+      <div style={{ width:380, flexShrink:0, display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+          <div style={{ background:"var(--color-background-secondary)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+            <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>Excl. BTW</p>
+            <p style={{ margin:0, fontSize:fs-1, fontWeight:700 }}>{fmt(totaalExcl)}</p>
+          </div>
+          <div style={{ background:"#fcebeb", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+            <p style={{ margin:0, fontSize:fs-3, color:"#a32d2d" }}>BTW</p>
+            <p style={{ margin:0, fontSize:fs-1, fontWeight:700, color:"#a32d2d" }}>{fmt(totaalBtw)}</p>
+          </div>
+          <div style={{ background:kleur.licht, borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+            <p style={{ margin:0, fontSize:fs-3, color:kleur.donker }}>Totaal</p>
+            <p style={{ margin:0, fontSize:fs-1, fontWeight:700, color:kleur.donker }}>{fmt(totaalIncl)}</p>
+          </div>
+        </div>
+
+        <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Zoek op omschrijving of leverancier…" style={iSt(fs)} />
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          <button onClick={()=>setFilterCat("alle")}
+            style={{ padding:"4px 10px", borderRadius:99, border:"none", cursor:"pointer", fontSize:fs-3,
+              background: filterCat==="alle" ? kleur.hoofd : "var(--color-background-secondary)",
+              color: filterCat==="alle" ? "#fff" : "var(--color-text-secondary)" }}>
+            Alle ({declaraties.length})
+          </button>
+          {DECLARATIE_CATEGORIEEN.map(c=>(
+            <button key={c.id} onClick={()=>setFilterCat(c.id)}
+              style={{ padding:"4px 10px", borderRadius:99, border:"none", cursor:"pointer", fontSize:fs-3,
+                background: filterCat===c.id ? kleur.hoofd : "var(--color-background-secondary)",
+                color: filterCat===c.id ? "#fff" : "var(--color-text-secondary)" }}>
+              {c.icon} {declaraties.filter(d=>d.categorie===c.id).length}
+            </button>
+          ))}
+        </div>
+
+        <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuwe declaratie</Btn>
+
+        <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+          {laden && <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1 }}>Laden…</p>}
+          {!laden && gefilterd.length===0 && <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1 }}>Geen declaraties gevonden.</p>}
+          {gefilterd.map(d=>{
+            const cat = catInfo(d.categorie);
+            return (
+              <div key={d.id} onClick={()=>setDetail(d)}
+                style={{ background:"var(--color-background-primary)",
+                  border:`1px solid ${detail?.id===d.id ? kleur.hoofd : "var(--color-border-tertiary)"}`,
+                  borderRadius:10, padding:"10px 12px", cursor:"pointer" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:fs-1, fontWeight:500 }}>{cat.icon} {d.omschrijving}</span>
+                  <span style={{ fontSize:fs-1, fontWeight:700, color:kleur.hoofd }}>{fmt(d.bedrag_incl_btw)}</span>
+                </div>
+                <p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>
+                  {d.datum} {d.leverancier ? `· ${d.leverancier}` : ""} {d.heeft_bijlage ? "· 📎" : ""}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ flex:1, background:"var(--color-background-primary)",
+        border:"0.5px solid var(--color-border-tertiary)", borderRadius:16, padding:"1.5rem", overflowY:"auto" }}>
+        {!detail ? (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+            height:"100%", color:"var(--color-text-secondary)", fontSize:fs }}>
+            Selecteer een declaratie om details te zien
+          </div>
+        ) : (<>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem", flexWrap:"wrap", gap:8 }}>
+            <div>
+              <h2 style={{ margin:0, fontSize:fs+4 }}>{catInfo(detail.categorie).icon} {detail.omschrijving}</h2>
+              <p style={{ margin:"4px 0 0", fontSize:fs-1, color:"var(--color-text-secondary)" }}>
+                {catInfo(detail.categorie).label} · {detail.datum}
+              </p>
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={()=>openEdit(detail)}
+                style={{ padding:"7px 12px", borderRadius:8, background:kleur.licht,
+                  border:`1px solid ${kleur.hoofd}`, color:kleur.donker, cursor:"pointer", fontSize:fs-1 }}>
+                ✎ Bewerken
+              </button>
+              <button onClick={()=>verwijder(detail.id)}
+                style={{ padding:"7px 12px", borderRadius:8, background:"#fcebeb",
+                  border:"none", color:"#a32d2d", cursor:"pointer", fontSize:fs-1 }}>
+                ✕ Verwijderen
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:"1.5rem" }}>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>LEVERANCIER</p>
+              <p style={{ margin:0, fontSize:fs }}>{detail.leverancier||"—"}</p>
+            </div>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>BETAALMETHODE</p>
+              <p style={{ margin:0, fontSize:fs }}>{detail.betaalmethode||"—"}</p>
+            </div>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>BEDRAG EXCL. BTW</p>
+              <p style={{ margin:0, fontSize:fs }}>{fmt(detail.bedrag_excl_btw)}</p>
+            </div>
+            <div>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>BTW ({detail.btw_percentage}%)</p>
+              <p style={{ margin:0, fontSize:fs }}>{fmt(detail.bedrag_incl_btw - detail.bedrag_excl_btw)} {detail.btw_aftrekbaar ? "(aftrekbaar)" : "(niet aftrekbaar)"}</p>
+            </div>
+          </div>
+
+          <div style={{ background:kleur.licht, borderRadius:10, padding:"14px", marginBottom:"1.5rem",
+            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:fs, fontWeight:600, color:kleur.donker }}>Totaal incl. BTW</span>
+            <span style={{ fontSize:fs+4, fontWeight:700, color:kleur.donker }}>{fmt(detail.bedrag_incl_btw)}</span>
+          </div>
+
+          {detail.notitie && (
+            <div style={{ marginBottom:"1.5rem" }}>
+              <p style={{ margin:"0 0 4px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>NOTITIE</p>
+              <p style={{ margin:0, fontSize:fs, whiteSpace:"pre-wrap", background:"var(--color-background-secondary)", padding:"10px", borderRadius:8 }}>{detail.notitie}</p>
+            </div>
+          )}
+
+          {detail.heeft_bijlage && (
+            <div>
+              <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)" }}>BIJLAGE</p>
+              {(detail.bijlage_type||"").startsWith("image/") ? (
+                <img src={API.declaratieBijlageUrl(detail.id)} alt="Bijlage"
+                  style={{ maxWidth:"100%", maxHeight:400, borderRadius:8, border:"1px solid var(--color-border-tertiary)" }} />
+              ) : (
+                <a href={API.declaratieBijlageUrl(detail.id)} target="_blank" rel="noreferrer"
+                  style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 16px",
+                    borderRadius:8, background:"var(--color-background-secondary)",
+                    color:kleur.hoofd, textDecoration:"none", fontSize:fs-1, fontWeight:500 }}>
+                  📄 {detail.bijlage_naam || "Bijlage openen"}
+                </a>
+              )}
+            </div>
+          )}
+        </>)}
+      </div>
+
+      {modal && (
+        <Modal title={editId?"Declaratie bewerken":"Nieuwe declaratie"} onClose={()=>setModal(false)} fs={fs}>
+          <FF label="Omschrijving" fs={fs}>
+            <input value={form.omschrijving} onChange={e=>setForm(f=>({...f,omschrijving:e.target.value}))}
+              placeholder="Bijv. Kantoorartikelen Action" style={iSt(fs)} />
+          </FF>
+
+          <FF label="Categorie" fs={fs}>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {DECLARATIE_CATEGORIEEN.map(c=>(
+                <button key={c.id} onClick={()=>setForm(f=>({...f,categorie:c.id}))}
+                  style={{ padding:"6px 12px", borderRadius:99, cursor:"pointer", fontSize:fs-2, border:"none",
+                    background: form.categorie===c.id ? kleur.hoofd : "var(--color-background-secondary)",
+                    color: form.categorie===c.id ? "#fff" : "var(--color-text-secondary)" }}>
+                  {c.icon} {c.label}
+                </button>
+              ))}
+            </div>
+          </FF>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label="Datum" fs={fs}>
+              <input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
+            </FF>
+            <FF label="Leverancier (optioneel)" fs={fs}>
+              <input value={form.leverancier} onChange={e=>setForm(f=>({...f,leverancier:e.target.value}))} style={iSt(fs)} />
+            </FF>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label="Bedrag excl. BTW" fs={fs}>
+              <input type="number" step="0.01" value={form.bedrag_excl_btw}
+                onChange={e=>setForm(f=>({...f,bedrag_excl_btw:e.target.value}))}
+                placeholder="0.00" style={iSt(fs)} />
+            </FF>
+            <FF label="BTW-percentage" fs={fs}>
+              <div style={{ display:"flex", gap:6 }}>
+                {[0,9,21].map(p=>(
+                  <button key={p} onClick={()=>setForm(f=>({...f,btw_percentage:p}))}
+                    style={{ flex:1, padding:"8px", borderRadius:8, cursor:"pointer", fontSize:fs-1,
+                      border:`1.5px solid ${form.btw_percentage===p?kleur.hoofd:"var(--color-border-secondary)"}`,
+                      background: form.btw_percentage===p ? kleur.hoofd : "var(--color-background-primary)",
+                      color: form.btw_percentage===p ? "#fff" : "var(--color-text-secondary)" }}>
+                    {p}%
+                  </button>
+                ))}
+              </div>
+            </FF>
+          </div>
+
+          {form.bedrag_excl_btw && (
+            <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"-8px 0 12px" }}>
+              Totaal incl. BTW: <strong>€{(parseFloat(form.bedrag_excl_btw||0)*(1+form.btw_percentage/100)).toLocaleString("nl-NL",{minimumFractionDigits:2})}</strong>
+            </p>
+          )}
+
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"8px 10px", borderRadius:8, background:"var(--color-background-secondary)", marginBottom:12 }}>
+            <span style={{ fontSize:fs-1 }}>BTW aftrekbaar</span>
+            <div onClick={()=>setForm(f=>({...f,btw_aftrekbaar:!f.btw_aftrekbaar}))}
+              style={{ width:36,height:20,borderRadius:99,cursor:"pointer",
+                background:form.btw_aftrekbaar?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
+              <div style={{ position:"absolute",top:2,left:form.btw_aftrekbaar?18:2,width:16,height:16,
+                borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+            </div>
+          </div>
+
+          <FF label="Betaalmethode" fs={fs}>
+            <div style={{ display:"flex", gap:6 }}>
+              {[{id:"bankoverschrijving",l:"🏦 Bank"},{id:"contant",l:"💵 Contant"},{id:"creditcard",l:"💳 Kaart"}].map(m=>(
+                <button key={m.id} onClick={()=>setForm(f=>({...f,betaalmethode:m.id}))}
+                  style={{ flex:1, padding:"6px", borderRadius:8, cursor:"pointer", fontSize:fs-2,
+                    border:`1.5px solid ${form.betaalmethode===m.id?kleur.hoofd:"var(--color-border-secondary)"}`,
+                    background: form.betaalmethode===m.id ? kleur.hoofd : "var(--color-background-primary)",
+                    color: form.betaalmethode===m.id ? "#fff" : "var(--color-text-secondary)" }}>
+                  {m.l}
+                </button>
+              ))}
+            </div>
+          </FF>
+
+          <FF label="Bonnetje / factuur (PDF of foto, optioneel)" fs={fs}>
+            <input type="file" accept="image/*,application/pdf" onChange={handleBestand}
+              style={{ fontSize:fs-1 }} />
+            {form.bijlage_preview && (
+              <img src={form.bijlage_preview} alt="Voorbeeld" style={{ maxWidth:120, marginTop:8, borderRadius:6 }} />
+            )}
+            {form.bijlage_naam && !form.bijlage_preview && (
+              <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)", marginTop:4 }}>📎 {form.bijlage_naam}</p>
+            )}
+          </FF>
+
+          <FF label="Notitie (optioneel)" fs={fs}>
+            <textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))}
+              rows={2} style={{...iSt(fs),resize:"vertical"}} />
+          </FF>
+
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" onClick={slaOp} kleur={kleur} fs={fs}>💾 Opslaan</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 
 function ContactPage({ huidigUser, kleur, fs, T }) {
   const [form, setForm] = useState({
@@ -3833,13 +4433,16 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
   const [filterBetaald, setFilterBetaald] = useState("alle");
   const [toonKassa,   setToonKassa]   = useState(true);
   const [kassaBonnen, setKassaBonnen] = useState([]);
+  const [toonDeclaraties, setToonDeclaraties] = useState(false);
+  const [declaraties, setDeclaraties] = useState([]);
   const [openOfferte, setOpenOfferte] = useState(null);
   const [openKlant,   setOpenKlant]   = useState(null);
 
-  // Laad kassa bonnen
+  // Laad kassa bonnen en declaraties
   useEffect(() => {
     if (!isDemoMode) {
       API.haalKassaBonnenOp().then(setKassaBonnen).catch(()=>{});
+      API.haalDeclaratiesOp().then(setDeclaraties).catch(()=>{});
     }
   }, []);
   const [losseFactuurModal, setLosseFactuurModal] = useState(false);
@@ -3890,10 +4493,22 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
       klant: b.klant_naam ? { id: b.klant_id, naam: b.klant_naam } : { id: null, naam: b.klant_naam_vrij || "Kassa" },
       type: "kassa",
       totaalInclBtw: parseFloat(b.totaal_incl_btw) || 0,
-      betaald: true, // kassa bonnen zijn altijd direct betaald
+      datum: b.datum ? (typeof b.datum === 'string' ? b.datum.slice(0,10) : new Date(b.datum).toISOString().slice(0,10)) : new Date(b.aangemaakt_op).toISOString().slice(0,10),
+      betaald: true,
       status: "betaald",
       referentie: b.referentie,
       regels: b.regels || [],
+    })) : []),
+    ...(toonDeclaraties ? declaraties.map(d => ({
+      ...d,
+      klant: { id: null, naam: d.leverancier || "Declaratie" },
+      type: "declaratie",
+      totaalInclBtw: -(parseFloat(d.bedrag_incl_btw) || 0), // negatief = uitgave
+      datum: d.datum,
+      betaald: true,
+      status: "uitgave",
+      referentie: d.omschrijving,
+      regels: [],
     })) : []),
   ];
 
@@ -4058,6 +4673,16 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
           <span style={{ fontSize:fs-2, color:toonKassa?kleur.donker:"var(--color-text-secondary)" }}>🧾 Kassa bonnen</span>
           <div style={{ width:32,height:18,borderRadius:99,background:toonKassa?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
             <div style={{ position:"absolute",top:2,left:toonKassa?14:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+          </div>
+        </div>
+        {/* Declaraties toggle */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 12px",
+          borderRadius:8, border:`1px solid ${toonDeclaraties?kleur.hoofd:"var(--color-border-secondary)"}`,
+          background:toonDeclaraties?kleur.licht:"var(--color-background-primary)", cursor:"pointer" }}
+          onClick={()=>setToonDeclaraties(v=>!v)}>
+          <span style={{ fontSize:fs-2, color:toonDeclaraties?kleur.donker:"var(--color-text-secondary)" }}>🧮 Declaraties</span>
+          <div style={{ width:32,height:18,borderRadius:99,background:toonDeclaraties?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
+            <div style={{ position:"absolute",top:2,left:toonDeclaraties?14:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
           </div>
         </div>
         <span style={{ fontSize: fs - 2, color: "var(--color-text-secondary)" }}>
@@ -4409,8 +5034,9 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
     </div>
   );
 }
-function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, setBgIdx, taal, setTaal, T, onClose, modulesAan, setModulesAan }) {
+function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, setBgIdx, taal, setTaal, T, onClose, modulesAan, setModulesAan, lidmaatschapTot, isAdmin }) {
   const [modulesOpen, setModulesOpen] = useState(false);
+  const [abonnementOpen, setAbonnementOpen] = useState(false);
 
   const alleModules = [
     { id:"klanten",    label:T?.klanten||"Klanten",    icon:"👥" },
@@ -4525,6 +5151,48 @@ function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, set
             Keuzes worden automatisch opgeslagen
           </p>
         </div>
+      )}
+
+      {/* Mijn abonnement */}
+      {!isAdmin && (
+        <>
+          <button onClick={()=>setAbonnementOpen(o=>!o)}
+            style={{ width:"100%", padding:"8px 12px", borderRadius:8, cursor:"pointer", marginTop:8,
+              border:`1px solid ${abonnementOpen ? kleur.hoofd : "#ddd"}`,
+              background: abonnementOpen ? kleur.licht : "#fafafa",
+              color: abonnementOpen ? kleur.donker : "#555",
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              fontSize:12, fontWeight:500 }}>
+            <span>💳 Mijn abonnement</span>
+            <span>{abonnementOpen ? "▲" : "▼"}</span>
+          </button>
+
+          {abonnementOpen && (() => {
+            const geldig = lidmaatschapTot ? new Date(lidmaatschapTot) >= new Date() : false;
+            const diff = lidmaatschapTot ? Math.ceil((new Date(lidmaatschapTot) - new Date()) / (1000*60*60*24)) : null;
+            const fmtD = iso => iso ? new Date(iso).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'}) : '—';
+            return (
+              <div style={{ marginTop:8, padding:"12px", borderRadius:10,
+                background: geldig ? "#eaf3de" : "#fcebeb" }}>
+                <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600,
+                  color: geldig ? "#27500a" : "#a32d2d" }}>
+                  {geldig ? "✓ Actief lidmaatschap" : "✕ Lidmaatschap verlopen"}
+                </p>
+                <p style={{ margin:0, fontSize:12, color:"#444" }}>
+                  Geldig {geldig ? "tot" : "tot was"}: <strong>{fmtD(lidmaatschapTot)}</strong>
+                </p>
+                {geldig && diff !== null && diff < 30 && (
+                  <p style={{ margin:"4px 0 0", fontSize:11, color:"#7a5800" }}>
+                    Verloopt over {diff} dag{diff!==1?'en':''}
+                  </p>
+                )}
+                <p style={{ margin:"8px 0 0", fontSize:10, color:"#888" }}>
+                  Verlengen kan binnenkort via uw accountpagina (Mollie betaling volgt).
+                </p>
+              </div>
+            );
+          })()}
+        </>
       )}
     </div>
   );
@@ -4759,11 +5427,15 @@ function ProfielPanel({ user, setUsers, onClose, kleur, fs, T }) {
 // ── APP SHELL ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [huidigUser, setHuidigUser] = useState(null);
+  const [welkomModal, setWelkomModal] = useState(false);
+  const [reviewModal, setReviewModal] = useState(false);
   const [isDemoMode, setIsDemoMode]  = useState(false);
   const [laden, setLaden]            = useState(true); // eerste laad-check
 
   // ── Echte data uit API ─────────────────────────────────────
   const [klanten,   setKlantenState]   = useState([]);
+  const [appWerkbonnen, setAppWerkbonnen] = useState([]);
+  const [appKassaBonnen, setAppKassaBonnen] = useState([]);
   const [producten, setProductenState] = useState([]);
   const [agenda,    setAgendaState]    = useState([]);
 
@@ -4858,6 +5530,15 @@ export default function App() {
         tijd:    afspraak.tijd_van,
         tijdTot: afspraak.tijd_tot,
       })));
+      // Laad werkbonnen en kassa bonnen voor klantenpagina
+      try {
+        const [wb, kb] = await Promise.all([
+          API.haalWerkbonnenOp(),
+          API.haalKassaBonnenOp(),
+        ]);
+        setAppWerkbonnen(wb);
+        setAppKassaBonnen(kb);
+      } catch(e) { console.error('Werkbonnen/kassa laden mislukt:', e); }
     } catch (e) {
       console.error('Data laden mislukt:', e);
       setApiError(e.message);
@@ -4896,6 +5577,10 @@ export default function App() {
   async function doLogin(gebruiker) {
     setHuidigUser(gebruiker);
     await laadAlleData();
+    // Welkomstmelding bij eerste keer inloggen
+    if (gebruiker.login_count === 1) {
+      setWelkomModal(true);
+    }
   }
 
   // ── Logout ─────────────────────────────────────────────────
@@ -4939,6 +5624,82 @@ export default function App() {
     );
   }
 
+  // ── Lidmaatschap check (niet voor admins en niet in demo) ──
+  if (!isDemoMode && huidigUser && !huidigUser.is_admin) {
+    const lidTot = huidigUser.lidmaatschap_tot;
+    const lidGeldig = lidTot ? new Date(lidTot) >= new Date() : false;
+    if (!lidGeldig) {
+      return (
+        <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+          background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)", padding:"1rem" }}>
+          <div style={{ background:"#fff", borderRadius:24, padding:"2.5rem", maxWidth:520, width:"100%",
+            boxShadow:"0 24px 80px rgba(0,0,0,0.35)", textAlign:"center" }}>
+            <img src="afbeeldingen/dencrm.png" alt="DenCRM" style={{ height:80, marginBottom:"1rem" }}
+              onError={e=>e.target.style.display="none"} />
+            <h2 style={{ margin:"0 0 0.5rem", fontSize:22, color:"#1a1a1a" }}>Lidmaatschap verlopen</h2>
+            <p style={{ color:"#666", fontSize:14, marginBottom:"1rem", lineHeight:1.6 }}>
+              Uw lidmaatschap is verlopen. Verleng hieronder om weer toegang te krijgen tot DenCRM.
+            </p>
+
+            <div style={{ background:"#eaf3de", borderRadius:10, padding:"10px 14px", marginBottom:"1.5rem" }}>
+              <p style={{ margin:0, fontSize:13, color:"#27500a", lineHeight:1.5 }}>
+                🔓 <strong>U zit nergens aan vast.</strong> Geen abonnement, geen automatische verlenging.
+                U bepaalt zelf hoelang u DenCRM gebruikt door een periode aan te schaffen — daarna stopt het vanzelf.
+              </p>
+            </div>
+
+            {/* Voordelen */}
+            <div style={{ background:"#f0f4ff", borderRadius:12, padding:"14px 16px", marginBottom:"1.5rem", textAlign:"left" }}>
+              <p style={{ margin:"0 0 8px", fontWeight:600, fontSize:14, color:"#185FA5" }}>✓ Wat u krijgt:</p>
+              {["Volledige toegang tot alle modules","Klanten, Offertes, Kassa, Agenda, Werkbonnen","Onbeperkt gebruikers en data","Nooit extra kosten voor nieuwe modules — altijd inbegrepen"].map(v=>(
+                <p key={v} style={{ margin:"3px 0", fontSize:13, color:"#333" }}>✓ {v}</p>
+              ))}
+            </div>
+
+            {/* Prijsopties */}
+            <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:"1.5rem" }}>
+              {[
+                { label:"1 maand", prijs:"€9,99", sub:"Maandelijks opzegbaar" },
+                { label:"6 maanden", prijs:"€49,99", sub:"Bespaar €9,95 t.o.v. maandelijks" },
+                { label:"1 jaar", prijs:"€89,99", sub:"Bespaar €29,89 t.o.v. maandelijks", aanbevolen:true },
+              ].map(opt=>(
+                <div key={opt.label} style={{ position:"relative", padding:"14px 16px", borderRadius:12,
+                  border:`2px solid ${opt.aanbevolen ? kleur.hoofd : "#ddd"}`,
+                  background: opt.aanbevolen ? kleur.licht : "#fafafa",
+                  display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"default" }}>
+                  {opt.aanbevolen && (
+                    <span style={{ position:"absolute", top:-10, right:12, fontSize:11, fontWeight:700,
+                      background:kleur.hoofd, color:"#fff", padding:"2px 10px", borderRadius:99 }}>
+                      Meest gekozen
+                    </span>
+                  )}
+                  <div style={{ textAlign:"left" }}>
+                    <p style={{ margin:0, fontWeight:600, fontSize:15 }}>{opt.label}</p>
+                    <p style={{ margin:0, fontSize:12, color:"#888" }}>{opt.sub}</p>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <p style={{ margin:0, fontWeight:700, fontSize:18, color:kleur.hoofd }}>{opt.prijs}</p>
+                    <p style={{ margin:0, fontSize:11, color:"#aaa" }}>Binnenkort beschikbaar</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ fontSize:12, color:"#aaa", marginBottom:"1rem" }}>
+              Betaling via Mollie (iDEAL, creditcard) — binnenkort beschikbaar.<br/>
+              Neem contact op via <a href="mailto:info@dencrm.nl" style={{ color:kleur.hoofd }}>info@dencrm.nl</a> voor handmatige verlenging.
+            </p>
+            <button onClick={logout}
+              style={{ padding:"10px 20px", borderRadius:8, background:"#f0f0f0",
+                border:"none", cursor:"pointer", fontSize:13, color:"#666" }}>
+              Uitloggen
+            </button>
+          </div>
+        </div>
+      );
+    }
+  }
+
   const alleNav = [
     { id:"kassa",      label:"Kassa",              icon:"🧾" },
     { id:"werkbonnen", label:"Werkbonnen & Reparaties", icon:"🔧" },
@@ -4951,7 +5712,19 @@ export default function App() {
       { id:"gebruikers", label:T.gebruikers, icon:"🔐" },
       { id:"support",    label:T.supportInbox||"Support inbox", icon:"📥" },
     ] : []),
+    { id:"declaraties", label:"Declaraties & Boekhouding", icon:"🧮" },
     { id:"contact",    label:T.contact||"Contact", icon:"💬" },
+    ...((!isDemoMode && huidigUser && (() => {
+      const lc = huidigUser.login_count || 0;
+      if (huidigUser.review_status === 'geplaatst') return false; // nooit meer tonen
+      if (huidigUser.review_status === 'geweigerd') {
+        const geweigerdBij = huidigUser.review_geweigerd_bij_login || 0;
+        return lc - geweigerdBij >= 10; // opnieuw na 10 logins
+      }
+      return lc >= 5; // eerste keer na 5 logins
+    })()) ? [
+      { id:"review", label:"Plaats een Review", icon:"⭐", isReview:true },
+    ] : []),
   ];
 
   const nav = alleNav.filter(n => modulesAan[n.id] !== false);
@@ -4967,13 +5740,24 @@ export default function App() {
 
       {/* API foutmelding banner */}
       {apiError && !isDemoMode && (
-        <div style={{ background:"#7f1d1d", color:"#fecaca", padding:"10px 16px",
-          display:"flex", alignItems:"center", gap:12, fontSize:fs-1 }}>
-          <span>⚠ API-fout: {apiError}</span>
+        <div style={{ background:"#7f1d1d", color:"#fff", padding:"20px 24px",
+          display:"flex", alignItems:"center", gap:20, boxShadow:"0 4px 16px rgba(0,0,0,0.3)" }}>
+          <span style={{ fontSize:32, flexShrink:0 }}>⚠</span>
+          <div style={{ flex:1 }}>
+            <p style={{ margin:0, fontWeight:700, fontSize:fs+3 }}>Verbinding met de server mislukt</p>
+            <p style={{ margin:"4px 0 0", fontSize:fs, opacity:0.95, lineHeight:1.5 }}>
+              {apiError}
+            </p>
+            <p style={{ margin:"6px 0 0", fontSize:fs, fontWeight:600, lineHeight:1.5 }}>
+              Druk op de knop "Opnieuw proberen" om de connectie te herstellen. Zolang deze rode balk
+              aanwezig is, kan het zijn dat uw bewerkingen niet opgeslagen worden.
+            </p>
+          </div>
           <button onClick={()=>{ setApiError(null); laadAlleData(); }}
-            style={{ marginLeft:"auto", padding:"4px 12px", borderRadius:6,
-              background:"rgba(255,255,255,0.2)", color:"#fff", border:"none", cursor:"pointer", fontSize:fs-2 }}>
-            Opnieuw proberen
+            style={{ flexShrink:0, padding:"12px 24px", borderRadius:10,
+              background:"#fff", color:"#7f1d1d", border:"none", cursor:"pointer",
+              fontSize:fs+1, fontWeight:700, whiteSpace:"nowrap" }}>
+            🔄 Opnieuw proberen
           </button>
         </div>
       )}
@@ -4991,11 +5775,13 @@ export default function App() {
           </div>
           <nav style={{ flex:1 }}>
             {nav.map(n=>(
-              <button key={n.id} onClick={()=>setPagina(n.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
+              <button key={n.id} onClick={()=>n.isReview ? setReviewModal(true) : setPagina(n.id)}
+                style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
                 padding:"10px 12px", borderRadius:8,
-                background:pagina===n.id?kleur.hoofd:"none",
-                color:pagina===n.id?"#fff":(isDark?"rgba(255,255,255,0.85)":tekstK),
-                border:"none", cursor:"pointer", fontSize:fs, textAlign:"left", marginBottom:4 }}>
+                background: n.isReview ? "#fffbf0" : (pagina===n.id?kleur.hoofd:"none"),
+                color: n.isReview ? "#7a5800" : (pagina===n.id?"#fff":(isDark?"rgba(255,255,255,0.85)":tekstK)),
+                border: n.isReview ? "1px dashed #e8c44a" : "none",
+                cursor:"pointer", fontSize:fs, textAlign:"left", marginBottom:4, fontWeight: n.isReview?600:400 }}>
                 <span>{n.icon}</span> {n.label}
                 {n.id==="gebruikers"&&<span style={{ marginLeft:"auto", fontSize:10, background:"rgba(255,255,255,0.25)", borderRadius:99, padding:"1px 6px" }}>Admin</span>}
               </button>
@@ -5007,6 +5793,7 @@ export default function App() {
               fs={fs} setFs={setFs} bgIdx={bgIdx} setBgIdx={setBgIdx}
               taal={taal} setTaal={setTaal} T={T}
               modulesAan={modulesAan} setModulesAan={setModulesAan}
+              lidmaatschapTot={huidigUser?.lidmaatschap_tot} isAdmin={huidigUser?.is_admin || isDemoMode}
               onClose={()=>setInstellOpen(false)} />
           )}
 
@@ -5055,17 +5842,153 @@ export default function App() {
           <h2 style={{ margin:"0 0 1.25rem", fontSize:fs+6, fontWeight:500, color:tekstK }}>
             {nav.find(n=>n.id===pagina)?.icon} {nav.find(n=>n.id===pagina)?.label}
           </h2>
-          {pagina==="klanten"    && <KlantenPage   klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} agenda={actieveAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
+          {pagina==="klanten"    && <KlantenPage   klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} agenda={actieveAgenda} werkbonnen={appWerkbonnen} kassaBonnen={appKassaBonnen} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="producten"  && <ProductenPage producten={actieveProducten} setProducten={setProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="agenda"     && <AgendaPage    klanten={actieveKlanten} agenda={actieveAgenda} setAgenda={setAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="offertes"   && <OffertesPage  klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="financieel" && <FinancieelPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="kassa"      && <KassaPage producten={actieveProducten} klanten={actieveKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="werkbonnen" && <WerkbonnenPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
+          {pagina==="declaraties" && <DeclaratiesPage kleur={kleur} fs={fs} isDemoMode={isDemoMode} T={T} />}
           {pagina==="contact"    && <ContactPage huidigUser={huidigUser} kleur={kleur} fs={fs} T={T} />}
           {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer users={[]} setUsers={()=>{}} kleur={kleur} fs={fs} T={T} />}
           {pagina==="support"    && !isDemoMode && huidigUser?.is_admin && <SupportInboxPage kleur={kleur} fs={fs} />}
         </main>
+      </div>
+
+      {/* ── Welkomstmelding bij eerste login ── */}
+      {welkomModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:2000, padding:"1rem" }}>
+          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:440,
+            textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize:48, marginBottom:"0.75rem" }}>👋</div>
+            <h2 style={{ margin:"0 0 0.75rem", color:"#1a1a1a", fontSize:20 }}>Welkom bij DenCRM!</h2>
+            <p style={{ color:"#555", fontSize:14, lineHeight:1.6, marginBottom:"1.25rem" }}>
+              Pas eerst het product aan naar uw wens door modules aan of uit te zetten en de kleur te bepalen
+              die het beste bij u past.
+            </p>
+            <p style={{ color:"#888", fontSize:13, lineHeight:1.5, marginBottom:"1.5rem",
+              background:"#f5f5f5", padding:"10px 14px", borderRadius:8 }}>
+              💡 U kunt dit ten allen tijde aanpassen via <strong>⚙ Instellingen</strong> linksonder in het scherm.
+            </p>
+            <button onClick={()=>setWelkomModal(false)}
+              style={{ padding:"11px 28px", borderRadius:10, background:kleur.hoofd,
+                color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
+              Begrepen, aan de slag!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Review modal ── */}
+      {reviewModal && (
+        <ReviewModal
+          huidigUser={huidigUser}
+          kleur={kleur} fs={fs}
+          onClose={()=>setReviewModal(false)}
+          onGeplaatst={()=>{
+            setHuidigUser(u=>({...u, review_status:'geplaatst'}));
+            setReviewModal(false);
+          }}
+          onGeweigerd={()=>{
+            setHuidigUser(u=>({...u, review_status:'geweigerd', review_geweigerd_bij_login: u.login_count||0}));
+            setReviewModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── REVIEW MODAL ──────────────────────────────────────────────
+function ReviewModal({ huidigUser, kleur, fs, onClose, onGeplaatst, onGeweigerd }) {
+  const [sterren, setSterren] = useState(0);
+  const [hoverSter, setHoverSter] = useState(0);
+  const [tekst, setTekst] = useState("");
+  const [bezig, setBezig] = useState(false);
+  const [bedankt, setBedankt] = useState(false);
+
+  async function plaats() {
+    if (sterren === 0) { alert("Selecteer minimaal 1 ster."); return; }
+    setBezig(true);
+    try {
+      await API.plaatsReview(sterren, tekst);
+      setBedankt(true);
+      setTimeout(() => onGeplaatst(), 1800);
+    } catch(e) { alert("Plaatsen mislukt: "+e.message); }
+    finally { setBezig(false); }
+  }
+
+  async function weiger() {
+    try { await API.weigerReview(); } catch {}
+    onGeweigerd();
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+      display:"flex", alignItems:"center", justifyContent:"center", zIndex:2000, padding:"1rem" }}
+      onClick={e=>e.target===e.currentTarget && onClose()}>
+      <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:460,
+        boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
+
+        {bedankt ? (
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:56, marginBottom:"0.75rem" }}>🎉</div>
+            <h2 style={{ margin:"0 0 0.5rem", color:"#27500a" }}>Bedankt voor uw review!</h2>
+            <p style={{ color:"#666", fontSize:14 }}>We waarderen uw feedback enorm.</p>
+          </div>
+        ) : (
+          <>
+            <h2 style={{ margin:"0 0 0.5rem", fontSize:20, color:"#1a1a1a" }}>⭐ Plaats een review</h2>
+            <p style={{ color:"#666", fontSize:13, lineHeight:1.5, marginBottom:"1.25rem" }}>
+              Wat vindt u van DenCRM? Uw mening helpt ons te verbeteren.
+            </p>
+
+            {/* Sterren */}
+            <div style={{ display:"flex", justifyContent:"center", gap:6, marginBottom:"1.25rem" }}>
+              {[1,2,3,4,5].map(s => (
+                <button key={s}
+                  onClick={()=>setSterren(s)}
+                  onMouseEnter={()=>setHoverSter(s)}
+                  onMouseLeave={()=>setHoverSter(0)}
+                  style={{ background:"none", border:"none", cursor:"pointer", fontSize:36, padding:2,
+                    color: s <= (hoverSter||sterren) ? "#f5b400" : "#ddd",
+                    transition:"color 0.1s" }}>
+                  ★
+                </button>
+              ))}
+            </div>
+
+            <textarea value={tekst} onChange={e=>setTekst(e.target.value)}
+              placeholder="Vertel ons over uw ervaring met DenCRM (optioneel)…"
+              rows={4}
+              style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #ddd",
+                background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box",
+                resize:"vertical", marginBottom:"1rem" }} />
+
+            <div style={{ background:"#f0f4ff", borderRadius:8, padding:"10px 14px", marginBottom:"1.25rem" }}>
+              <p style={{ margin:0, fontSize:12, color:"#2a4ab5", lineHeight:1.5 }}>
+                ℹ De naam van uw bedrijf (<strong>{huidigUser?.bedrijfsnaam || huidigUser?.naam}</strong>) wordt
+                gekoppeld aan deze review en kan getoond worden aan bezoekers van DenCRM.
+              </p>
+            </div>
+
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={weiger}
+                style={{ flex:1, padding:"11px", borderRadius:10, background:"#f5f5f5",
+                  color:"#666", border:"1px solid #ddd", cursor:"pointer", fontSize:13 }}>
+                Nee, ik wil geen review plaatsen
+              </button>
+              <button onClick={plaats} disabled={bezig}
+                style={{ flex:1, padding:"11px", borderRadius:10, background:kleur.hoofd,
+                  color:"#fff", border:"none", cursor:"pointer", fontSize:13, fontWeight:600,
+                  opacity:bezig?0.7:1 }}>
+                {bezig ? "Bezig…" : "✓ Review plaatsen"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
