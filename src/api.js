@@ -78,6 +78,12 @@ export async function login(username, wachtwoord) {
   return data.gebruiker;
 }
 
+// Herstel de ingelogde gebruiker na een pagina-refresh (gebruikt de bestaande, nog geldige tokens)
+export async function haalSessieOp() {
+  const data = await apiFetch('/auth/sessie');
+  return data.gebruiker;
+}
+
 export async function logout() {
   await apiFetch('/auth/logout', { method: 'POST', body: { refreshToken } }).catch(() => {});
   tokensWissen();
@@ -139,7 +145,7 @@ export async function haalGebruikersOp()       { return apiFetch('/gebruikers');
 // ============================================================
 // MAIL
 // ============================================================
-export async function stuurOfferteMail(offerte_id)     { return apiFetch('/mail/offerte', { method: 'POST', body: { offerte_id } }); }
+export async function stuurOfferteMail(offerte_id, cc_mijzelf = false) { return apiFetch('/mail/offerte', { method: 'POST', body: { offerte_id, cc_mijzelf } }); }
 export async function downloadOffertePDF(offerte_id, referentie) {
   const token = localStorage.getItem('dencrm_access');
   const res = await fetch(`${API_URL}/offertes/${offerte_id}/pdf`, {
@@ -231,3 +237,89 @@ export function declaratieBijlageUrl(id) {
 export async function vraagWachtwoordResetAan(email) { return apiFetch('/auth/wachtwoord-vergeten', { method: 'POST', body: { email } }); }
 export async function controleerResetToken(token)     { return apiFetch(`/auth/wachtwoord-reset?token=${token}`); }
 export async function resetWachtwoord(token, wachtwoord) { return apiFetch('/auth/wachtwoord-reset', { method: 'POST', body: { token, wachtwoord } }); }
+
+// ============================================================
+// BELASTINGOVERZICHT
+// ============================================================
+export async function haalBelastingOverzichtOp(van, tot) {
+  return apiFetch(`/belastingoverzicht?van=${van}&tot=${tot}`);
+}
+
+// ============================================================
+// AFSCHRIJVINGEN
+// ============================================================
+export async function haalAfschrijvingenOp()          { return apiFetch('/afschrijvingen'); }
+export async function maakAfschrijvingAan(data)       { return apiFetch('/afschrijvingen', { method:'POST', body:data }); }
+export async function updateAfschrijving(id, data)    { return apiFetch(`/afschrijvingen/${id}`, { method:'PUT', body:data }); }
+export async function verwijderAfschrijving(id)       { return apiFetch(`/afschrijvingen/${id}`, { method:'DELETE' }); }
+
+// ============================================================
+// KOPPEL ACCOUNTS
+// ============================================================
+export async function haalKoppelAccountsOp()                 { return apiFetch('/koppel-accounts'); }
+export async function nodigGebruikerUit(data)                { return apiFetch('/koppel-accounts/uitnodigen', { method:'POST', body:data }); }
+export async function trekUitnodigingIn(id)                  { return apiFetch(`/koppel-accounts/uitnodiging/${id}`, { method:'DELETE' }); }
+export async function updateGekoppeldeModules(id, modules)   { return apiFetch(`/koppel-accounts/${id}/modules`, { method:'PATCH', body:{ modules } }); }
+export async function verwijderGekoppeldeGebruiker(id)        { return apiFetch(`/koppel-accounts/${id}`, { method:'DELETE' }); }
+export async function controleerUitnodiging(token)            { return apiFetch(`/koppel-accounts/uitnodiging?token=${token}`); }
+export async function accepteerUitnodiging(data)              { return apiFetch('/koppel-accounts/accepteren', { method:'POST', body:data }); }
+
+// ============================================================
+// AGENDA PERSONEN
+// ============================================================
+export async function haalAgendaPersonenOp()          { return apiFetch('/agenda-personen'); }
+export async function maakAgendaPersoonAan(data)      { return apiFetch('/agenda-personen', { method:'POST', body:data }); }
+export async function verwijderAgendaPersoon(id)      { return apiFetch(`/agenda-personen/${id}`, { method:'DELETE' }); }
+export async function koppelPersonenAanAfspraak(afspraakId, persoonIds) {
+  return apiFetch(`/agenda/${afspraakId}/personen`, { method:'PUT', body:{ persoon_ids: persoonIds } });
+}
+
+// ============================================================
+// INSTELLINGEN (gedeeld, database-opgeslagen)
+// ============================================================
+export async function haalInstellingenOp()          { return apiFetch('/instellingen'); }
+export async function updateInstellingen(data)      { return apiFetch('/instellingen', { method:'PATCH', body:data }); }
+
+// ============================================================
+// BEDRIJFSLOGO
+// ============================================================
+export async function haalLogoInfoOp()          { return apiFetch('/logo/info'); }
+export async function uploadLogo(base64, type)  { return apiFetch('/logo', { method:'POST', body:{ logo_base64:base64, logo_type:type } }); }
+export async function verwijderLogo()           { return apiFetch('/logo', { method:'DELETE' }); }
+export function logoUrl() {
+  const token = localStorage.getItem('dencrm_access');
+  return `${API_URL}/logo?token=${encodeURIComponent(token||'')}&t=${Date.now()}`;
+}
+
+// ============================================================
+// PUBLIEKE AGENDA / ONLINE AFSPRAKEN BOEKEN
+// ============================================================
+export async function haalAgendaInstellingOp()            { return apiFetch('/agenda-instelling'); }
+export async function updateAgendaInstelling(data)        { return apiFetch('/agenda-instelling', { method:'PATCH', body:data }); }
+export async function haalAgendaProductenOp()             { return apiFetch('/agenda-producten'); }
+export async function maakAgendaProductAan(data)          { return apiFetch('/agenda-producten', { method:'POST', body:data }); }
+export async function updateAgendaProduct(id, data)       { return apiFetch(`/agenda-producten/${id}`, { method:'PATCH', body:data }); }
+export async function verwijderAgendaProduct(id)          { return apiFetch(`/agenda-producten/${id}`, { method:'DELETE' }); }
+
+// Publieke (niet-ingelogde) functies — gebruiken een aparte fetch zonder auth-header
+async function publiekFetch(pad, opts = {}) {
+  const res = await fetch(`${API_URL}${pad}`, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.fout || 'Er ging iets mis');
+  return data;
+}
+export async function haalPubliekeAgendaOp(slug)                     { return publiekFetch(`/publieke-agenda/${slug}`); }
+export async function haalBeschikbaarheidOp(slug, productId, datum)  { return publiekFetch(`/publieke-agenda/${slug}/beschikbaarheid?product_id=${productId}&datum=${datum}`); }
+export async function boekAfspraak(slug, data)                       { return publiekFetch(`/publieke-agenda/${slug}/boeken`, { method:'POST', body:data }); }
+export async function annuleerExterneAfspraak(token)                 { return publiekFetch(`/publieke-agenda-annuleren?token=${token}`); }
+
+// ============================================================
+// DOCUMENT TEMPLATES (offerte/factuur tekst)
+// ============================================================
+export async function haalDocumentTemplatesOp(type)  { return apiFetch(`/document-templates?type=${type}`); }
+export async function maakDocumentTemplateAan(data)   { return apiFetch('/document-templates', { method:'POST', body:data }); }
+export async function verwijderDocumentTemplate(id)   { return apiFetch(`/document-templates/${id}`, { method:'DELETE' }); }
