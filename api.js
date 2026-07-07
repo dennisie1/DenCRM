@@ -134,6 +134,10 @@ export async function verwijderAfspraak(id)    { return apiFetch(`/agenda/${id}`
 // ============================================================
 export async function haalOffertesOp()              { return apiFetch('/offertes'); }
 export async function maakOfferteAan(data)          { return apiFetch('/offertes', { method: 'POST', body: data }); }
+export function geimporteerdBestandUrl(offerteId) {
+  const token = localStorage.getItem('dencrm_access');
+  return `${API_URL}/offertes/${offerteId}/bestand?token=${encodeURIComponent(token||'')}`;
+}
 export async function updateOfferteStatus(id, status) { return apiFetch(`/offertes/${id}/status`, { method: 'PATCH', body: { status } }); }
 export async function verwijderOfferte(id)          { return apiFetch(`/offertes/${id}`, { method: 'DELETE' }); }
 

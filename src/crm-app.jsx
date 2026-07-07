@@ -845,12 +845,13 @@ function printOfferteHtml(offerte, klant) {
     : new Date().toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"});
   const fmt = n => "€"+parseFloat(n||0).toLocaleString("nl-NL",{minimumFractionDigits:2});
   const tekst = (offerte.template||OFFERTE_TEMPLATE).replace("{klant_naam}", klant?.naam||"");
-  const exclBtw = (offerte.regels||[]).reduce((s,r)=>s+(parseFloat(r.prijs)||0),0);
+  const exclBtw = (offerte.regels||[]).reduce((s,r)=>s+(parseFloat(r.prijs)||0)*(parseInt(r.aantal)||1),0);
   const btwBedrag = offerte.inclBtw ? Math.round(exclBtw*0.21) : 0;
   const totaal = offerte.totaalInclBtw || (exclBtw + btwBedrag);
   const regelsHtml = (offerte.regels||[]).map(r =>
     `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee">${r.naam||"—"}</td>
-     <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">${fmt(r.prijs)}</td></tr>`
+     <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center">${r.aantal||1}</td>
+     <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">${fmt((parseFloat(r.prijs)||0)*(parseInt(r.aantal)||1))}</td></tr>`
   ).join('');
   const script = '<scr'+'ipt>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/scr'+'ipt>';
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -867,6 +868,7 @@ function printOfferteHtml(offerte, klant) {
     .klant p { margin: 2px 0; }
     table { width: 100%; border-collapse: collapse; margin: 24px 0; }
     thead th { background: #185FA5; color: #fff; padding: 8px 12px; text-align: left; font-size: 12px; }
+    thead th:nth-child(2) { text-align: center; }
     thead th:last-child { text-align: right; }
     .totaal-tabel { width: 300px; margin-left: auto; }
     .totaal-tabel td { padding: 6px 12px; font-size: 13px; }
@@ -896,7 +898,7 @@ function printOfferteHtml(offerte, klant) {
   </div>
   <p style="white-space:pre-wrap;margin:24px 0">${tekst}</p>
   <table>
-    <thead><tr><th>Omschrijving</th><th style="text-align:right">Bedrag</th></tr></thead>
+    <thead><tr><th>Omschrijving</th><th>Aantal</th><th style="text-align:right">Bedrag</th></tr></thead>
     <tbody>${regelsHtml}</tbody>
   </table>
   <table class="totaal-tabel">
@@ -991,8 +993,10 @@ function KlantZoekBox({ klanten, value, onChange, fs, placeholder }) {
 function Avatar({ naam, size=40, kleur }) {
   const ini = naam.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();
   return (
-    <div style={{ width:size, height:size, borderRadius:"50%", background:kleur.licht, color:kleur.donker,
-      display:"flex", alignItems:"center", justifyContent:"center", fontWeight:500, fontSize:size*0.35, flexShrink:0 }}>
+    <div style={{ width:size, height:size, borderRadius:"50%",
+      background:`linear-gradient(135deg, ${kleur.licht}, ${kleur.licht}dd)`, color:kleur.donker,
+      display:"flex", alignItems:"center", justifyContent:"center", fontWeight:600, fontSize:size*0.35, flexShrink:0,
+      border:`1px solid ${kleur.hoofd}22` }}>
       {ini}
     </div>
   );
@@ -1000,16 +1004,16 @@ function Avatar({ naam, size=40, kleur }) {
 
 function Modal({ title, onClose, children, fs }) {
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex",
+    <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", backdropFilter:"blur(2px)", display:"flex",
       alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem", overflowY:"auto" }}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{ backgroundColor:"#ffffff", color:"#1a1a1a", borderRadius:12,
-        border:"1px solid #d0d0d0", padding:"1.5rem", width:"100%", maxWidth:560,
-        boxShadow:"0 8px 32px rgba(0,0,0,0.18)", fontSize:fs,
+      <div style={{ backgroundColor:"#ffffff", color:"#1a1a1a", borderRadius:16,
+        border:"1px solid #e5e5e5", padding:"1.75rem", width:"100%", maxWidth:560,
+        boxShadow:"0 20px 60px rgba(0,0,0,0.28)", fontSize:fs,
         margin:"auto" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
-          <h2 style={{ margin:0, fontSize:fs+4, fontWeight:500, color:"#1a1a1a" }}>{title}</h2>
-          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:22, color:"#666", padding:"4px 8px", lineHeight:1 }}>×</button>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.4rem" }}>
+          <h2 style={{ margin:0, fontSize:fs+5, fontWeight:600, color:"#1a1a1a" }}>{title}</h2>
+          <button onClick={onClose} style={{ background:"#f2f2f2", border:"none", borderRadius:8, cursor:"pointer", fontSize:18, color:"#666", width:30, height:30, lineHeight:1 }}>×</button>
         </div>
         {children}
       </div>
@@ -1017,43 +1021,67 @@ function Modal({ title, onClose, children, fs }) {
   );
 }
 
-const iSt = fs => ({ width:"100%", padding:"8px 12px", borderRadius:8, border:"1px solid #c0c0c0",
-  background:"#f9f9f9", color:"#1a1a1a", fontSize:fs, boxSizing:"border-box" });
+const iSt = fs => ({ width:"100%", padding:"9px 13px", borderRadius:9, border:"1px solid #d5d9de",
+  background:"#fafbfc", color:"#1a1a1a", fontSize:fs, boxSizing:"border-box" });
 
 function FF({ label, children, fs }) {
   return (
-    <div style={{ marginBottom:"1rem" }}>
-      <label style={{ display:"block", fontSize:fs-1, color:"#555", marginBottom:4 }}>{label}</label>
+    <div style={{ marginBottom:"1.1rem" }}>
+      <label style={{ display:"block", fontSize:fs-1, color:"#5b6470", marginBottom:5, fontWeight:500 }}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+// Tijdkiezer met gegarandeerd 24-uurs formaat (native <input type="time"> toont
+// AM/PM op sommige apparaten afhankelijk van systeeminstellingen, dit niet).
+function TijdKiezer({ value, onChange, fs=14 }) {
+  const [uur, minuut] = (value || "09:00").split(":");
+  const uren = Array.from({length:24}, (_,i)=>String(i).padStart(2,"0"));
+  const minuten = ["00","05","10","15","20","25","30","35","40","45","50","55"];
+  const selectStyle = {
+    padding:"7px 6px", borderRadius:8, border:"0.5px solid var(--color-border-secondary)",
+    background:"var(--color-background-primary)", color:"var(--color-text-primary)", fontSize:fs, cursor:"pointer",
+  };
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+      <select value={uur} onChange={e=>onChange(`${e.target.value}:${minuut}`)} style={selectStyle}>
+        {uren.map(u=><option key={u} value={u}>{u}</option>)}
+      </select>
+      <span style={{ color:"var(--color-text-secondary)" }}>:</span>
+      <select value={minuut} onChange={e=>onChange(`${uur}:${e.target.value}`)} style={selectStyle}>
+        {minuten.map(m=><option key={m} value={m}>{m}</option>)}
+      </select>
     </div>
   );
 }
 
 function Btn({ onClick, variant="default", children, style={}, kleur, fs=14, disabled=false }) {
   const s = {
-    default: { background:"#ffffff", color:"#1a1a1a", border:"0.5px solid #bbb" },
-    primary: { background:kleur?.hoofd||"#185FA5", color:"#fff", border:"none" },
-    danger:  { background:"#FCEBEB", color:"#A32D2D", border:"0.5px solid #f09595" },
+    default: { background:"var(--color-background-primary, #ffffff)", color:"var(--color-text-primary, #1a1a1a)", border:"1px solid var(--color-border-secondary, #d5d5d5)" },
+    primary: { background: kleur?.hoofd||"#185FA5", color:"#fff", border:"none",
+      boxShadow: disabled ? "none" : `0 2px 8px ${kleur?.hoofd||"#185FA5"}40` },
+    danger:  { background:"#FCEBEB", color:"#A32D2D", border:"1px solid #f3c2c2" },
   };
   return (
-    <button onClick={onClick} disabled={disabled} style={{ padding:"8px 16px", borderRadius:8,
-      cursor:disabled?"not-allowed":"pointer", fontSize:fs, fontWeight:400,
+    <button onClick={onClick} disabled={disabled} style={{ padding:"9px 18px", borderRadius:9,
+      cursor:disabled?"not-allowed":"pointer", fontSize:fs, fontWeight:500,
       display:"inline-flex", alignItems:"center", gap:6, opacity:disabled?0.5:1,
       ...s[variant], ...style }}>{children}</button>
   );
 }
 
 function Badge({ children, kleur }) {
-  return <span style={{ background:kleur.licht, color:kleur.donker, padding:"2px 10px", borderRadius:99, fontSize:12, fontWeight:500 }}>{children}</span>;
+  return <span style={{ background:kleur.licht, color:kleur.donker, padding:"3px 11px", borderRadius:99, fontSize:12, fontWeight:600 }}>{children}</span>;
 }
 
 function Toggle({ aan, onToggle, label, fs }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer" }} onClick={onToggle}>
       <div style={{ width:40, height:22, borderRadius:11, background:aan?"#185FA5":"#ccc",
-        position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+        position:"relative", transition:"background 0.2s", flexShrink:0, boxShadow: aan ? "0 0 0 3px #185FA522" : "none" }}>
         <div style={{ position:"absolute", top:3, left:aan?20:3, width:16, height:16,
-          borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
+          borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.25)" }} />
       </div>
       <span style={{ fontSize:fs, color:"#1a1a1a" }}>{label}</span>
     </div>
@@ -1491,6 +1519,7 @@ function PubliekeAgendaPagina({ slug, kleur }) {
   const [gekozenTijd, setGekozenTijd] = useState(null);
   const [email, setEmail] = useState("");
   const [naam, setNaam] = useState("");
+  const [telefoon, setTelefoon] = useState("");
   const [straat, setStraat] = useState("");
   const [postcode, setPostcode] = useState("");
   const [stad, setStad] = useState("");
@@ -1519,6 +1548,7 @@ function PubliekeAgendaPagina({ slug, kleur }) {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setFout("Vul een geldig e-mailadres in."); return; }
     const velden = info?.velden || {};
     if (velden.naam && !naam.trim()) { setFout("Vul uw naam in."); return; }
+    if (velden.telefoon && !telefoon.trim()) { setFout("Vul uw telefoonnummer in."); return; }
     if (velden.straat && !straat.trim()) { setFout("Vul straat + huisnummer in."); return; }
     if (velden.postcode && !postcode.trim()) { setFout("Vul uw postcode in."); return; }
     if (velden.stad && !stad.trim()) { setFout("Vul uw stad/dorp in."); return; }
@@ -1526,7 +1556,7 @@ function PubliekeAgendaPagina({ slug, kleur }) {
     try {
       await API.boekAfspraak(slug, {
         product_id: gekozenProduct.id, datum: gekozenDatum, tijd: gekozenTijd, email,
-        naam: naam || undefined, straat: straat || undefined, postcode: postcode || undefined,
+        naam: naam || undefined, telefoon: telefoon || undefined, straat: straat || undefined, postcode: postcode || undefined,
         stad: stad || undefined, opmerking: opmerking || undefined,
       });
       setFase('klaar');
@@ -1626,6 +1656,13 @@ function PubliekeAgendaPagina({ slug, kleur }) {
                 <FF label="Uw naam" fs={14}>
                   <input value={naam} onChange={e=>setNaam(e.target.value)}
                     placeholder="Voor- en achternaam"
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1px solid #ddd", fontSize:14, boxSizing:"border-box" }} />
+                </FF>
+              )}
+              {info.velden?.telefoon && (
+                <FF label="Uw telefoonnummer" fs={14}>
+                  <input type="tel" value={telefoon} onChange={e=>setTelefoon(e.target.value)}
+                    placeholder="06 12345678"
                     style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1px solid #ddd", fontSize:14, boxSizing:"border-box" }} />
                 </FF>
               )}
@@ -2041,6 +2078,10 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
         </div>
 
         <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop:14, flexWrap:"wrap" }}>
+          <a href="/functies/" style={{ padding:"8px 4px", fontSize:11, color:"#aaa", textDecoration:"none" }}>
+            Functies
+          </a>
+          <span style={{ color:"#ccc", fontSize:11 }}>·</span>
           <button onClick={()=>setVoorwaardenModal(true)}
             style={{ padding:"8px 4px", background:"none", border:"none",
               cursor:"pointer", fontSize:11, color:"#aaa" }}>
@@ -2128,7 +2169,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
 
       {/* Account aanmaken modal */}
       {regModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex",
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex",
           alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem" }}
           onClick={e=>e.target===e.currentTarget&&setRegModal(false)}>
           <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:440,
@@ -2944,7 +2985,7 @@ function KlantenPage({ klanten, setKlanten, producten, agenda, werkbonnen, kassa
         const kAfspraken = agenda.filter(a=>a.klantId===k.id).sort((a,b)=>(a.datum+a.tijd).localeCompare(b.datum+b.tijd));
         const nu = new Date().toISOString().slice(0,10);
         return (
-          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex",
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex",
             alignItems:"center", justifyContent:"center", zIndex:1000, padding:"1rem", overflowY:"auto" }}
             onClick={e=>e.target===e.currentTarget&&setKlantDetailModal(null)}>
             <div style={{ background:"#ffffff", color:"#1a1a1a", borderRadius:16,
@@ -3283,9 +3324,10 @@ function ProductenPage({ producten, setProducten, kleur, fs, isDemoMode, herlaad
 
 // ── AGENDA ───────────────────────────────────────────────────────────────────
 function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad, T, instellingen, updateInstelling }) {
-  const [view, setView] = useState("blok"); // blok | week | werkweek | lijst
+  const [view, setView] = useState("werkweek"); // blok | week | werkweek | lijst
   const [modal, setModal] = useState(false);
-  const [werkweekModal, setWerkweekModal] = useState(false);
+  const [agendaInstellingenModal, setAgendaInstellingenModal] = useState(false);
+  const [agendaInstellingenTab, setAgendaInstellingenTab] = useState("werknemers"); // werknemers | boeken | afspraaktypes | werkweek
   const [editId, setEditId] = useState(null);
   const [editAfspraak, setEditAfspraak] = useState(null);
   const [form, setForm] = useState({ klantId:"", datum:"", tijd:"", tijdTot:"", notitie:"" });
@@ -3294,18 +3336,23 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
   const [agendaNkModal, setAgendaNkModal] = useState(false);
   const [agendaNkForm, setAgendaNkForm] = useState({ naam:"", email:"", telefoon:"" });
   const [personen, setPersonen] = useState([]);
-  const [personenModal, setPersonenModal] = useState(false);
-  const [onlineBoekenModal, setOnlineBoekenModal] = useState(false);
   const [agendaInstelling, setAgendaInstelling] = useState({ agenda_publiek_actief:false, agenda_publiek_slug:"" });
   const [slugInvoer, setSlugInvoer] = useState("");
-  const [velden, setVelden] = useState({ naam:true, straat:false, postcode:false, stad:false, opmerking:true });
+  const [velden, setVelden] = useState({ naam:true, telefoon:false, straat:false, postcode:false, stad:false, opmerking:true });
+  const [ccBijBoeking, setCcBijBoeking] = useState(false);
   const [agendaProducten, setAgendaProducten] = useState([]);
   const [obBezig, setObBezig] = useState(false);
   const [obFout, setObFout] = useState("");
   const [obOpgeslagen, setObOpgeslagen] = useState(false);
   const [productModal, setProductModal] = useState(false);
   const [productEditId, setProductEditId] = useState(null);
-  const [productForm, setProductForm] = useState({ naam:"", duur_minuten:30, min_vooraf_uren:1, prijs:"" });
+  const LEGE_BESCHIKBAARHEID = () => ({
+    1:{actief:true,van:"09:00",tot:"17:00"}, 2:{actief:true,van:"09:00",tot:"17:00"},
+    3:{actief:true,van:"09:00",tot:"17:00"}, 4:{actief:true,van:"09:00",tot:"17:00"},
+    5:{actief:true,van:"09:00",tot:"17:00"}, 6:{actief:false,van:"09:00",tot:"17:00"},
+    7:{actief:false,van:"09:00",tot:"17:00"},
+  });
+  const [productForm, setProductForm] = useState({ naam:"", duur_minuten:30, min_vooraf_uren:1, prijs:"", beschikbaarheid:LEGE_BESCHIKBAARHEID() });
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -3313,14 +3360,16 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
       setAgendaInstelling(data);
       setSlugInvoer(data.agenda_publiek_slug || "");
       if (data.agenda_publiek_velden) setVelden(data.agenda_publiek_velden);
+      setCcBijBoeking(!!data.agenda_cc_bij_boeking);
     }).catch(()=>{});
     API.haalAgendaProductenOp().then(setAgendaProducten).catch(()=>{});
   }, []);
 
   async function slaAgendaInstellingOp(actief) {
+    if (isDemoMode) { setObFout("Online boeken kan niet worden geactiveerd in de demo-modus."); return; }
     setObFout(""); setObBezig(true);
     try {
-      await API.updateAgendaInstelling({ actief, slug: slugInvoer.trim().toLowerCase(), velden });
+      await API.updateAgendaInstelling({ actief, slug: slugInvoer.trim().toLowerCase(), velden, ccBijBoeking });
       setAgendaInstelling({ agenda_publiek_actief: actief, agenda_publiek_slug: slugInvoer.trim().toLowerCase() });
       setObOpgeslagen(true);
       setTimeout(()=>setObOpgeslagen(false), 2500);
@@ -3328,9 +3377,10 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
     finally { setObBezig(false); }
   }
 
-  function openProductNieuw() { setProductForm({ naam:"", duur_minuten:30, min_vooraf_uren:1, prijs:"" }); setProductEditId(null); setProductModal(true); }
+  function openProductNieuw() { setProductForm({ naam:"", duur_minuten:30, min_vooraf_uren:1, prijs:"", beschikbaarheid:LEGE_BESCHIKBAARHEID() }); setProductEditId(null); setProductModal(true); }
   function openProductEdit(p) {
-    setProductForm({ naam:p.naam, duur_minuten:p.duur_minuten, min_vooraf_uren:p.min_vooraf_uren, prijs:p.prijs||"" });
+    setProductForm({ naam:p.naam, duur_minuten:p.duur_minuten, min_vooraf_uren:p.min_vooraf_uren, prijs:p.prijs||"",
+      beschikbaarheid: p.beschikbaarheid ? (typeof p.beschikbaarheid==="string" ? JSON.parse(p.beschikbaarheid) : p.beschikbaarheid) : LEGE_BESCHIKBAARHEID() });
     setProductEditId(p.id); setProductModal(true);
   }
   async function slaProductOp() {
@@ -3368,7 +3418,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
   }
 
   async function verwijderPersoon(id) {
-    if (!confirm("Persoon verwijderen? Deze wordt dan ook uit alle afspraken gehaald.")) return;
+    if (!confirm("Werknemer verwijderen? Deze wordt dan ook uit alle afspraken gehaald.")) return;
     try {
       await API.verwijderAgendaPersoon(id);
       setPersonen(await API.haalAgendaPersonenOp());
@@ -3524,27 +3574,12 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
           ))}
         </div>
 
-        {/* Werkweek instelling knop */}
-        {(view==="werkweek") && (
-          <button onClick={()=>setWerkweekModal(true)}
-            style={{ padding:"7px 12px", borderRadius:8, border:`1px dashed ${kleur.hoofd}`,
-              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2 }}>
-            ⚙ Werkweek instellen
-          </button>
-        )}
-
         <div style={{ flex:1 }}/>
-        <button onClick={()=>setOnlineBoekenModal(true)}
+        <button onClick={()=>setAgendaInstellingenModal(true)}
           style={{ padding:"7px 12px", borderRadius:8, border:"1px solid var(--color-border-secondary)",
             background:"var(--color-background-primary)", color:"var(--color-text-secondary)",
             cursor:"pointer", fontSize:fs-2 }}>
-          🌐 Online boeken
-        </button>
-        <button onClick={()=>setPersonenModal(true)}
-          style={{ padding:"7px 12px", borderRadius:8, border:"1px solid var(--color-border-secondary)",
-            background:"var(--color-background-primary)", color:"var(--color-text-secondary)",
-            cursor:"pointer", fontSize:fs-2 }}>
-          👤 Personen beheren
+          ⚙ Agenda instellingen
         </button>
         <Btn variant="primary" onClick={()=>openNieuw()} kleur={kleur} fs={fs}>+ {T.nieuweAfspraak}</Btn>
       </div>
@@ -3564,103 +3599,248 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
         </div>
       )}
 
-      {/* ── ONLINE BOEKEN MODAL ── */}
-      {onlineBoekenModal && (
-        <Modal title="🌐 Online boeken" onClose={()=>setOnlineBoekenModal(false)} fs={fs}>
-          <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1rem" }}>
-            Laat klanten zelf online een afspraak inplannen via een persoonlijke link. Uw volledige agenda blijft
-            daarbij privé — bezoekers zien alleen welke tijdstippen vrij zijn.
-          </p>
+      {/* ── AGENDA INSTELLINGEN (gecombineerd: werknemers, online boeken, afspraaktypes, werkweek) ── */}
+      {agendaInstellingenModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", backdropFilter:"blur(2px)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:"1.5rem" }}
+          onClick={e=>e.target===e.currentTarget&&setAgendaInstellingenModal(false)}>
+          <div style={{ background:"#fff", borderRadius:18, width:"100%", maxWidth:880, height:"85vh",
+            boxShadow:"0 24px 70px rgba(0,0,0,0.3)", display:"flex", overflow:"hidden" }}>
 
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-            padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)", marginBottom:"1rem" }}>
-            <span style={{ fontSize:fs-1, fontWeight:500 }}>Online boeken inschakelen</span>
-            <div onClick={()=>slaAgendaInstellingOp(!agendaInstelling.agenda_publiek_actief)}
-              style={{ width:38, height:20, borderRadius:99, cursor: obBezig?"wait":"pointer",
-                background: agendaInstelling.agenda_publiek_actief ? kleur.hoofd : "#ccc", position:"relative" }}>
-              <div style={{ position:"absolute", top:2, left: agendaInstelling.agenda_publiek_actief ? 20 : 2,
-                width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.2s" }} />
+            {/* Linker tab-navigatie */}
+            <div style={{ width:200, flexShrink:0, background:"#f7f8fa", borderRight:"1px solid #eceff2",
+              padding:"1.5rem 0.9rem", display:"flex", flexDirection:"column" }}>
+              <h3 style={{ margin:"0 0 1.25rem", fontSize:16, padding:"0 0.4rem" }}>⚙ Agenda</h3>
+              {[
+                { id:"werknemers", label:"👤 Werknemers", icon:"" },
+                { id:"boeken", label:"🌐 Online boeken", icon:"" },
+                { id:"afspraaktypes", label:"📋 Afspraaktypes", icon:"" },
+                { id:"werkweek", label:"💼 Werkweek", icon:"" },
+              ].map(t => (
+                <button key={t.id} onClick={()=>setAgendaInstellingenTab(t.id)}
+                  style={{ display:"flex", alignItems:"center", gap:9, width:"100%", padding:"10px 12px",
+                    borderRadius:9, border:"none", cursor:"pointer", fontSize:13.5, textAlign:"left", marginBottom:3,
+                    background: agendaInstellingenTab===t.id ? kleur.hoofd : "transparent",
+                    color: agendaInstellingenTab===t.id ? "#fff" : "#4a5058",
+                    fontWeight: agendaInstellingenTab===t.id ? 600 : 400,
+                    boxShadow: agendaInstellingenTab===t.id ? `0 3px 10px ${kleur.hoofd}55` : "none" }}>
+                  {t.label}
+                </button>
+              ))}
+              <div style={{ flex:1 }} />
+              <button onClick={()=>setAgendaInstellingenModal(false)}
+                style={{ padding:"9px 12px", borderRadius:9, border:"1px solid #ddd", background:"#fff",
+                  cursor:"pointer", fontSize:13, color:"#666" }}>
+                ← Terug naar agenda
+              </button>
             </div>
-          </div>
 
-          <FF label="Uw persoonlijke boekingslink" fs={fs}>
-            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-              <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)", whiteSpace:"nowrap" }}>dencrm.nl/agenda/</span>
-              <input value={slugInvoer} onChange={e=>setSlugInvoer(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))}
-                placeholder="uw-naam" style={{ ...iSt(fs-1), flex:1 }} />
-            </div>
-          </FF>
+            {/* Content */}
+            <div style={{ flex:1, padding:"2rem 2.25rem", overflowY:"auto" }}>
 
-          <p style={{ margin:"0 0 6px", fontSize:fs-2, color:"var(--color-text-secondary)", fontWeight:600 }}>
-            Welke gegevens moet de klant invullen?
-          </p>
-          <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:"1rem" }}>
-            {[
-              { key:"email", label:"E-mailadres", vast:true },
-              { key:"naam", label:"Naam" },
-              { key:"straat", label:"Straat + huisnummer" },
-              { key:"postcode", label:"Postcode" },
-              { key:"stad", label:"Stad/dorp" },
-              { key:"opmerking", label:"Opmerking" },
-            ].map(veld => (
-              <label key={veld.key} style={{ display:"flex", alignItems:"center", gap:8, fontSize:fs-1,
-                color: veld.vast ? "var(--color-text-secondary)" : "var(--color-text-primary)", cursor: veld.vast ? "default" : "pointer" }}>
-                <input type="checkbox" checked={veld.vast ? true : !!velden[veld.key]} disabled={veld.vast}
-                  onChange={e=>setVelden(v=>({...v, [veld.key]:e.target.checked}))}
-                  style={{ width:16, height:16, accentColor:kleur.hoofd }} />
-                {veld.label}{veld.vast && <span style={{ fontSize:fs-3, color:"var(--color-text-secondary)" }}>(altijd verplicht)</span>}
-              </label>
-            ))}
-          </div>
-
-          {obFout && <p style={{ color:"#a32d2d", fontSize:fs-2, margin:"-8px 0 10px" }}>{obFout}</p>}
-          {obOpgeslagen && <p style={{ color:"#27500a", fontSize:fs-2, margin:"-8px 0 10px" }}>✓ Opgeslagen</p>}
-          {agendaInstelling.agenda_publiek_actief && agendaInstelling.agenda_publiek_slug && (
-            <p style={{ fontSize:fs-2, color:kleur.hoofd, margin:"-6px 0 14px" }}>
-              Live op: <a href={`/agenda/${agendaInstelling.agenda_publiek_slug}`} target="_blank" rel="noreferrer" style={{ color:kleur.hoofd }}>
-                dencrm.nl/agenda/{agendaInstelling.agenda_publiek_slug}
-              </a>
-            </p>
-          )}
-          <Btn onClick={()=>slaAgendaInstellingOp(agendaInstelling.agenda_publiek_actief)} kleur={kleur} fs={fs} variant="primary" disabled={obBezig}>
-            💾 Instellingen opslaan
-          </Btn>
-
-          <hr style={{ margin:"1.25rem 0", border:"none", borderTop:"1px solid var(--color-border-tertiary)" }} />
-
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.75rem" }}>
-            <p style={{ margin:0, fontSize:fs-1, fontWeight:600 }}>Boekbare afspraaktypes</p>
-            <Btn onClick={openProductNieuw} kleur={kleur} fs={fs-2}>+ Toevoegen</Btn>
-          </div>
-          {agendaProducten.length === 0 && (
-            <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>
-              Nog geen afspraaktypes. Voeg er minimaal 1 toe zodat bezoekers iets kunnen boeken.
-            </p>
-          )}
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            {agendaProducten.map(p => (
-              <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"8px 12px", borderRadius:8, background:"var(--color-background-secondary)" }}>
+              {agendaInstellingenTab === "werknemers" && (
                 <div>
-                  <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>{p.naam}</p>
-                  <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>
-                    {p.duur_minuten} min · min. {p.min_vooraf_uren}u vooraf{p.prijs ? ` · €${parseFloat(p.prijs).toLocaleString("nl-NL",{minimumFractionDigits:2})}` : ''}
+                  <h2 style={{ margin:"0 0 0.5rem", fontSize:20 }}>👤 Werknemers beheren</h2>
+                  <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1.25rem" }}>
+                    Werknemers die je aan afspraken kunt koppelen, bijvoorbeeld collega's of monteurs.
                   </p>
+                  <div style={{ marginBottom:"1.25rem" }}>
+                    <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                      <input value={nieuwePersoonNaam} onChange={e=>setNieuwePersoonNaam(e.target.value)}
+                        onKeyDown={e=>e.key==="Enter" && voegPersoonToe()}
+                        placeholder="Naam van de werknemer" style={{ ...iSt(fs), flex:1 }} />
+                      <Btn variant="primary" onClick={voegPersoonToe} kleur={kleur} fs={fs}>+ Toevoegen</Btn>
+                    </div>
+                    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                      <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>Kleur:</span>
+                      {PERSOON_KLEUREN.map(k => (
+                        <button key={k} onClick={()=>setNieuwePersoonKleur(k)}
+                          style={{ width:22, height:22, borderRadius:"50%", background:k, cursor:"pointer",
+                            border: nieuwePersoonKleur===k ? "3px solid var(--color-text-primary)" : "1px solid rgba(0,0,0,0.15)",
+                            padding:0 }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {personen.length === 0 && <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>Nog geen werknemers toegevoegd.</p>}
+                    {personen.map(p => (
+                      <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                        padding:"8px 12px", borderRadius:8, background:"var(--color-background-secondary)" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <span style={{ width:12, height:12, borderRadius:"50%", background:p.kleur||"#999", display:"inline-block" }} />
+                          <span style={{ fontSize:fs-1 }}>{p.naam}</span>
+                        </div>
+                        <button onClick={()=>verwijderPersoon(p.id)}
+                          style={{ padding:"4px 10px", borderRadius:6, background:"#fcebeb", color:"#a32d2d",
+                            border:"none", cursor:"pointer", fontSize:fs-3 }}>
+                          Verwijderen
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display:"flex", gap:4 }}>
-                  <button onClick={()=>openProductEdit(p)}
-                    style={{ padding:"4px 8px", borderRadius:6, background:"none", border:"1px solid var(--color-border-secondary)", cursor:"pointer", fontSize:fs-3 }}>✎</button>
-                  <button onClick={()=>verwijderProduct(p.id)}
-                    style={{ padding:"4px 8px", borderRadius:6, background:"#fcebeb", color:"#a32d2d", border:"none", cursor:"pointer", fontSize:fs-3 }}>✕</button>
-                </div>
-              </div>
-            ))}
-          </div>
+              )}
 
-          <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
-            <Btn onClick={()=>setOnlineBoekenModal(false)} fs={fs}>Sluiten</Btn>
+              {agendaInstellingenTab === "boeken" && (
+                <div>
+                  <h2 style={{ margin:"0 0 0.5rem", fontSize:20 }}>🌐 Online boeken</h2>
+                  <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1.25rem" }}>
+                    Laat klanten zelf online een afspraak inplannen via een persoonlijke link. Uw volledige agenda blijft
+                    daarbij privé — bezoekers zien alleen welke tijdstippen vrij zijn.
+                  </p>
+
+                  {isDemoMode && (
+                    <div style={{ padding:"10px 14px", borderRadius:10, background:"#fffbf0", border:"1px solid #e8c44a", marginBottom:"1rem" }}>
+                      <p style={{ margin:0, fontSize:fs-2, color:"#7a5800" }}>
+                        ⚠ In de demo-modus kan geen openbare boekingslink worden aangemaakt. Maak een gratis account aan om deze functie te gebruiken.
+                      </p>
+                    </div>
+                  )}
+
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                    padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)", marginBottom:"1rem",
+                    opacity: isDemoMode ? 0.5 : 1 }}>
+                    <span style={{ fontSize:fs-1, fontWeight:500 }}>Online boeken inschakelen</span>
+                    <div onClick={()=>!isDemoMode && slaAgendaInstellingOp(!agendaInstelling.agenda_publiek_actief)}
+                      style={{ width:38, height:20, borderRadius:99, cursor: isDemoMode ? "not-allowed" : (obBezig?"wait":"pointer"),
+                        background: agendaInstelling.agenda_publiek_actief ? kleur.hoofd : "#ccc", position:"relative" }}>
+                      <div style={{ position:"absolute", top:2, left: agendaInstelling.agenda_publiek_actief ? 20 : 2,
+                        width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.2s" }} />
+                    </div>
+                  </div>
+
+                  <FF label="Uw persoonlijke boekingslink" fs={fs}>
+                    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)", whiteSpace:"nowrap" }}>dencrm.nl/agenda/</span>
+                      <input value={slugInvoer} onChange={e=>setSlugInvoer(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))}
+                        placeholder="uw-naam" style={{ ...iSt(fs-1), flex:1 }} />
+                    </div>
+                  </FF>
+
+                  <p style={{ margin:"0 0 6px", fontSize:fs-2, color:"var(--color-text-secondary)", fontWeight:600 }}>
+                    Welke gegevens moet de klant invullen?
+                  </p>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:"1.25rem" }}>
+                    {[
+                      { key:"email", label:"E-mailadres", vast:true },
+                      { key:"naam", label:"Naam" },
+                      { key:"telefoon", label:"Telefoonnummer" },
+                      { key:"straat", label:"Straat + huisnummer" },
+                      { key:"postcode", label:"Postcode" },
+                      { key:"stad", label:"Stad/dorp" },
+                      { key:"opmerking", label:"Opmerking" },
+                    ].map(veld => (
+                      <label key={veld.key} style={{ display:"flex", alignItems:"center", gap:8, fontSize:fs-1,
+                        color: veld.vast ? "var(--color-text-secondary)" : "var(--color-text-primary)", cursor: veld.vast ? "default" : "pointer" }}>
+                        <input type="checkbox" checked={veld.vast ? true : !!velden[veld.key]} disabled={veld.vast}
+                          onChange={e=>setVelden(v=>({...v, [veld.key]:e.target.checked}))}
+                          style={{ width:16, height:16, accentColor:kleur.hoofd }} />
+                        {veld.label}{veld.vast && <span style={{ fontSize:fs-3, color:"var(--color-text-secondary)" }}>(altijd verplicht)</span>}
+                      </label>
+                    ))}
+                  </div>
+
+                  <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:fs-1, cursor:"pointer",
+                    padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)", marginBottom:"1.25rem" }}>
+                    <input type="checkbox" checked={ccBijBoeking}
+                      onChange={e=>setCcBijBoeking(e.target.checked)}
+                      style={{ width:16, height:16, accentColor:kleur.hoofd }} />
+                    <span>Zet mij in de cc wanneer iemand iets online inboekt (en ook als diegene de afspraak vervolgens annuleert)</span>
+                  </label>
+
+                  {obFout && <p style={{ color:"#a32d2d", fontSize:fs-2, margin:"-8px 0 10px" }}>{obFout}</p>}
+                  {obOpgeslagen && <p style={{ color:"#27500a", fontSize:fs-2, margin:"-8px 0 10px" }}>✓ Opgeslagen</p>}
+                  {agendaInstelling.agenda_publiek_actief && agendaInstelling.agenda_publiek_slug && (
+                    <p style={{ fontSize:fs-2, color:kleur.hoofd, margin:"-6px 0 14px" }}>
+                      Live op: <a href={`/agenda/${agendaInstelling.agenda_publiek_slug}`} target="_blank" rel="noreferrer" style={{ color:kleur.hoofd }}>
+                        dencrm.nl/agenda/{agendaInstelling.agenda_publiek_slug}
+                      </a>
+                    </p>
+                  )}
+                  <Btn onClick={()=>slaAgendaInstellingOp(agendaInstelling.agenda_publiek_actief)} kleur={kleur} fs={fs} variant="primary" disabled={obBezig||isDemoMode}>
+                    💾 Instellingen opslaan
+                  </Btn>
+                </div>
+              )}
+
+              {agendaInstellingenTab === "afspraaktypes" && (
+                <div>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.75rem" }}>
+                    <h2 style={{ margin:0, fontSize:20 }}>📋 Boekbare afspraaktypes</h2>
+                    <Btn onClick={openProductNieuw} kleur={kleur} fs={fs-1}>+ Toevoegen</Btn>
+                  </div>
+                  <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1rem" }}>
+                    De soorten afspraken die bezoekers via uw boekingslink kunnen inplannen.
+                  </p>
+                  {agendaProducten.length === 0 && (
+                    <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>
+                      Nog geen afspraaktypes. Voeg er minimaal 1 toe zodat bezoekers iets kunnen boeken.
+                    </p>
+                  )}
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {agendaProducten.map(p => (
+                      <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                        padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)" }}>
+                        <div>
+                          <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>{p.naam}</p>
+                          <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>
+                            {p.duur_minuten} min · {p.min_vooraf_uren}u van tevoren{p.prijs ? ` · €${parseFloat(p.prijs).toLocaleString("nl-NL",{minimumFractionDigits:2})}` : ''}
+                          </p>
+                        </div>
+                        <div style={{ display:"flex", gap:4 }}>
+                          <button onClick={()=>openProductEdit(p)}
+                            style={{ padding:"5px 10px", borderRadius:6, background:"none", border:"1px solid var(--color-border-secondary)", cursor:"pointer", fontSize:fs-2 }}>✎ Bewerken</button>
+                          <button onClick={()=>verwijderProduct(p.id)}
+                            style={{ padding:"5px 10px", borderRadius:6, background:"#fcebeb", color:"#a32d2d", border:"none", cursor:"pointer", fontSize:fs-2 }}>✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {agendaInstellingenTab === "werkweek" && (
+                <div>
+                  <h2 style={{ margin:"0 0 0.5rem", fontSize:20 }}>💼 Werkweek</h2>
+                  <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1.25rem" }}>
+                    Kies welke dagen en tijden standaard zichtbaar zijn in de werkweekweergave van uw agenda.
+                  </p>
+                  <FF label="Werkdagen" fs={fs}>
+                    <div style={{ display:"flex", gap:6 }}>
+                      {[1,2,3,4,5,6,7].map(d=>{
+                        const aan = werkweekInst.dagen.includes(d);
+                        return (
+                          <button key={d} onClick={()=>setWerkweekInst(prev=>({
+                            ...prev,
+                            dagen: aan ? prev.dagen.filter(x=>x!==d) : [...prev.dagen, d].sort()
+                          }))}
+                            style={{ width:40, height:36, borderRadius:8, cursor:"pointer", fontSize:fs-2, fontWeight:600,
+                              border:`1.5px solid ${aan ? kleur.hoofd : "var(--color-border-secondary)"}`,
+                              background: aan ? kleur.hoofd : "var(--color-background-primary)",
+                              color: aan ? "#fff" : "var(--color-text-secondary)" }}>
+                            {dagNamen[d]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </FF>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                    <FF label="Begintijd" fs={fs}>
+                      <TijdKiezer value={werkweekInst.vanUur} onChange={t=>setWerkweekInst(p=>({...p,vanUur:t}))} fs={fs} />
+                    </FF>
+                    <FF label="Eindtijd" fs={fs}>
+                      <TijdKiezer value={werkweekInst.totUur} onChange={t=>setWerkweekInst(p=>({...p,totUur:t}))} fs={fs} />
+                    </FF>
+                  </div>
+                  <div style={{ padding:"10px 14px", borderRadius:8, background:"var(--color-background-secondary)",
+                    fontSize:fs-2, color:"var(--color-text-secondary)", marginTop:"0.5rem" }}>
+                    Huidige instelling: {werkweekInst.dagen.map(d=>dagNamen[d]).join(", ")} · {werkweekInst.vanUur} – {werkweekInst.totUur}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </Modal>
+        </div>
       )}
 
       {/* Afspraaktype toevoegen/bewerken */}
@@ -3672,19 +3852,11 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
           </FF>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             <FF label="Duur (minuten)" fs={fs}>
-              <div style={{ display:"flex", gap:4 }}>
-                {[15,30,45,60].map(d=>(
-                  <button key={d} onClick={()=>setProductForm(f=>({...f,duur_minuten:d}))}
-                    style={{ flex:1, padding:"7px", borderRadius:8, cursor:"pointer", fontSize:fs-2,
-                      border:`1.5px solid ${productForm.duur_minuten===d?kleur.hoofd:"var(--color-border-secondary)"}`,
-                      background: productForm.duur_minuten===d ? kleur.hoofd : "var(--color-background-primary)",
-                      color: productForm.duur_minuten===d ? "#fff" : "var(--color-text-secondary)" }}>
-                    {d}
-                  </button>
-                ))}
-              </div>
+              <input type="number" min="1" step="1" value={productForm.duur_minuten}
+                onChange={e=>setProductForm(f=>({...f,duur_minuten: e.target.value===""?"":parseInt(e.target.value)||""}))}
+                placeholder="30" style={iSt(fs)} />
             </FF>
-            <FF label="Min. vooraf (uren)" fs={fs}>
+            <FF label="Hoeveel uur van tevoren mag dit product geboekt worden?" fs={fs}>
               <input type="number" step="0.5" min="0" value={productForm.min_vooraf_uren}
                 onChange={e=>setProductForm(f=>({...f,min_vooraf_uren:e.target.value}))} style={iSt(fs)} />
             </FF>
@@ -3693,6 +3865,41 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
             <input type="number" step="0.01" min="0" value={productForm.prijs}
               onChange={e=>setProductForm(f=>({...f,prijs:e.target.value}))} placeholder="0.00" style={iSt(fs)} />
           </FF>
+
+          <p style={{ margin:"1rem 0 6px", fontSize:fs-1, fontWeight:600 }}>Wanneer mag dit product geboekt worden?</p>
+          <p style={{ margin:"0 0 10px", fontSize:fs-2, color:"var(--color-text-secondary)" }}>
+            Kies per dag of dit afspraaktype die dag beschikbaar is, en binnen welke tijden.
+          </p>
+          <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:"1rem" }}>
+            {[1,2,3,4,5,6,7].map(d => {
+              const dagInst = productForm.beschikbaarheid[d] || {actief:false,van:"09:00",tot:"17:00"};
+              return (
+                <div key={d} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 10px",
+                  borderRadius:8, background: dagInst.actief ? kleur.licht : "#f5f5f5" }}>
+                  <button onClick={()=>setProductForm(f=>({...f, beschikbaarheid:{...f.beschikbaarheid,
+                      [d]:{...dagInst, actief:!dagInst.actief}}}))}
+                    style={{ width:44, padding:"5px 0", borderRadius:7, border:"none", cursor:"pointer",
+                      fontSize:fs-2, fontWeight:700,
+                      background: dagInst.actief ? kleur.hoofd : "#ddd",
+                      color: dagInst.actief ? "#fff" : "#888" }}>
+                    {dagNamen[d]}
+                  </button>
+                  {dagInst.actief ? (
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <TijdKiezer value={dagInst.van} fs={fs-2}
+                        onChange={t=>setProductForm(f=>({...f, beschikbaarheid:{...f.beschikbaarheid, [d]:{...dagInst, van:t}}}))} />
+                      <span style={{ color:"var(--color-text-secondary)", fontSize:fs-2 }}>tot</span>
+                      <TijdKiezer value={dagInst.tot} fs={fs-2}
+                        onChange={t=>setProductForm(f=>({...f, beschikbaarheid:{...f.beschikbaarheid, [d]:{...dagInst, tot:t}}}))} />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>Niet beschikbaar</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
             <Btn onClick={()=>setProductModal(false)} fs={fs}>Annuleren</Btn>
             <Btn variant="primary" onClick={slaProductOp} kleur={kleur} fs={fs}>💾 Opslaan</Btn>
@@ -3700,251 +3907,6 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
         </Modal>
       )}
 
-      {/* ── PERSONEN BEHEER MODAL ── */}
-      {personenModal && (
-        <Modal title="👤 Personen beheren" onClose={()=>setPersonenModal(false)} fs={fs}>
-          <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1rem" }}>
-            Personen die je aan afspraken kunt koppelen, bijvoorbeeld collega's of monteurs.
-          </p>
-          <div style={{ marginBottom:"1rem" }}>
-            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-              <input value={nieuwePersoonNaam} onChange={e=>setNieuwePersoonNaam(e.target.value)}
-                onKeyDown={e=>e.key==="Enter" && voegPersoonToe()}
-                placeholder="Naam van de persoon" style={{ ...iSt(fs), flex:1 }} />
-              <Btn variant="primary" onClick={voegPersoonToe} kleur={kleur} fs={fs}>+ Toevoegen</Btn>
-            </div>
-            <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-              <span style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>Kleur:</span>
-              {PERSOON_KLEUREN.map(k => (
-                <button key={k} onClick={()=>setNieuwePersoonKleur(k)}
-                  style={{ width:22, height:22, borderRadius:"50%", background:k, cursor:"pointer",
-                    border: nieuwePersoonKleur===k ? "3px solid var(--color-text-primary)" : "1px solid rgba(0,0,0,0.15)",
-                    padding:0 }} />
-              ))}
-            </div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            {personen.length === 0 && <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>Nog geen personen toegevoegd.</p>}
-            {personen.map(p => (
-              <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"8px 12px", borderRadius:8, background:"var(--color-background-secondary)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ width:12, height:12, borderRadius:"50%", background:p.kleur||"#999", display:"inline-block" }} />
-                  <span style={{ fontSize:fs-1 }}>{p.naam}</span>
-                </div>
-                <button onClick={()=>verwijderPersoon(p.id)}
-                  style={{ padding:"4px 10px", borderRadius:6, background:"#fcebeb", color:"#a32d2d",
-                    border:"none", cursor:"pointer", fontSize:fs-3 }}>
-                  Verwijderen
-                </button>
-              </div>
-            ))}
-          </div>
-          <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
-            <Btn onClick={()=>setPersonenModal(false)} fs={fs}>Sluiten</Btn>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── LIJSTWEERGAVE ── */}
-      {view==="lijst"&&(
-        <>
-          {Object.keys(groups).length===0&&<p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>{T.geenAfspraken}</p>}
-          {Object.entries(groups).map(([datum,afspraken])=>(
-            <div key={datum} style={{ marginBottom:"1.5rem" }}>
-              <p style={{ fontSize:fs-1, fontWeight:500, color:"var(--color-text-secondary)", marginBottom:8 }}>
-                {new Date(datum+"T12:00:00").toLocaleDateString("nl-NL",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
-              </p>
-              {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId); const persoonKleur=a.personen?.[0]?.kleur;return(
-                <div key={a.id} style={{
-                  background: persoonKleur ? `${persoonKleur}22` : "var(--color-background-primary)",
-                  border: persoonKleur ? `1.5px solid ${persoonKleur}` : "0.5px solid var(--color-border-tertiary)",
-                  borderRadius:12, padding:"12px 16px", display:"flex", gap:16, alignItems:"center", marginBottom:8 }}>
-                  <div style={{ background:kleur.licht, color:kleur.donker, borderRadius:8, padding:"8px 12px", textAlign:"center", minWidth:80 }}>
-                    <p style={{ margin:0, fontSize:fs, fontWeight:500 }}>{a.tijd}</p>
-                    {a.tijdTot&&<p style={{ margin:0, fontSize:fs-3, opacity:0.8 }}>t/m {a.tijdTot}</p>}
-                  </div>
-                  {k&&<Avatar naam={k.naam} size={36} kleur={kleur}/>}
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      <p style={{ margin:0, fontSize:fs, fontWeight:500 }}>{k?.naam||(a.extern?"Extern geboekt":"Onbekende klant")}</p>
-                      {a.extern && (
-                        <span style={{ fontSize:fs-3, padding:"1px 8px", borderRadius:99, background:"#e6f1fb", color:"#0c447c", fontWeight:600 }}>
-                          🌐 Extern
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ margin:0, fontSize:fs-1, color:"var(--color-text-secondary)" }}>{a.notitie}</p>
-                    {a.extern_email && <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>✉ {a.extern_email}</p>}
-                    {a.personen?.length>0&&(
-                      <div style={{ display:"flex", gap:5, marginTop:4, flexWrap:"wrap" }}>
-                        {a.personen.map(p=>(
-                          <span key={p.id} style={{ display:"flex", alignItems:"center", gap:4, fontSize:fs-3,
-                            padding:"1px 8px", borderRadius:99, background:"var(--color-background-secondary)" }}>
-                            <span style={{ width:7, height:7, borderRadius:"50%", background:p.kleur||"#999" }} />
-                            {p.naam}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <button onClick={()=>openEdit(a)} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--color-text-secondary)",padding:4,fontSize:fs+2 }}>✎</button>
-                  <button onClick={()=>del(a.id)} style={{ background:"none",border:"none",cursor:"pointer",color:"#A32D2D",padding:4,fontSize:fs+2 }}>✕</button>
-                </div>
-              );})}
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* ── DAG BLOKWEERGAVE ── */}
-      {view==="blok"&&(
-        <div style={{ border:"0.5px solid var(--color-border-tertiary)", borderRadius:12, overflow:"hidden" }}>
-          <div style={{ background:kleur.hoofd, color:"#fff", padding:"10px 16px", fontSize:fs, fontWeight:500 }}>
-            {filterDatum?new Date(filterDatum+"T12:00:00").toLocaleDateString("nl-NL",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):"Selecteer een datum"}
-          </div>
-          <div style={{ overflowY:"auto", maxHeight:"60vh" }}>
-            {UREN.map(uur=>{
-              const afspraken=afspVoorUur(uur);
-              const isH=hover===uur;
-              return(
-                <div key={uur} onMouseEnter={()=>setHover(uur)} onMouseLeave={()=>setHover(null)}
-                  onClick={()=>afspraken.length===0&&openNieuw(uur)}
-                  style={{ display:"flex", minHeight:52, borderBottom:"0.5px solid var(--color-border-tertiary)",
-                    background:isH&&afspraken.length===0?kleur.licht:"var(--color-background-primary)",
-                    cursor:afspraken.length===0?"pointer":"default", transition:"background 0.12s" }}>
-                  <div style={{ width:72, flexShrink:0, padding:"10px 12px 6px", fontSize:fs-2,
-                    color:"var(--color-text-secondary)", borderRight:"0.5px solid var(--color-border-tertiary)" }}>{uur}</div>
-                  <div style={{ flex:1, padding:"4px 8px", display:"flex", flexDirection:"column", gap:4 }}>
-                    {afspraken.length===0&&isH&&<span style={{ fontSize:fs-2, color:kleur.donker, padding:"4px 0" }}>{T.klikToevoegen}</span>}
-                    {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId); const persoonKleur=a.personen?.[0]?.kleur;return(
-                      <div key={a.id} onClick={e=>{e.stopPropagation();openEdit(a);}}
-                        style={{ background: persoonKleur || kleur.hoofd, color:"#fff", borderRadius:6,
-                          padding:"5px 10px", display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
-                        <div>
-                          <span style={{ fontSize:fs-1, fontWeight:500 }}>{tijdLabel(a)} — {k?.naam||"?"}</span>
-                          {a.notitie&&<p style={{ margin:"1px 0 0", fontSize:fs-3, opacity:0.85 }}>{a.notitie}</p>}
-                          {a.personen?.length>0&&<p style={{ margin:"1px 0 0", fontSize:fs-3, opacity:0.9 }}>👤 {a.personen.map(p=>p.naam).join(", ")}</p>}
-                        </div>
-                        <div style={{ display:"flex", gap:4 }}>
-                          <span style={{ fontSize:fs-2, opacity:0.7, padding:"0 4px" }}>✎</span>
-                          <button onClick={e=>{e.stopPropagation();del(a.id);}} style={{ background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.8)",fontSize:14,padding:"0 4px" }}>✕</button>
-                        </div>
-                      </div>
-                    );})}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── WEEK / WERKWEEK WEERGAVE ── */}
-      {(view==="week"||view==="werkweek")&&(()=>{
-        const dagen = weekDagen(weekStart, view==="werkweek");
-        const uren = view==="werkweek" ? zichtbareUren : UREN;
-        const vandaag = new Date().toISOString().slice(0,10);
-        return (
-          <div style={{ border:"0.5px solid var(--color-border-tertiary)", borderRadius:12, overflow:"hidden" }}>
-            {/* Header met dagnamen */}
-            <div style={{ display:"grid", gridTemplateColumns:`64px repeat(${dagen.length}, 1fr)`,
-              background:kleur.hoofd, color:"#fff" }}>
-              <div style={{ padding:"8px", fontSize:fs-3, borderRight:"0.5px solid rgba(255,255,255,0.2)" }} />
-              {dagen.map(d=>(
-                <div key={d.iso} style={{ padding:"8px 4px", textAlign:"center", fontSize:fs-2,
-                  borderRight:"0.5px solid rgba(255,255,255,0.2)",
-                  background: d.iso===vandaag ? "rgba(255,255,255,0.2)" : "transparent",
-                  fontWeight: d.iso===vandaag ? 700 : 400 }}>
-                  {d.label}
-                </div>
-              ))}
-            </div>
-            {/* Uurblokken */}
-            <div style={{ overflowY:"auto", maxHeight:"65vh" }}>
-              {uren.map(uur=>(
-                <div key={uur} style={{ display:"grid", gridTemplateColumns:`64px repeat(${dagen.length}, 1fr)`,
-                  borderBottom:"0.5px solid var(--color-border-tertiary)", minHeight:48 }}>
-                  <div style={{ padding:"8px 6px", fontSize:fs-3, color:"var(--color-text-secondary)",
-                    borderRight:"0.5px solid var(--color-border-tertiary)", flexShrink:0 }}>{uur}</div>
-                  {dagen.map(d=>{
-                    const afspraken = afspVoorDagUur(d.iso, uur);
-                    const isVandaag = d.iso === vandaag;
-                    return (
-                      <div key={d.iso} onClick={()=>afspraken.length===0&&openNieuw(uur,d.iso)}
-                        style={{ padding:"2px 3px", borderRight:"0.5px solid var(--color-border-tertiary)",
-                          cursor:afspraken.length===0?"pointer":"default",
-                          background: isVandaag ? `${kleur.hoofd}08` : "transparent",
-                          transition:"background 0.1s" }}
-                        onMouseEnter={e=>{ if(afspraken.length===0) e.currentTarget.style.background=`${kleur.hoofd}18`; }}
-                        onMouseLeave={e=>{ e.currentTarget.style.background = isVandaag ? `${kleur.hoofd}08` : "transparent"; }}>
-                        {afspraken.map(a=>{const k=klanten.find(x=>x.id===a.klantId); const persoonKleur=a.personen?.[0]?.kleur;return(
-                          <div key={a.id} onClick={e=>{e.stopPropagation();openEdit(a);}}
-                            style={{ background: persoonKleur || kleur.hoofd, color:"#fff", borderRadius:4, padding:"2px 5px",
-                              fontSize:fs-3, cursor:"pointer", marginBottom:2, lineHeight:1.3 }}>
-                            <div style={{ fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                              {a.tijd} {k?.naam||"?"}
-                            </div>
-                            {a.notitie&&<div style={{ opacity:0.8, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.notitie}</div>}
-                          </div>
-                        );})}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ── WERKWEEK INSTELLING MODAL ── */}
-      {werkweekModal && (
-        <Modal title="💼 Werkweek instellen" onClose={()=>setWerkweekModal(false)} fs={fs}>
-          <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1rem" }}>
-            Kies welke dagen en tijden zichtbaar zijn in de werkweekweergave.
-          </p>
-          <FF label="Werkdagen" fs={fs}>
-            <div style={{ display:"flex", gap:6 }}>
-              {[1,2,3,4,5,6,7].map(d=>{
-                const aan = werkweekInst.dagen.includes(d);
-                return (
-                  <button key={d} onClick={()=>setWerkweekInst(prev=>({
-                    ...prev,
-                    dagen: aan ? prev.dagen.filter(x=>x!==d) : [...prev.dagen, d].sort()
-                  }))}
-                    style={{ width:40, height:36, borderRadius:8, cursor:"pointer", fontSize:fs-2, fontWeight:600,
-                      border:`1.5px solid ${aan ? kleur.hoofd : "var(--color-border-secondary)"}`,
-                      background: aan ? kleur.hoofd : "var(--color-background-primary)",
-                      color: aan ? "#fff" : "var(--color-text-secondary)" }}>
-                    {dagNamen[d]}
-                  </button>
-                );
-              })}
-            </div>
-          </FF>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <FF label="Begintijd" fs={fs}>
-              <input type="time" value={werkweekInst.vanUur}
-                onChange={e=>setWerkweekInst(p=>({...p,vanUur:e.target.value}))}
-                style={iSt(fs)} />
-            </FF>
-            <FF label="Eindtijd" fs={fs}>
-              <input type="time" value={werkweekInst.totUur}
-                onChange={e=>setWerkweekInst(p=>({...p,totUur:e.target.value}))}
-                style={iSt(fs)} />
-            </FF>
-          </div>
-          <div style={{ padding:"10px 14px", borderRadius:8, background:"var(--color-background-secondary)",
-            fontSize:fs-2, color:"var(--color-text-secondary)", marginTop:"0.5rem" }}>
-            Huidige instelling: {werkweekInst.dagen.map(d=>dagNamen[d]).join(", ")} · {werkweekInst.vanUur} – {werkweekInst.totUur}
-          </div>
-          <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:"1rem" }}>
-            <Btn onClick={()=>setWerkweekModal(false)} fs={fs}>Sluiten</Btn>
-            <Btn variant="primary" onClick={()=>setWerkweekModal(false)} kleur={kleur} fs={fs}>✓ Opslaan</Btn>
-          </div>
-        </Modal>
-      )}
 
       {/* ── AFSPRAAK MODAL ── */}
       {modal&&(
@@ -3956,6 +3918,7 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
               </p>
               {editAfspraak.extern_naam && <p style={{ margin:"2px 0", fontSize:fs-2, color:"#333" }}>👤 {editAfspraak.extern_naam}</p>}
               {editAfspraak.extern_email && <p style={{ margin:"2px 0", fontSize:fs-2, color:"#333" }}>✉ {editAfspraak.extern_email}</p>}
+              {editAfspraak.extern_telefoon && <p style={{ margin:"2px 0", fontSize:fs-2, color:"#333" }}>📞 {editAfspraak.extern_telefoon}</p>}
               {(editAfspraak.extern_straat || editAfspraak.extern_postcode || editAfspraak.extern_stad) && (
                 <p style={{ margin:"2px 0", fontSize:fs-2, color:"#333" }}>
                   📍 {[editAfspraak.extern_straat, [editAfspraak.extern_postcode, editAfspraak.extern_stad].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
@@ -3976,11 +3939,11 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
             <input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
           </FF>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <FF label={T.vanaf} fs={fs}><input type="time" value={form.tijd} onChange={e=>setForm(f=>({...f,tijd:e.target.value}))} style={iSt(fs)} /></FF>
-            <FF label={T.tijdTot} fs={fs}><input type="time" value={form.tijdTot} onChange={e=>setForm(f=>({...f,tijdTot:e.target.value}))} style={iSt(fs)} /></FF>
+            <FF label={T.vanaf} fs={fs}><TijdKiezer value={form.tijd} onChange={t=>setForm(f=>({...f,tijd:t}))} fs={fs} /></FF>
+            <FF label={T.tijdTot} fs={fs}><TijdKiezer value={form.tijdTot} onChange={t=>setForm(f=>({...f,tijdTot:t}))} fs={fs} /></FF>
           </div>
           {personen.length > 0 && (
-            <FF label="Personen koppelen" fs={fs}>
+            <FF label="Werknemers koppelen" fs={fs}>
               <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                 {personen.map(p => {
                   const aan = gekozenPersonen.includes(p.id);
@@ -4706,6 +4669,52 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T, inst
 }
 
 // ── WERKBONNEN / REPARATIES ──────────────────────────────────
+// Eenvoudige, robuuste CSV-parser: detecteert automatisch ; of , als scheidingsteken,
+// respecteert aanhalingstekens, en werkt met CRLF/CR/LF regeleindes (bankexports gebruiken vaak CRLF+CR).
+function parseCsv(tekst) {
+  const schoon = tekst.replace(/\r/g, ""); // normaliseer regeleindes naar puur \n
+  const eersteRegel = schoon.split("\n")[0] || "";
+  const scheidingsteken = (eersteRegel.match(/;/g) || []).length >= (eersteRegel.match(/,/g) || []).length ? ";" : ",";
+
+  const rijen = [];
+  let huidigeRij = [];
+  let veld = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < schoon.length; i++) {
+    const c = schoon[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (schoon[i+1] === '"') { veld += '"'; i++; }
+        else inQuotes = false;
+      } else veld += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === scheidingsteken) { huidigeRij.push(veld); veld = ""; }
+      else if (c === "\n") { huidigeRij.push(veld); rijen.push(huidigeRij); huidigeRij = []; veld = ""; }
+      else veld += c;
+    }
+  }
+  if (veld !== "" || huidigeRij.length > 0) { huidigeRij.push(veld); rijen.push(huidigeRij); }
+
+  const nietLeeg = rijen.filter(r => r.some(v => v.trim() !== ""));
+  if (nietLeeg.length === 0) return { headers: [], rows: [] };
+  const headers = nietLeeg[0].map(h => h.trim());
+  const rows = nietLeeg.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (r[i] || "").trim(); });
+    return obj;
+  });
+  return { headers, rows };
+}
+
+// Nederlandse bedragnotatie ("1.234,56" of "-80,61") naar een getal
+function parseNlBedrag(waarde) {
+  if (!waarde) return 0;
+  const schoon = waarde.toString().replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  return parseFloat(schoon) || 0;
+}
+
 const WERKBON_STATUSSEN = [
   { id:"nieuw",       label:"Nieuw",        kleur:"#185FA5", bg:"#e8f0fb" },
   { id:"in_behandeling", label:"In behandeling", kleur:"#7a5800", bg:"#fffbf0" },
@@ -4775,6 +4784,44 @@ function WerkbonnenPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
     if (!confirm("Werkbon verwijderen?")) return;
     try { await API.verwijderWerkbon(id); await laad(); setDetail(null); }
     catch(e) { alert("Verwijderen mislukt: "+e.message); }
+  }
+
+  const [factuurBezig, setFactuurBezig] = useState(false);
+
+  async function zetOmNaarFactuur(w) {
+    if (!w.onderdelen || w.onderdelen.length === 0) {
+      if (!confirm("Deze werkbon heeft geen onderdelen/kosten. Toch een lege factuur aanmaken?")) return;
+    }
+    if (!confirm(`Werkbon ${w.referentie} omzetten naar een nieuwe factuur?`)) return;
+    setFactuurBezig(true);
+    try {
+      const klant = klanten.find(k=>k.id===w.klant_id);
+      const regels = (w.onderdelen||[]).filter(o=>o.naam).map((o,i) => ({
+        naam: o.naam, beschrijving: "", prijs: parseFloat(o.prijs)||0, aantal: parseInt(o.aantal)||1, volgorde:i, isVariabel:false,
+      }));
+      const exclBtw = regels.reduce((s,r)=>s+r.prijs*r.aantal, 0);
+      const btwBedrag = Math.round(exclBtw * 0.21 * 100) / 100;
+      const ref = `FACT-${new Date().getFullYear()}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`;
+      const profiel = await API.haalProfielOp().catch(()=>({}));
+      const { id } = await API.maakOfferteAan({
+        klant_id: w.klant_id || null,
+        klant_naam_vrij: !w.klant_id ? (klant?.naam || null) : null,
+        referentie: ref,
+        datum: new Date().toISOString().slice(0,10),
+        type: "factuur",
+        incl_btw: true,
+        totaal_excl_btw: exclBtw,
+        totaal_incl_btw: Math.round((exclBtw + btwBedrag) * 100) / 100,
+        bedrijfsnaam: profiel.bedrijfsnaam || profiel.naam || "",
+        bedrijf_adres: profiel.bedrijf_adres || "",
+        iban: profiel.iban || "",
+        btw_nummer: profiel.btw_nummer || "",
+        offerte_tekst: `Factuur voor uitgevoerde werkzaamheden${w.product_omschrijving ? ` aan: ${w.product_omschrijving}` : ""}.${w.klacht ? `\n\nOmschrijving: ${w.klacht}` : ""}\n\nReferentie werkbon: ${w.referentie}`,
+        regels,
+      });
+      alert(`Factuur ${ref} is aangemaakt. U vindt hem terug bij Offertes & Facturen of in het Financieel overzicht.`);
+    } catch(e) { alert("Omzetten naar factuur mislukt: "+e.message); }
+    finally { setFactuurBezig(false); }
   }
 
   async function maakNieuweKlant() {
@@ -4915,12 +4962,19 @@ function WerkbonnenPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                 Aangemaakt: {new Date(detail.aangemaakt_op).toLocaleString("nl-NL")}
               </p>
             </div>
-            <div style={{ display:"flex", gap:6 }}>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
               <button onClick={()=>printWerkbon(detail)}
                 style={{ padding:"7px 12px", borderRadius:8, background:"var(--color-background-secondary)",
                   border:"1px solid var(--color-border-secondary)", cursor:"pointer", fontSize:fs-1 }}>
                 🖨 Afdrukken
               </button>
+              {(detail.status==="klaar"||detail.status==="afgeleverd") && (
+                <button onClick={()=>zetOmNaarFactuur(detail)} disabled={factuurBezig}
+                  style={{ padding:"7px 12px", borderRadius:8, background:"#eaf3de",
+                    border:"1px solid #3b6d11", color:"#27500a", cursor:"pointer", fontSize:fs-1, opacity:factuurBezig?0.6:1 }}>
+                  {factuurBezig ? "Bezig…" : "🧾 Omzetten naar factuur"}
+                </button>
+              )}
               <button onClick={()=>openEdit(detail)}
                 style={{ padding:"7px 12px", borderRadius:8, background:kleur.licht,
                   border:`1px solid ${kleur.hoofd}`, color:kleur.donker, cursor:"pointer", fontSize:fs-1 }}>
@@ -5120,11 +5174,138 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
   const [filterCat, setFilterCat] = useState("alle");
   const [zoek, setZoek] = useState("");
 
+  // ── Importeer declaraties (CSV / bankafschrift) ──
+  const IMPORT_VELDEN = [
+    { key:"datum",       label:"Datum",         verplicht:true },
+    { key:"omschrijving",label:"Omschrijving",  verplicht:true },
+    { key:"bedrag",      label:"Bedrag",        verplicht:true },
+    { key:"leverancier", label:"Leverancier / naam", verplicht:false },
+    { key:"notitie",     label:"Notitie (extra toelichting)", verplicht:false },
+  ];
+  const [importModal, setImportModal] = useState(false);
+  const [importStap, setImportStap] = useState(1); // 1=upload, 2=mapping, 3=regels selecteren
+  const [importBestandNaam, setImportBestandNaam] = useState("");
+  const [importCsv, setImportCsv] = useState({ headers:[], rows:[] });
+  const [importMapping, setImportMapping] = useState({});
+  const [importRegels, setImportRegels] = useState([]);
+  const [importBezig, setImportBezig] = useState(false);
+  const [importVoortgang, setImportVoortgang] = useState(0);
+  const [importFout, setImportFout] = useState("");
+
+  function resetImport() {
+    setImportStap(1); setImportBestandNaam(""); setImportCsv({ headers:[], rows:[] });
+    setImportMapping({}); setImportRegels([]); setImportFout(""); setImportVoortgang(0);
+  }
+
+  function importBestandKiezen(file) {
+    setImportFout("");
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const { headers, rows } = parseCsv(reader.result);
+        if (headers.length === 0 || rows.length === 0) { setImportFout("Kon geen gegevens uit dit bestand lezen."); return; }
+        setImportCsv({ headers, rows });
+        setImportBestandNaam(file.name);
+        // Probeer kolommen automatisch te herkennen op basis van veelvoorkomende bank-kolomnamen
+        const gok = veld => {
+          const kandidaten = {
+            datum: ["datum","transactiedatum","boekingsdatum"],
+            omschrijving: ["omschrijving","mededeling","beschrijving"],
+            bedrag: ["bedrag bij / af","bedrag","bedrag (eur)","amount"],
+            leverancier: ["naam","van / naar","tegenrekening naam","naam tegenpartij"],
+            notitie: ["betalingskenmerk"],
+          };
+          const opts = kandidaten[veld] || [];
+          return headers.find(h => opts.includes(h.toLowerCase())) || "";
+        };
+        const autoMapping = {};
+        IMPORT_VELDEN.forEach(v => { autoMapping[v.key] = gok(v.key); });
+        setImportMapping(autoMapping);
+        setImportStap(2);
+      } catch(e) { setImportFout("Bestand kon niet worden gelezen: "+e.message); }
+    };
+    reader.onerror = () => setImportFout("Bestand kon niet worden gelezen.");
+    reader.readAsText(file, "UTF-8");
+  }
+
+  function gaNaarRegelsSelecteren() {
+    const ontbreekt = IMPORT_VELDEN.filter(v => v.verplicht && !importMapping[v.key]);
+    if (ontbreekt.length > 0) { setImportFout(`Koppel eerst: ${ontbreekt.map(v=>v.label).join(", ")}`); return; }
+    setImportFout("");
+    const regels = importCsv.rows.map((r, i) => {
+      const bedragRuw = parseNlBedrag(r[importMapping.bedrag]);
+      return {
+        id: "imp"+i,
+        geselecteerd: bedragRuw < 0, // standaard alleen uitgaven aanvinken, geen inkomsten
+        datum: converteerDatum(r[importMapping.datum]),
+        omschrijving: r[importMapping.omschrijving] || "(geen omschrijving)",
+        bedrag_incl: Math.abs(bedragRuw),
+        leverancier: importMapping.leverancier ? (r[importMapping.leverancier]||"") : "",
+        notitie: importMapping.notitie ? (r[importMapping.notitie]||"") : "",
+        btw_percentage: 21,
+        categorie: "overig",
+      };
+    });
+    setImportRegels(regels);
+    setImportStap(3);
+  }
+
+  function converteerDatum(waarde) {
+    if (!waarde) return new Date().toISOString().slice(0,10);
+    // Ondersteun DD-MM-YYYY, DD/MM/YYYY en YYYY-MM-DD
+    const m1 = waarde.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+    if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`;
+    const m2 = waarde.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m2) return waarde;
+    return new Date().toISOString().slice(0,10);
+  }
+
+  function updateImportRegel(id, veld, waarde) {
+    setImportRegels(prev => prev.map(r => r.id===id ? {...r, [veld]:waarde} : r));
+  }
+
+  function zetAlleBtw(pct) {
+    setImportRegels(prev => prev.map(r => r.geselecteerd ? {...r, btw_percentage:pct} : r));
+  }
+
+  async function voerImportUit() {
+    const teImporteren = importRegels.filter(r => r.geselecteerd);
+    if (teImporteren.length === 0) { setImportFout("Selecteer minimaal één regel om te importeren."); return; }
+    setImportBezig(true); setImportVoortgang(0); setImportFout("");
+    let gelukt = 0, mislukt = 0;
+    for (let i = 0; i < teImporteren.length; i++) {
+      const r = teImporteren[i];
+      const exclBtw = Math.round((r.bedrag_incl / (1 + r.btw_percentage/100)) * 100) / 100;
+      try {
+        if (!isDemoMode) {
+          await API.maakDeclaratieAan({
+            omschrijving: r.omschrijving, categorie: r.categorie, datum: r.datum,
+            leverancier: r.leverancier, bedrag_excl_btw: exclBtw, btw_percentage: r.btw_percentage,
+            btw_aftrekbaar: true, betaalmethode: "bankoverschrijving",
+            notitie: r.notitie ? `${r.notitie} (geïmporteerd uit ${importBestandNaam})` : `Geïmporteerd uit ${importBestandNaam}`,
+          });
+        }
+        gelukt++;
+      } catch(e) { mislukt++; }
+      setImportVoortgang(Math.round(((i+1)/teImporteren.length)*100));
+    }
+    setImportBezig(false);
+    await laad();
+    if (mislukt === 0) {
+      alert(`${gelukt} declaratie(s) succesvol geïmporteerd!`);
+      setImportModal(false); resetImport();
+    } else {
+      setImportFout(`${gelukt} gelukt, ${mislukt} mislukt. Probeer het eventueel opnieuw voor de mislukte regels.`);
+    }
+  }
+
   const leegForm = () => ({
     omschrijving:"", categorie:"overig", datum:new Date().toISOString().slice(0,10),
     leverancier:"", bedrag_excl_btw:"", btw_percentage:21, btw_aftrekbaar:true,
     betaalmethode:"bankoverschrijving", notitie:"",
     bijlage_naam:null, bijlage_type:null, bijlage_base64:null, bijlage_preview:null,
+    is_terugkerend:false, herhaal_type:"maandelijks",
+    herhaal_startdatum:new Date().toISOString().slice(0,10), herhaal_einddatum:"",
   });
   const [form, setForm] = useState(leegForm);
   const [bedragInvoerType, setBedragInvoerType] = useState("incl"); // incl | excl — wat de gebruiker invoert
@@ -5148,6 +5329,8 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
       btw_aftrekbaar:!!d.btw_aftrekbaar, betaalmethode:d.betaalmethode||"bankoverschrijving",
       notitie:d.notitie||"", bijlage_naam:d.bijlage_naam, bijlage_type:d.bijlage_type,
       bijlage_base64:null, bijlage_preview:null,
+      is_terugkerend:!!d.is_terugkerend, herhaal_type:d.herhaal_type||"maandelijks",
+      herhaal_startdatum:d.herhaal_startdatum||d.datum, herhaal_einddatum:d.herhaal_einddatum||"",
     });
     // Bij bewerken: toon het bekende excl.-bedrag (we kennen niet meer wat oorspronkelijk is ingetypt)
     setBedragInvoerType("excl");
@@ -5258,7 +5441,10 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
           ))}
         </div>
 
-        <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuwe declaratie</Btn>
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuwe declaratie</Btn>
+          <Btn onClick={()=>{ resetImport(); setImportModal(true); }} kleur={kleur} fs={fs}>📥 Importeer declaraties</Btn>
+        </div>
 
         <div style={{ overflowY:"auto", flex: isMobiel ? "none" : 1, maxHeight: isMobiel ? "40vh" : "none", display:"flex", flexDirection:"column", gap:6 }}>
           {laden && <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1 }}>Laden…</p>}
@@ -5276,6 +5462,8 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
                 </div>
                 <p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>
                   {d.datum} {d.leverancier ? `· ${d.leverancier}` : ""} {d.heeft_bijlage ? "· 📎" : ""}
+                  {d.is_terugkerend && <span style={{ marginLeft:6, padding:"1px 7px", borderRadius:99, background:"#e6f1fb", color:"#0c447c", fontWeight:600 }}>🔁 {d.herhaal_type}</span>}
+                  {d.herhaal_parent_id && <span style={{ marginLeft:6, fontStyle:"italic" }}>(automatisch)</span>}
                 </p>
               </div>
             );
@@ -5482,11 +5670,215 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
               rows={2} style={{...iSt(fs),resize:"vertical"}} />
           </FF>
 
+          {/* Terugkerende declaratie */}
+          <div style={{ padding:"12px 14px", borderRadius:10, background:"var(--color-background-secondary)", marginBottom:"1rem" }}>
+            <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", marginBottom: form.is_terugkerend ? 12 : 0 }}>
+              <input type="checkbox" checked={form.is_terugkerend}
+                onChange={e=>setForm(f=>({...f, is_terugkerend:e.target.checked}))}
+                style={{ width:16, height:16, accentColor:kleur.hoofd, cursor:"pointer" }} />
+              <span style={{ fontSize:fs-1, fontWeight:500 }}>🔁 Dit is een terugkerende declaratie</span>
+            </label>
+
+            {form.is_terugkerend && (
+              <>
+                <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)", margin:"0 0 8px" }}>
+                  DenCRM maakt automatisch nieuwe declaraties aan op basis van de gekozen herhaling, met dezelfde
+                  omschrijving en bedrag als hierboven ingevuld.
+                </p>
+                <FF label="Herhaling" fs={fs}>
+                  <div style={{ display:"flex", gap:6 }}>
+                    {[{id:"wekelijks",l:"Wekelijks"},{id:"maandelijks",l:"Maandelijks"},{id:"jaarlijks",l:"Jaarlijks"}].map(o=>(
+                      <button key={o.id} type="button" onClick={()=>setForm(f=>({...f,herhaal_type:o.id}))}
+                        style={{ flex:1, padding:"7px", borderRadius:8, cursor:"pointer", fontSize:fs-2,
+                          border:`1.5px solid ${form.herhaal_type===o.id?kleur.hoofd:"var(--color-border-secondary)"}`,
+                          background: form.herhaal_type===o.id ? kleur.hoofd : "var(--color-background-primary)",
+                          color: form.herhaal_type===o.id ? "#fff" : "var(--color-text-secondary)" }}>
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+                </FF>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                  <FF label="Startdatum" fs={fs}>
+                    <input type="date" value={form.herhaal_startdatum}
+                      onChange={e=>setForm(f=>({...f,herhaal_startdatum:e.target.value}))} style={iSt(fs)} />
+                  </FF>
+                  <FF label="Einddatum (optioneel)" fs={fs}>
+                    <input type="date" value={form.herhaal_einddatum}
+                      onChange={e=>setForm(f=>({...f,herhaal_einddatum:e.target.value}))} style={iSt(fs)} />
+                  </FF>
+                </div>
+                <p style={{ fontSize:fs-3, color:"var(--color-text-secondary)", margin:0 }}>
+                  Zonder einddatum blijft de declaratie zich herhalen totdat u dit zelf stopzet.
+                </p>
+              </>
+            )}
+          </div>
+
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
             <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
             <Btn variant="primary" onClick={slaOp} kleur={kleur} fs={fs}>💾 Opslaan</Btn>
           </div>
         </Modal>
+      )}
+
+      {/* ── IMPORTEER DECLARATIES (CSV) ── */}
+      {importModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", backdropFilter:"blur(2px)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:"1.5rem" }}
+          onClick={e=>{ if(e.target===e.currentTarget && !importBezig){ setImportModal(false); resetImport(); } }}>
+          <div style={{ background:"#fff", borderRadius:18, width:"100%", maxWidth:900, maxHeight:"88vh",
+            boxShadow:"0 24px 70px rgba(0,0,0,0.3)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+            <div style={{ padding:"1.5rem 1.75rem 1rem", borderBottom:"1px solid #eee", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <h2 style={{ margin:0, fontSize:19 }}>📥 Importeer declaraties</h2>
+                <p style={{ margin:"3px 0 0", fontSize:fs-2, color:"#888" }}>
+                  Stap {importStap} van 3 — {importStap===1?"Bestand uploaden":importStap===2?"Velden koppelen":"Regels selecteren"}
+                </p>
+              </div>
+              {!importBezig && (
+                <button onClick={()=>{ setImportModal(false); resetImport(); }}
+                  style={{ background:"#f2f2f2", border:"none", borderRadius:8, cursor:"pointer", fontSize:18, color:"#666", width:30, height:30 }}>×</button>
+              )}
+            </div>
+
+            <div style={{ padding:"1.5rem 1.75rem", overflowY:"auto", flex:1 }}>
+
+              {/* STAP 1: Upload */}
+              {importStap === 1 && (
+                <div>
+                  <p style={{ fontSize:fs-1, color:"#555", marginBottom:"1.25rem" }}>
+                    Download het transactieoverzicht (CSV) van uw bank en upload het hieronder. U kunt in de volgende
+                    stap zelf aangeven welke kolommen waar naartoe moeten, en daarna precies kiezen welke transacties
+                    u wilt overnemen als declaratie.
+                  </p>
+                  <label style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                    gap:10, padding:"3rem 1rem", borderRadius:14, border:`2px dashed ${kleur.hoofd}`,
+                    background:kleur.licht, cursor:"pointer" }}>
+                    <span style={{ fontSize:36 }}>📄</span>
+                    <span style={{ fontSize:fs, fontWeight:600, color:kleur.donker }}>Klik om een CSV-bestand te kiezen</span>
+                    <span style={{ fontSize:fs-2, color:"#888" }}>of sleep het bestand hierheen</span>
+                    <input type="file" accept=".csv,text/csv" style={{ display:"none" }}
+                      onChange={e=>{ if(e.target.files[0]) importBestandKiezen(e.target.files[0]); e.target.value=""; }} />
+                  </label>
+                  {importFout && <p style={{ color:"#a32d2d", fontSize:fs-1, marginTop:12 }}>{importFout}</p>}
+                </div>
+              )}
+
+              {/* STAP 2: Mapping */}
+              {importStap === 2 && (
+                <div>
+                  <p style={{ fontSize:fs-1, color:"#555", marginBottom:"1rem" }}>
+                    <strong>{importBestandNaam}</strong> — {importCsv.rows.length} rijen gevonden. Koppel hieronder de kolommen
+                    uit uw bestand aan de juiste velden.
+                  </p>
+                  <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                    {IMPORT_VELDEN.map(v => (
+                      <div key={v.key} style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:12, alignItems:"center" }}>
+                        <label style={{ fontSize:fs-1, fontWeight:500 }}>
+                          {v.label}{v.verplicht && <span style={{ color:"#a32d2d" }}> *</span>}
+                        </label>
+                        <select value={importMapping[v.key]||""} onChange={e=>setImportMapping(m=>({...m,[v.key]:e.target.value}))}
+                          style={iSt(fs)}>
+                          <option value="">— Niet koppelen —</option>
+                          {importCsv.headers.map(h => <option key={h} value={h}>{h}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ marginTop:"1.5rem" }}>
+                    <p style={{ fontSize:fs-2, color:"#888", marginBottom:6 }}>Voorbeeld van de eerste rij uit uw bestand:</p>
+                    <div style={{ background:"#f7f8fa", borderRadius:10, padding:"10px 14px", fontSize:fs-2, color:"#444",
+                      display:"flex", flexWrap:"wrap", gap:"4px 16px" }}>
+                      {importCsv.headers.map(h => (
+                        <span key={h}><strong>{h}:</strong> {importCsv.rows[0]?.[h] || "—"}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {importFout && <p style={{ color:"#a32d2d", fontSize:fs-1, marginTop:12 }}>{importFout}</p>}
+
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:"1.5rem" }}>
+                    <Btn onClick={()=>setImportStap(1)} fs={fs}>← Terug</Btn>
+                    <Btn variant="primary" onClick={gaNaarRegelsSelecteren} kleur={kleur} fs={fs}>Volgende →</Btn>
+                  </div>
+                </div>
+              )}
+
+              {/* STAP 3: Regels selecteren + BTW per regel */}
+              {importStap === 3 && (
+                <div>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.75rem", flexWrap:"wrap", gap:8 }}>
+                    <p style={{ fontSize:fs-1, color:"#555", margin:0 }}>
+                      {importRegels.filter(r=>r.geselecteerd).length} van {importRegels.length} regels geselecteerd.
+                      Alleen uitgaven (negatieve bedragen) staan standaard aangevinkt.
+                    </p>
+                    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                      <span style={{ fontSize:fs-2, color:"#888" }}>BTW voor alle geselecteerde:</span>
+                      {[0,9,21].map(p => (
+                        <button key={p} onClick={()=>zetAlleBtw(p)}
+                          style={{ padding:"4px 10px", borderRadius:7, border:`1px solid ${kleur.hoofd}`,
+                            background:"var(--color-background-primary)", color:kleur.hoofd, cursor:"pointer", fontSize:fs-2 }}>
+                          {p}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ border:"1px solid #eee", borderRadius:10, overflow:"hidden" }}>
+                    <div style={{ display:"grid", gridTemplateColumns:"28px 90px 1fr 110px 90px 90px", gap:8,
+                      padding:"8px 12px", background:"#f7f8fa", fontSize:fs-3, fontWeight:600, color:"#888" }}>
+                      <span></span><span>Datum</span><span>Omschrijving</span><span>Leverancier</span><span>Bedrag</span><span>BTW%</span>
+                    </div>
+                    <div style={{ maxHeight:"38vh", overflowY:"auto" }}>
+                      {importRegels.map(r => (
+                        <div key={r.id} style={{ display:"grid", gridTemplateColumns:"28px 90px 1fr 110px 90px 90px", gap:8,
+                          padding:"7px 12px", alignItems:"center", borderTop:"1px solid #f0f0f0",
+                          background: r.geselecteerd ? "#fff" : "#fafafa", opacity: r.geselecteerd ? 1 : 0.55 }}>
+                          <input type="checkbox" checked={r.geselecteerd}
+                            onChange={e=>updateImportRegel(r.id,"geselecteerd",e.target.checked)}
+                            style={{ width:15, height:15, accentColor:kleur.hoofd, cursor:"pointer" }} />
+                          <span style={{ fontSize:fs-2 }}>{r.datum}</span>
+                          <input value={r.omschrijving} onChange={e=>updateImportRegel(r.id,"omschrijving",e.target.value)}
+                            style={{ fontSize:fs-2, padding:"4px 7px", borderRadius:5, border:"1px solid #ddd", background:"#fafafa", minWidth:0 }} />
+                          <input value={r.leverancier} onChange={e=>updateImportRegel(r.id,"leverancier",e.target.value)}
+                            style={{ fontSize:fs-2, padding:"4px 7px", borderRadius:5, border:"1px solid #ddd", background:"#fafafa", minWidth:0 }} />
+                          <span style={{ fontSize:fs-2, fontWeight:600, textAlign:"right" }}>€{r.bedrag_incl.toLocaleString("nl-NL",{minimumFractionDigits:2})}</span>
+                          <select value={r.btw_percentage} onChange={e=>updateImportRegel(r.id,"btw_percentage",parseInt(e.target.value))}
+                            style={{ fontSize:fs-2, padding:"4px", borderRadius:5, border:"1px solid #ddd", background:"#fafafa" }}>
+                            <option value={0}>0%</option>
+                            <option value={9}>9%</option>
+                            <option value={21}>21%</option>
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {importFout && <p style={{ color:"#a32d2d", fontSize:fs-1, marginTop:12 }}>{importFout}</p>}
+
+                  {importBezig && (
+                    <div style={{ marginTop:14 }}>
+                      <div style={{ height:8, borderRadius:99, background:"#eee", overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:`${importVoortgang}%`, background:kleur.hoofd, transition:"width 0.2s" }} />
+                      </div>
+                      <p style={{ fontSize:fs-2, color:"#888", marginTop:4 }}>Bezig met importeren… {importVoortgang}%</p>
+                    </div>
+                  )}
+
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:"1.5rem" }}>
+                    <Btn onClick={()=>setImportStap(2)} fs={fs} disabled={importBezig}>← Terug</Btn>
+                    <Btn variant="primary" onClick={voerImportUit} kleur={kleur} fs={fs} disabled={importBezig}>
+                      {importBezig ? "Bezig…" : `✓ ${importRegels.filter(r=>r.geselecteerd).length} declaratie(s) importeren`}
+                    </Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       </div>
     )}
@@ -6002,7 +6394,7 @@ function OffertePreview({ offerte, klant, kleur }) {
     ? new Date(offerte.datum+"T12:00:00").toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"})
     : new Date().toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"});
   const tekst = (offerte.template||OFFERTE_TEMPLATE).replace("{klant_naam}", klant?.naam||"");
-  const exclBtw = offerte.regels.reduce((s,r)=>s+(parseFloat(r.prijs)||0),0);
+  const exclBtw = offerte.regels.reduce((s,r)=>s+(parseFloat(r.prijs)||0)*(parseInt(r.aantal)||1),0);
   const btwBedrag = offerte.inclBtw ? Math.round(exclBtw*0.21) : 0;
   const totaal = exclBtw + btwBedrag;
   return (
@@ -6036,6 +6428,7 @@ function OffertePreview({ offerte, klant, kleur }) {
           <tr style={{ background:kleur.hoofd, color:"#fff" }}>
             <th style={{ padding:"10px 12px", textAlign:"left", fontSize:13, fontWeight:500 }}>Omschrijving</th>
             <th style={{ padding:"10px 12px", textAlign:"left", fontSize:13, fontWeight:500 }}>Toelichting</th>
+            <th style={{ padding:"10px 12px", textAlign:"center", fontSize:13, fontWeight:500 }}>Aantal</th>
             <th style={{ padding:"10px 12px", textAlign:"right", fontSize:13, fontWeight:500 }}>Prijs</th>
           </tr>
         </thead>
@@ -6044,27 +6437,28 @@ function OffertePreview({ offerte, klant, kleur }) {
             <tr key={r.id||i} style={{ background:i%2===0?"#f8f8f8":"#fff" }}>
               <td style={{ padding:"9px 12px", fontSize:13 }}>{r.naam||"—"}</td>
               <td style={{ padding:"9px 12px", fontSize:13, color:"#555" }}>{r.beschrijving||""}</td>
+              <td style={{ padding:"9px 12px", fontSize:13, textAlign:"center" }}>{r.aantal||1}</td>
               <td style={{ padding:"9px 12px", fontSize:13, textAlign:"right", fontWeight:500 }}>
-                €{parseFloat(r.prijs||0).toLocaleString("nl-NL",{minimumFractionDigits:2})}
+                €{((parseFloat(r.prijs)||0)*(parseInt(r.aantal)||1)).toLocaleString("nl-NL",{minimumFractionDigits:2})}
               </td>
             </tr>
           ))}
           <tr style={{ borderTop:`2px solid ${kleur.hoofd}` }}>
-            <td colSpan={2} style={{ padding:"10px 12px", fontWeight:700, fontSize:14 }}>Subtotaal excl. BTW</td>
+            <td colSpan={3} style={{ padding:"10px 12px", fontWeight:700, fontSize:14 }}>Subtotaal excl. BTW</td>
             <td style={{ padding:"10px 12px", fontWeight:700, fontSize:15, textAlign:"right", color:"#333" }}>
               €{exclBtw.toLocaleString("nl-NL",{minimumFractionDigits:2})}
             </td>
           </tr>
           {offerte.inclBtw&&(
             <tr>
-              <td colSpan={2} style={{ padding:"4px 12px", color:"#666", fontSize:13 }}>BTW 21%</td>
+              <td colSpan={3} style={{ padding:"4px 12px", color:"#666", fontSize:13 }}>BTW 21%</td>
               <td style={{ padding:"4px 12px", fontSize:13, textAlign:"right", color:"#666" }}>
                 €{btwBedrag.toLocaleString("nl-NL",{minimumFractionDigits:2})}
               </td>
             </tr>
           )}
           <tr style={{ background:kleur.licht }}>
-            <td colSpan={2} style={{ padding:"10px 12px", fontWeight:700, fontSize:14, color:kleur.donker }}>
+            <td colSpan={3} style={{ padding:"10px 12px", fontWeight:700, fontSize:14, color:kleur.donker }}>
               Totaal {offerte.inclBtw?"incl. BTW":"(geen BTW)"}
             </td>
             <td style={{ padding:"10px 12px", fontWeight:700, fontSize:17, textAlign:"right", color:kleur.hoofd }}>
@@ -6085,7 +6479,7 @@ function OffertePreview({ offerte, klant, kleur }) {
 }
 
 // ── OFFERTES ─────────────────────────────────────────────────────────────────────────────
-const LEEG_REGEL = () => ({ id:"r"+uid(), naam:"", beschrijving:"", prijs:0, isVariabel:true });
+const LEEG_REGEL = () => ({ id:"r"+uid(), naam:"", beschrijving:"", prijs:0, aantal:1, isVariabel:true });
 
 function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, herlaad, T, instellingen, updateInstelling }) {
   const [stap, setStap] = useState(1);
@@ -6120,9 +6514,55 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
     setStap(2);
   }
 
+  // ── Importeer bestaand document ──
+  const leegImportForm = () => ({
+    type:"offerte", klantId:"", referentie:`OFF-${new Date().getFullYear()}-IMP`,
+    datum:new Date().toISOString().slice(0,10), exclBtw:"", inclBtw:"", betaald:false,
+    bestandNaam:null, bestandType:null, bestandBase64:null,
+  });
+  const [importModus, setImportModus] = useState(false);
+  const [importForm, setImportForm] = useState(leegImportForm);
+  const [importBezig, setImportBezig] = useState(false);
+  const [importFout, setImportFout] = useState("");
+
+  async function slaImportOp() {
+    setImportFout("");
+    if (!importForm.referentie.trim()) { setImportFout("Vul een referentienummer in."); return; }
+    if (!importForm.exclBtw && !importForm.inclBtw) { setImportFout("Vul minimaal één bedrag in."); return; }
+    if (!importForm.bestandBase64) { setImportFout("Upload een PDF-bestand."); return; }
+    setImportBezig(true);
+    try {
+      const klantNaam = klanten.find(k=>k.id===importForm.klantId)?.naam;
+      const { id } = await API.maakOfferteAan({
+        klant_id: importForm.klantId || null,
+        klant_naam_vrij: !importForm.klantId ? null : undefined,
+        referentie: importForm.referentie.trim(),
+        datum: importForm.datum,
+        type: importForm.type,
+        incl_btw: true,
+        totaal_excl_btw: parseFloat(importForm.exclBtw) || parseFloat(importForm.inclBtw) || 0,
+        totaal_incl_btw: parseFloat(importForm.inclBtw) || parseFloat(importForm.exclBtw) || 0,
+        regels: [],
+        is_geimporteerd: true,
+        bestand_base64: importForm.bestandBase64,
+        bestand_naam: importForm.bestandNaam,
+        bestand_type: importForm.bestandType,
+      });
+      if (importForm.betaald) {
+        await API.updateOfferteStatus(id, 'betaald');
+      }
+      await herlaad();
+      setImportModus(false);
+      setStap(1);
+      alert("Document succesvol geïmporteerd. U vindt het terug in het Financieel overzicht.");
+    } catch(e) { setImportFout(e.message || "Importeren mislukt."); }
+    finally { setImportBezig(false); }
+  }
+
   const [opgeslagenTemplates, setOpgeslagenTemplates] = useState([]);
   const [gekozenTemplateId, setGekozenTemplateId] = useState("");
   const [templateNaamModal, setTemplateNaamModal] = useState(false);
+  const [templatesBeherenModal, setTemplatesBeherenModal] = useState(false);
   const [templateNaamInvoer, setTemplateNaamInvoer] = useState("");
   const [templateOpslaanBezig, setTemplateOpslaanBezig] = useState(false);
 
@@ -6161,7 +6601,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   }
 
   const klant = klanten.find(k=>k.id===klantId);
-  const exclBtwVoorKorting = regels.reduce((s,r)=>s+(parseFloat(r.prijs)||0),0);
+  const exclBtwVoorKorting = regels.reduce((s,r)=>s+(parseFloat(r.prijs)||0)*(parseInt(r.aantal)||1),0);
   const kortingBedrag = kortingType === "percentage"
     ? Math.round(exclBtwVoorKorting * (parseFloat(kortingWaarde)||0) / 100 * 100) / 100
     : Math.min(parseFloat(kortingWaarde)||0, exclBtwVoorKorting);
@@ -6192,7 +6632,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   }
 
   function addProductRegel(p) {
-    setRegels(r=>[...r,{ id:"r"+uid(), naam:p.naam, beschrijving:p.beschrijving||"", prijs:p.prijs, isVariabel:false }]);
+    setRegels(r=>[...r,{ id:"r"+uid(), naam:p.naam, beschrijving:p.beschrijving||"", prijs:p.prijs, aantal:1, isVariabel:false }]);
   }
   function addLegeRegel() { setRegels(r=>[...r, LEEG_REGEL()]); }
   function updateRegel(id, veld, val) { setRegels(r=>r.map(x=>x.id===id?{...x,[veld]:val}:x)); }
@@ -6210,7 +6650,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   async function slaOp() {
     if (!klantId||regels.length===0) return;
     const regelsMetKorting = kortingBedrag > 0
-      ? [...regels, { id:"korting", naam:"Korting", beschrijving: kortingType==="percentage" ? `${kortingWaarde}% korting` : "", prijs: -kortingBedrag, isVariabel:false }]
+      ? [...regels, { id:"korting", naam:"Korting", beschrijving: kortingType==="percentage" ? `${kortingWaarde}% korting` : "", prijs: -kortingBedrag, aantal:1, isVariabel:false }]
       : regels;
     if (isDemoMode) {
       const offerte = { id:"o"+uid(), referentie:ref, datum:vandaagISO, regels:regelsMetKorting, totaalInclBtw, inclBtw,
@@ -6230,7 +6670,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
         bedrijfsnaam, bedrijf_adres: bedrijfAdres,
         iban, btw_nummer: btwNr,
         offerte_tekst: template,
-        regels: regelsMetKorting.map((r,i) => ({ naam:r.naam, beschrijving:r.beschrijving||"", prijs:parseFloat(r.prijs)||0, volgorde:i, isVariabel:r.isVariabel||false })),
+        regels: regelsMetKorting.map((r,i) => ({ naam:r.naam, beschrijving:r.beschrijving||"", prijs:parseFloat(r.prijs)||0, aantal:parseInt(r.aantal)||1, volgorde:i, isVariabel:r.isVariabel||false })),
       });
       await herlaad();
       setGeslagenOfferteId(id);
@@ -6242,12 +6682,14 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
     setStap(1); setDocumentType(null); setKlantId(""); setRegels([]); setInclBtw(true);
     setRef(`OFF-${new Date().getFullYear()}-001`); setOpgeslagen(false); setCatFilter("Alle");
     setKortingType("percentage"); setKortingWaarde(""); setGeslagenOfferteId(null);
+    setImportModus(false); setImportForm(leegImportForm());
   }
 
   const stapLabels = ["Type document", T.klantKiezen, T.productenEnRegels, T.tekstEnVoorbeeld];
 
   return (
     <div>
+      {!importModus && (
       <div style={{ display:"flex", gap:8, marginBottom:"1.5rem", flexWrap:"wrap" }}>
         {[1,2,3,4].map(s=>(
           <div key={s} style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -6262,14 +6704,15 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
           </div>
         ))}
       </div>
+      )}
 
       {/* ─ STAP 1: Type document kiezen ─ */}
-      {stap===1&&(
+      {stap===1&&!importModus&&(
         <div style={{ maxWidth:520 }}>
           <p style={{ margin:"0 0 1.25rem", fontSize:fs-1, color:"var(--color-text-secondary)" }}>
             Wilt u een offerte of een factuur opstellen?
           </p>
-          <div style={{ display:"flex", gap:12 }}>
+          <div style={{ display:"flex", gap:12, marginBottom:12 }}>
             <button onClick={()=>kiesDocumentType("offerte")}
               style={{ flex:1, padding:"1.5rem", borderRadius:12, cursor:"pointer", textAlign:"center",
                 border:`2px solid ${kleur.hoofd}`, background:kleur.licht }}>
@@ -6285,11 +6728,120 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               <p style={{ margin:"4px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>Een betalingsverzoek</p>
             </button>
           </div>
+          <button onClick={()=>{ setImportModus(true); setImportForm(leegImportForm()); }}
+            style={{ width:"100%", padding:"14px", borderRadius:10, cursor:"pointer", textAlign:"left",
+              border:`1.5px dashed ${kleur.hoofd}`, background:"transparent",
+              display:"flex", alignItems:"center", gap:12 }}>
+            <span style={{ fontSize:24 }}>📥</span>
+            <div>
+              <p style={{ margin:0, fontSize:fs, fontWeight:600, color:kleur.hoofd }}>Importeer bestaand document</p>
+              <p style={{ margin:"2px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)" }}>
+                Upload een reeds bestaande offerte of factuur (PDF) en vul de bedragen in
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* ─ IMPORT: Bestaand document uploaden ─ */}
+      {importModus && (
+        <div style={{ maxWidth:520 }}>
+          <button onClick={()=>setImportModus(false)} style={{ background:"none", border:"none", color:kleur.hoofd, cursor:"pointer", fontSize:fs-1, marginBottom:"1rem", padding:0 }}>
+            ← Terug
+          </button>
+          <h3 style={{ margin:"0 0 1rem", fontSize:fs+2 }}>📥 Bestaand document importeren</h3>
+          <p style={{ margin:"0 0 1.25rem", fontSize:fs-1, color:"var(--color-text-secondary)" }}>
+            Handig om oude offertes of facturen (bijvoorbeeld uit een ander systeem) alsnog in uw overzicht te krijgen.
+          </p>
+
+          <FF label="Type document" fs={fs}>
+            <div style={{ display:"flex", gap:8 }}>
+              {[{id:"offerte",l:"📄 Offerte"},{id:"factuur",l:"🧾 Factuur"}].map(o=>(
+                <button key={o.id} onClick={()=>setImportForm(f=>({...f,type:o.id}))}
+                  style={{ flex:1, padding:"9px", borderRadius:8, cursor:"pointer", fontSize:fs-1,
+                    border:`1.5px solid ${importForm.type===o.id?kleur.hoofd:"var(--color-border-secondary)"}`,
+                    background: importForm.type===o.id ? kleur.hoofd : "var(--color-background-primary)",
+                    color: importForm.type===o.id ? "#fff" : "var(--color-text-secondary)" }}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FF>
+
+          <FF label={T.klantZoeken} fs={fs}>
+            <KlantZoekBox klanten={klanten} value={importForm.klantId} onChange={id=>setImportForm(f=>({...f,klantId:id}))} fs={fs} />
+          </FF>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label={importForm.type==="factuur"?"Factuurnummer":"Offertenummer"} fs={fs}>
+              <input value={importForm.referentie} onChange={e=>setImportForm(f=>({...f,referentie:e.target.value}))} style={iSt(fs)} />
+            </FF>
+            <FF label="Datum" fs={fs}>
+              <input type="date" value={importForm.datum} onChange={e=>setImportForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
+            </FF>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label="Bedrag excl. BTW" fs={fs}>
+              <input type="number" step="0.01" value={importForm.exclBtw}
+                onChange={e=>{
+                  const excl = e.target.value;
+                  setImportForm(f=>({...f, exclBtw:excl, inclBtw: excl ? (Math.round(parseFloat(excl)*1.21*100)/100).toString() : f.inclBtw }));
+                }}
+                placeholder="0.00" style={iSt(fs)} />
+            </FF>
+            <FF label="Bedrag incl. BTW" fs={fs}>
+              <input type="number" step="0.01" value={importForm.inclBtw}
+                onChange={e=>setImportForm(f=>({...f,inclBtw:e.target.value}))}
+                placeholder="0.00" style={iSt(fs)} />
+            </FF>
+          </div>
+          <p style={{ fontSize:fs-3, color:"var(--color-text-secondary)", margin:"-8px 0 12px" }}>
+            Het excl.-bedrag wordt bij het typen automatisch berekend op basis van 21% BTW — pas het incl.-bedrag
+            hierna eventueel handmatig aan als dat afwijkt.
+          </p>
+
+          <FF label="Status" fs={fs}>
+            <div style={{ display:"flex", gap:8 }}>
+              {[{id:false,l:"Open / onbetaald"},{id:true,l:"Betaald"}].map(o=>(
+                <button key={String(o.id)} onClick={()=>setImportForm(f=>({...f,betaald:o.id}))}
+                  style={{ flex:1, padding:"9px", borderRadius:8, cursor:"pointer", fontSize:fs-1,
+                    border:`1.5px solid ${importForm.betaald===o.id?kleur.hoofd:"var(--color-border-secondary)"}`,
+                    background: importForm.betaald===o.id ? kleur.hoofd : "var(--color-background-primary)",
+                    color: importForm.betaald===o.id ? "#fff" : "var(--color-text-secondary)" }}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FF>
+
+          <FF label="PDF-bestand" fs={fs}>
+            <input type="file" accept="application/pdf" onChange={e=>{
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.size > 8*1024*1024) { alert("Bestand mag maximaal 8MB zijn."); return; }
+                const reader = new FileReader();
+                reader.onload = () => {
+                  setImportForm(f=>({...f, bestandNaam:file.name, bestandType:file.type, bestandBase64:reader.result.split(",")[1]}));
+                };
+                reader.readAsDataURL(file);
+              }} style={{ fontSize:fs-1 }} />
+            {importForm.bestandNaam && <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)", marginTop:4 }}>📎 {importForm.bestandNaam}</p>}
+          </FF>
+
+          {importFout && <p style={{ color:"#a32d2d", fontSize:fs-1, background:"#fcebeb", padding:"8px 12px", borderRadius:6, marginBottom:"1rem" }}>{importFout}</p>}
+
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setImportModus(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" onClick={slaImportOp} kleur={kleur} fs={fs} disabled={importBezig}>
+              {importBezig ? "Bezig…" : "💾 Importeren"}
+            </Btn>
+          </div>
         </div>
       )}
 
       {/* ─ STAP 2: Klant kiezen ─ */}
-      {stap===2&&(
+      {stap===2&&!importModus&&(
         <div style={{ maxWidth:520 }}>
           <p style={{ margin:"0 0 1.25rem", fontSize:fs-1, color:"var(--color-text-secondary)" }}>
             Zoek een bestaande klant of voeg een nieuwe klant toe.
@@ -6411,25 +6963,31 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               {regels.map(r=>(
                 <div key={r.id} style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
                   borderRadius:10, padding:"10px 12px", marginBottom:6 }}>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr auto auto", gap:8, marginBottom:r.isVariabel?6:0, alignItems:"center" }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr auto auto auto", gap:8, marginBottom:r.isVariabel?6:0, alignItems:"center" }}>
                     <input value={r.naam} onChange={e=>updateRegel(r.id,"naam",e.target.value)} placeholder="Omschrijving"
                       style={{ padding:"6px 10px", borderRadius:6, border:"1px solid #d0d0d0", background:"#f9f9f9", color:"#1a1a1a", fontSize:fs }} />
+                    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      <span style={{ fontSize:fs-2, color:"#666" }}>aantal</span>
+                      <input type="number" min="0" value={r.aantal===0||r.aantal===""||r.aantal==null ? "" : r.aantal}
+                        onChange={e=>{ const v=e.target.value; updateRegel(r.id,"aantal", v==="" ? "" : parseInt(v)||0); }}
+                        onBlur={e=>{ if(!e.target.value || parseInt(e.target.value)<1) updateRegel(r.id,"aantal",1); }}
+                        style={{ width:52, padding:"6px 6px", borderRadius:6, border:"1px solid #d0d0d0", background:"#f9f9f9", color:"#1a1a1a", fontSize:fs, textAlign:"center" }} />
+                    </div>
                     <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                       <span style={{ fontSize:fs-1, color:"#666" }}>€</span>
-                      {r.isVariabel?(
-                        <input type="number" value={r.prijs} onChange={e=>updateRegel(r.id,"prijs",e.target.value)}
-                          placeholder="0,00" style={{ width:90, padding:"6px 8px", borderRadius:6, border:"1px solid #d0d0d0", background:"#f9f9f9", color:"#1a1a1a", fontSize:fs }} />
-                      ):(
-                        <span style={{ fontSize:fs, fontWeight:500, color:kleur.hoofd, minWidth:90, textAlign:"right" }}>
-                          {parseFloat(r.prijs||0).toLocaleString("nl-NL",{minimumFractionDigits:2})}
-                        </span>
-                      )}
+                      <input type="number" value={r.prijs} onChange={e=>updateRegel(r.id,"prijs",e.target.value)}
+                        placeholder="0,00" style={{ width:90, padding:"6px 8px", borderRadius:6, border:"1px solid #d0d0d0", background:"#f9f9f9", color:"#1a1a1a", fontSize:fs }} />
                     </div>
                     <button onClick={()=>delRegel(r.id)} style={{ background:"none",border:"none",cursor:"pointer",color:"#A32D2D",fontSize:fs+2,padding:"0 4px" }}>✕</button>
                   </div>
                   {r.isVariabel&&(
                     <input value={r.beschrijving} onChange={e=>updateRegel(r.id,"beschrijving",e.target.value)} placeholder="Toelichting (optioneel)"
                       style={{ width:"100%", padding:"5px 10px", borderRadius:6, border:"1px solid #e0e0e0", background:"#f9f9f9", color:"#666", fontSize:fs-2, boxSizing:"border-box" }} />
+                  )}
+                  {(parseInt(r.aantal)||1) > 1 && (
+                    <p style={{ margin:"4px 0 0", fontSize:fs-2, color:"var(--color-text-secondary)", textAlign:"right" }}>
+                      {r.aantal} × €{parseFloat(r.prijs||0).toLocaleString("nl-NL",{minimumFractionDigits:2})} = <strong style={{ color:kleur.hoofd }}>€{((parseFloat(r.prijs)||0)*(parseInt(r.aantal)||1)).toLocaleString("nl-NL",{minimumFractionDigits:2})}</strong>
+                    </p>
                   )}
                 </div>
               ))}
@@ -6556,18 +7114,18 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
                   <option key={t.id} value={t.id}>{t.naam}</option>
                 ))}
               </select>
-              {gekozenTemplateId && (
-                <button onClick={()=>verwijderOpgeslagenTemplate(gekozenTemplateId)}
-                  style={{ padding:"0 12px", borderRadius:8, background:"#fcebeb", color:"#a32d2d",
-                    border:"none", cursor:"pointer", fontSize:fs-2 }}>
-                  ✕ Verwijderen
-                </button>
-              )}
               <button onClick={()=>{ setTemplateNaamInvoer(""); setTemplateNaamModal(true); }}
                 style={{ padding:"0 12px", borderRadius:8, border:`1px dashed ${kleur.hoofd}`,
                   background:"transparent", color:kleur.hoofd, cursor:"pointer", fontSize:fs-2, whiteSpace:"nowrap" }}>
                 💾 Opslaan als template
               </button>
+              {opgeslagenTemplates.length > 0 && (
+                <button onClick={()=>setTemplatesBeherenModal(true)}
+                  style={{ padding:"0 12px", borderRadius:8, border:"1px solid #ddd",
+                    background:"var(--color-background-secondary)", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:fs-2, whiteSpace:"nowrap" }}>
+                  🗑 Beheren
+                </button>
+              )}
             </div>
             <p style={{ margin:"4px 0 0", fontSize:fs-3, color:"var(--color-text-secondary)" }}>
               Kies een opgeslagen template om te laden, of wijzig de tekst hieronder vrij — die wijzigingen worden
@@ -6579,11 +7137,45 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               style={{...iSt(fs), resize:"vertical", fontFamily:"monospace"}} />
           </FF>
 
+          {templatesBeherenModal && (
+            <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", zIndex:1000,
+              display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
+              onClick={e=>e.target===e.currentTarget && setTemplatesBeherenModal(false)}>
+              <div style={{ background:"#ffffff", color:"#1a1a1a", borderRadius:16, padding:"1.75rem", width:"100%", maxWidth:420,
+                boxShadow:"0 20px 60px rgba(0,0,0,0.28)", maxHeight:"80vh", overflowY:"auto" }}>
+                <h3 style={{ margin:"0 0 1rem", fontSize:16 }}>
+                  {documentType==="factuur"?"Factuur":"Offerte"}-templates beheren
+                </h3>
+                {opgeslagenTemplates.length === 0 ? (
+                  <p style={{ fontSize:fs-1, color:"#888" }}>Nog geen templates opgeslagen.</p>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {opgeslagenTemplates.map(t => (
+                      <div key={t.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                        padding:"9px 12px", borderRadius:9, background:"#f7f8fa" }}>
+                        <span style={{ fontSize:fs-1, fontWeight:500 }}>{t.naam}</span>
+                        <button onClick={()=>verwijderOpgeslagenTemplate(t.id)}
+                          style={{ padding:"5px 11px", borderRadius:7, background:"#fcebeb", color:"#a32d2d",
+                            border:"none", cursor:"pointer", fontSize:fs-2 }}>
+                          ✕ Verwijderen
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
+                  <Btn onClick={()=>setTemplatesBeherenModal(false)} fs={fs}>Sluiten</Btn>
+                </div>
+              </div>
+            </div>
+          )}
+
           {templateNaamModal && (
-            <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000,
+            <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", zIndex:1000,
               display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
               onClick={e=>e.target===e.currentTarget && setTemplateNaamModal(false)}>
-              <div style={{ background:"var(--color-background-primary)", borderRadius:16, padding:"1.75rem", width:"100%", maxWidth:400 }}>
+              <div style={{ background:"#ffffff", color:"#1a1a1a", borderRadius:16, padding:"1.75rem", width:"100%", maxWidth:400,
+                boxShadow:"0 20px 60px rgba(0,0,0,0.28)" }}>
                 <h3 style={{ margin:"0 0 1rem", fontSize:16 }}>Template opslaan</h3>
                 <FF label="Naam van de template" fs={fs}>
                   <input value={templateNaamInvoer} onChange={e=>setTemplateNaamInvoer(e.target.value)}
@@ -6611,6 +7203,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
               {klant?.email ? (
                 mailModus==="dencrm" ? (
                   <button onClick={async ()=>{
+                      if (isDemoMode) { alert("Mailen is niet beschikbaar in de demo-modus. Maak een gratis account aan om deze functie te gebruiken."); return; }
                       if (!opgeslagen) { alert("Sla de offerte eerst op voor u hem mailt."); return; }
                       try {
                         await API.stuurOfferteMail(geslagenOfferteId, ccMijzelf);
@@ -6650,7 +7243,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
           )}
           <p style={{ fontSize:fs-1, fontWeight:500, color:"var(--color-text-secondary)", marginBottom:12 }}>Voorbeeld offerte</p>
           <OffertePreview offerte={{
-            regels: kortingBedrag > 0 ? [...regels, { id:"korting", naam:"Korting", beschrijving: kortingType==="percentage" ? `${kortingWaarde}% korting` : "", prijs: -kortingBedrag, isVariabel:false }] : regels,
+            regels: kortingBedrag > 0 ? [...regels, { id:"korting", naam:"Korting", beschrijving: kortingType==="percentage" ? `${kortingWaarde}% korting` : "", prijs: -kortingBedrag, aantal:1, isVariabel:false }] : regels,
             inclBtw, referentie:ref, datum:new Date().toISOString().slice(0,10),
             bedrijfsnaam, bedrijfAdres, iban, btwNr, template }} klant={klant} kleur={kleur} />
         </div>
@@ -7067,7 +7660,7 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                     background: kleur.licht, color: kleur.donker, cursor: "pointer", fontSize: fs - 2, fontWeight: 500 }}>
                   📄 Openen
                 </button>
-                {!o.betaald && o.klant?.email && o.type !== "kassa" && o.type !== "declaratie" && (
+                {!isDemoMode && !o.betaald && o.klant?.email && o.type !== "kassa" && o.type !== "declaratie" && (
                   <button onClick={async () => {
                       try {
                         await API.stuurOfferteMail(o.id);
@@ -7081,6 +7674,20 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                     📨 Stuur nogmaals
                   </button>
                 )}
+                <button onClick={async () => {
+                    const label = o.type==="kassa" ? "kassabon" : o.type==="declaratie" ? "declaratie" : o.type==="factuur" ? "factuur" : "offerte";
+                    if (!confirm(`Deze ${label} definitief verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+                    try {
+                      if (o.type === "kassa") await API.verwijderKassaBon(o.id);
+                      else if (o.type === "declaratie") await API.verwijderDeclaratie(o.id);
+                      else await API.verwijderOfferte(o.id);
+                      await herlaad();
+                    } catch(e) { alert("Verwijderen mislukt: " + e.message); }
+                  }}
+                  style={{ padding: "5px 10px", borderRadius: 8, border: "none",
+                    background: "#fcebeb", color: "#a32d2d", cursor: "pointer", fontSize: fs - 3, fontWeight: 400 }}>
+                  🗑 Verwijderen
+                </button>
               </div>
             </div>
           ))}
@@ -7088,33 +7695,50 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
       )}
 
       {/* ── Offerte viewer overlay ── */}
-      {openOfferte && openKlant && (
+      {openOfferte && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex",
           alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "1rem", overflowY: "auto" }}
           onClick={e => e.target === e.currentTarget && setOpenOfferte(null)}>
           <div style={{ background: "#f5f5f5", borderRadius: 12, padding: "1rem", width: "100%", maxWidth: 700, marginTop: "1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: 8 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: fs + 2, fontWeight: 500, color: "#1a1a1a" }}>{openOfferte.referentie}</h2>
-                <p style={{ margin: 0, fontSize: fs - 2, color: "#888" }}>{openKlant.naam} · {fmtDatum(openOfferte.datum)}</p>
+                <h2 style={{ margin: 0, fontSize: fs + 2, fontWeight: 500, color: "#1a1a1a" }}>
+                  {openOfferte.referentie}
+                  {openOfferte.is_geimporteerd && <span style={{ marginLeft:8, fontSize:fs-3, padding:"2px 8px", borderRadius:99, background:"#e6f1fb", color:"#0c447c", fontWeight:600 }}>📥 GEÏMPORTEERD</span>}
+                </h2>
+                <p style={{ margin: 0, fontSize: fs - 2, color: "#888" }}>{openKlant?.naam || openOfferte.klant_naam_vrij || "Onbekende klant"} · {fmtDatum(openOfferte.datum)}</p>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button onClick={() => toggleBetaald(openKlant.id, openOfferte.id)}
+                <button onClick={() => toggleBetaald(openKlant?.id, openOfferte.id)}
                   style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: fs - 1,
                     background: openOfferte.betaald ? "#eaf3de" : kleur.licht,
                     color: openOfferte.betaald ? "#27500a" : kleur.donker,
                     border: `1px solid ${openOfferte.betaald ? "#3b6d11" : kleur.hoofd}`, fontWeight: 500 }}>
                   {openOfferte.betaald ? "✓ Betaald" : T.markerenAlsBetaald}
                 </button>
-                <button onClick={() => printOfferteHtml(openOfferte, openKlant)}
-                  style={{ padding: "7px 14px", borderRadius: 8, background: kleur.hoofd, color: "#fff", border: "none", cursor: "pointer", fontSize: fs - 1 }}>
-                  🖨 Afdrukken / PDF
-                </button>
+                {openOfferte.is_geimporteerd ? (
+                  <a href={API.geimporteerdBestandUrl(openOfferte.id)} target="_blank" rel="noreferrer"
+                    style={{ padding: "7px 14px", borderRadius: 8, background: kleur.hoofd, color: "#fff", border: "none", cursor: "pointer", fontSize: fs - 1, textDecoration:"none" }}>
+                    📥 Download PDF
+                  </a>
+                ) : (
+                  <button onClick={() => printOfferteHtml(openOfferte, openKlant)}
+                    style={{ padding: "7px 14px", borderRadius: 8, background: kleur.hoofd, color: "#fff", border: "none", cursor: "pointer", fontSize: fs - 1 }}>
+                    🖨 Afdrukken / PDF
+                  </button>
+                )}
                 <button onClick={() => setOpenOfferte(null)}
                   style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#666", padding: "4px 8px", lineHeight: 1 }}>×</button>
               </div>
             </div>
-            <OffertePreview offerte={openOfferte} klant={openKlant} kleur={kleur} />
+            {openOfferte.is_geimporteerd ? (
+              <div style={{ background:"#fff", borderRadius:10, overflow:"hidden" }}>
+                <iframe src={API.geimporteerdBestandUrl(openOfferte.id)} title="Geïmporteerd document"
+                  style={{ width:"100%", height:"70vh", border:"none", display:"block" }} />
+              </div>
+            ) : (
+              <OffertePreview offerte={openOfferte} klant={openKlant} kleur={kleur} />
+            )}
           </div>
         </div>
       )}
@@ -7824,17 +8448,33 @@ function KoppelAccountsPanel({ kleur, fs, onClose }) {
   );
 }
 
-function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, setBgIdx, taal, setTaal, T, onClose, modulesAan, setModulesAan, lidmaatschapTot, isAdmin, isGekoppeld, toegestaneModules, onOpenKoppelAccounts }) {
-  const [modulesOpen, setModulesOpen] = useState(false);
-  const [abonnementOpen, setAbonnementOpen] = useState(false);
+
+// ── DEMO BANNER ───────────────────────────────────────────────────────────────
+// ── WELKOM ONBOARDING (bij allereerste inloggen) ──────────────
+function WelkomOnboardingModal({ kleur, modulesAan, setModulesAan, onClose }) {
+  const [stap, setStap] = useState(1); // 1=intro/logo, 2=bedrijfsgegevens, 3=modules
   const [heeftLogo, setHeeftLogo] = useState(false);
   const [logoBezig, setLogoBezig] = useState(false);
   const [logoFout, setLogoFout] = useState("");
   const [logoVersie, setLogoVersie] = useState(0);
 
-  useEffect(() => {
-    API.haalLogoInfoOp().then(data => setHeeftLogo(!!data.heeft_logo)).catch(()=>{});
-  }, []);
+  const [bedrijfsnaam, setBedrijfsnaam] = useState("");
+  const [bedrijfAdres, setBedrijfAdres] = useState("");
+  const [iban, setIban] = useState("");
+  const [btwNr, setBtwNr] = useState("");
+  const [opslaanBezig, setOpslaanBezig] = useState(false);
+
+  const alleModulesBasis = [
+    { id:"kassa",       label:"Kassa",                      icon:"🧾" },
+    { id:"werkbonnen",  label:"Werkbonnen & Reparaties",     icon:"🔧" },
+    { id:"klanten",     label:"Klanten",                     icon:"👥" },
+    { id:"producten",   label:"Producten",                   icon:"📦" },
+    { id:"agenda",      label:"Agenda",                      icon:"📅" },
+    { id:"offertes",    label:"Offertes & Facturen",         icon:"📄" },
+    { id:"financieel",  label:"Financieel overzicht",        icon:"💶" },
+    { id:"declaraties", label:"Declaraties & Boekhouding",   icon:"🧮" },
+    { id:"contact",     label:"Contact",                     icon:"💬" },
+  ];
 
   async function uploadLogoBestand(file) {
     setLogoFout("");
@@ -7856,241 +8496,167 @@ function InstellingenPanel({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, set
     finally { setLogoBezig(false); }
   }
 
-  async function verwijderLogoNu() {
-    if (!confirm("Bedrijfslogo verwijderen?")) return;
+  async function slaBedrijfsgegevensOp() {
+    setOpslaanBezig(true);
     try {
-      await API.verwijderLogo();
-      setHeeftLogo(false);
-      setLogoVersie(v => v+1);
-    } catch(e) { alert("Verwijderen mislukt: "+e.message); }
+      await API.updateProfiel({ bedrijfsnaam, bedrijf_adres: bedrijfAdres, iban, btw_nummer: btwNr });
+    } catch(e) { /* niet blokkerend, gebruiker kan dit later alsnog invullen */ }
+    finally { setOpslaanBezig(false); setStap(3); }
   }
 
-  const alleModulesBasis = [
-    { id:"kassa",       label:T?.kassa||"Kassa",                      icon:"🧾" },
-    { id:"werkbonnen",  label:T?.werkbonnen||"Werkbonnen & Reparaties",     icon:"🔧" },
-    { id:"klanten",     label:T?.klanten||"Klanten",         icon:"👥" },
-    { id:"producten",   label:T?.producten||"Producten",     icon:"📦" },
-    { id:"agenda",      label:T?.agenda||"Agenda",           icon:"📅" },
-    { id:"offertes",    label:T?.offertes||"Offertes & Facturen",       icon:"📄" },
-    { id:"financieel",  label:T?.financieel||"Financieel overzicht",        icon:"💶" },
-    { id:"declaraties", label:T?.declaraties||"Declaraties & Boekhouding",   icon:"🧮" },
-    { id:"contact",     label:T?.contact||"Contact",         icon:"💬" },
-  ];
-  // Gekoppelde (sub)gebruikers zien alleen de modules die de beheerder heeft toegestaan
-  const alleModules = isGekoppeld && toegestaneModules
-    ? alleModulesBasis.filter(m => toegestaneModules.includes(m.id))
-    : alleModulesBasis;
+  function toggleModule(id) {
+    setModulesAan(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
+  }
 
   return (
-    <div style={{ position:"absolute", bottom:60, left:12, width:260,
-      backgroundColor:"#ffffff", color:"#1a1a1a",
-      border:"1px solid #d0d0d0", borderRadius:12,
-      padding:"1.25rem", boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:500,
-      maxHeight:"80vh", overflowY:"auto" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1rem" }}>
-        <span style={{ fontWeight:500, fontSize:14 }}>⚙ {T?.instellingen||"Instellingen"}</span>
-        <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:"#888",fontSize:18,lineHeight:1,padding:"2px 6px" }}>×</button>
-      </div>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)",
+      display:"flex", alignItems:"center", justifyContent:"center", zIndex:2000, padding:"1rem" }}>
+      <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:520,
+        boxShadow:"0 16px 48px rgba(0,0,0,0.25)", maxHeight:"90vh", overflowY:"auto" }}>
 
-      {/* Bedrijfslogo (gedeeld met gekoppelde accounts, alleen door hoofdgebruiker aan te passen) */}
-      {!isGekoppeld && (
-        <div style={{ marginBottom:"1.25rem" }}>
-          <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>BEDRIJFSLOGO</p>
-          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px", borderRadius:8,
-            border:"1px dashed #ccc", background:"#fafafa" }}>
-            <div style={{ width:44, height:44, borderRadius:6, background:"#fff", border:"1px solid #e0e0e0",
-              display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0 }}>
-              {heeftLogo ? (
-                <img src={`${API.logoUrl()}&v=${logoVersie}`} alt="Logo" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain" }} />
-              ) : (
-                <span style={{ fontSize:18, color:"#ccc" }}>🖼</span>
-              )}
+        {/* Voortgangsindicator */}
+        <div style={{ display:"flex", gap:6, marginBottom:"1.5rem" }}>
+          {[1,2,3].map(s => (
+            <div key={s} style={{ flex:1, height:4, borderRadius:99, background: stap>=s ? kleur.hoofd : "#eee" }} />
+          ))}
+        </div>
+
+        {stap === 1 && (
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:48, marginBottom:"0.75rem" }}>👋</div>
+            <h2 style={{ margin:"0 0 0.75rem", color:"#1a1a1a", fontSize:20 }}>Welkom bij DenCRM!</h2>
+            <p style={{ color:"#555", fontSize:14, lineHeight:1.6, marginBottom:"1.5rem" }}>
+              Laten we uw account in een paar stappen inrichten. Wilt u meteen uw bedrijfslogo uploaden?
+              Dit verschijnt straks automatisch op uw offertes, facturen en kassabonnen.
+            </p>
+
+            <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px", borderRadius:10,
+              border:"1px dashed #ccc", background:"#fafafa", marginBottom:"1rem", textAlign:"left" }}>
+              <div style={{ width:56, height:56, borderRadius:8, background:"#fff", border:"1px solid #e0e0e0",
+                display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0 }}>
+                {heeftLogo ? (
+                  <img src={`${API.logoUrl()}&v=${logoVersie}`} alt="Logo" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain" }} />
+                ) : (
+                  <span style={{ fontSize:22, color:"#ccc" }}>🖼</span>
+                )}
+              </div>
+              <div style={{ flex:1 }}>
+                <label style={{ display:"inline-block", padding:"7px 14px", borderRadius:8,
+                  background:kleur.hoofd, color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>
+                  {logoBezig ? "Bezig…" : (heeftLogo ? "Vervangen" : "Logo uploaden")}
+                  <input type="file" accept="image/png,image/svg+xml,image/jpeg" style={{ display:"none" }}
+                    disabled={logoBezig}
+                    onChange={e => { if (e.target.files[0]) uploadLogoBestand(e.target.files[0]); e.target.value=""; }} />
+                </label>
+                {logoFout && <p style={{ margin:"6px 0 0", fontSize:12, color:"#a32d2d" }}>{logoFout}</p>}
+                <p style={{ margin:"6px 0 0", fontSize:11, color:"#999" }}>PNG, SVG of JPG, max 2MB</p>
+              </div>
             </div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <label style={{ display:"inline-block", padding:"5px 10px", borderRadius:6,
-                background:kleur.hoofd, color:"#fff", fontSize:11, fontWeight:500, cursor:"pointer" }}>
-                {logoBezig ? "Bezig…" : (heeftLogo ? "Vervangen" : "Uploaden")}
-                <input type="file" accept="image/png,image/svg+xml,image/jpeg" style={{ display:"none" }}
-                  disabled={logoBezig}
-                  onChange={e => { if (e.target.files[0]) uploadLogoBestand(e.target.files[0]); e.target.value=""; }} />
-              </label>
-              {heeftLogo && (
-                <button onClick={verwijderLogoNu}
-                  style={{ marginLeft:6, padding:"5px 10px", borderRadius:6, background:"#fcebeb",
-                    color:"#a32d2d", border:"none", fontSize:11, cursor:"pointer" }}>
-                  Verwijderen
-                </button>
-              )}
+
+            <button onClick={()=>setStap(2)}
+              style={{ width:"100%", padding:"12px", borderRadius:10, background:kleur.hoofd,
+                color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
+              Volgende →
+            </button>
+          </div>
+        )}
+
+        {stap === 2 && (
+          <div>
+            <h2 style={{ margin:"0 0 0.5rem", color:"#1a1a1a", fontSize:19 }}>Uw bedrijfsgegevens</h2>
+            <p style={{ color:"#666", fontSize:13.5, lineHeight:1.5, marginBottom:"1.25rem" }}>
+              Deze gegevens worden automatisch ingevuld op uw offertes, facturen en kassabonnen.
+            </p>
+
+            <div style={{ marginBottom:10 }}>
+              <label style={{ fontSize:12, color:"#555", fontWeight:500 }}>Bedrijfsnaam</label>
+              <input value={bedrijfsnaam} onChange={e=>setBedrijfsnaam(e.target.value)}
+                style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1px solid #ddd", fontSize:14, marginTop:4, boxSizing:"border-box" }} />
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <label style={{ fontSize:12, color:"#555", fontWeight:500 }}>Adres</label>
+              <input value={bedrijfAdres} onChange={e=>setBedrijfAdres(e.target.value)}
+                placeholder="Straat 1, 1234 AB Plaats"
+                style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1px solid #ddd", fontSize:14, marginTop:4, boxSizing:"border-box" }} />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+              <div>
+                <label style={{ fontSize:12, color:"#555", fontWeight:500 }}>IBAN</label>
+                <input value={iban} onChange={e=>setIban(e.target.value)} placeholder="NL00 BANK 0000 0000 00"
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1px solid #ddd", fontSize:14, marginTop:4, boxSizing:"border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize:12, color:"#555", fontWeight:500 }}>BTW-nummer</label>
+                <input value={btwNr} onChange={e=>setBtwNr(e.target.value)} placeholder="NL000000000B01"
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1px solid #ddd", fontSize:14, marginTop:4, boxSizing:"border-box" }} />
+              </div>
+            </div>
+
+            <div style={{ display:"flex", gap:8, marginTop:"1.5rem" }}>
+              <button onClick={()=>setStap(1)}
+                style={{ padding:"12px 18px", borderRadius:10, background:"#f5f5f5",
+                  color:"#666", border:"none", cursor:"pointer", fontSize:14 }}>
+                ← Terug
+              </button>
+              <button onClick={slaBedrijfsgegevensOp} disabled={opslaanBezig}
+                style={{ flex:1, padding:"12px", borderRadius:10, background:kleur.hoofd,
+                  color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600, opacity:opslaanBezig?0.7:1 }}>
+                {opslaanBezig ? "Bezig…" : "Volgende →"}
+              </button>
             </div>
           </div>
-          {logoFout && <p style={{ margin:"4px 0 0", fontSize:11, color:"#a32d2d" }}>{logoFout}</p>}
-          <p style={{ margin:"4px 0 0", fontSize:10, color:"#999" }}>
-            PNG, SVG of JPG, max 2MB. Verschijnt linksboven op offertes en kassabonnen.
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Taal */}
-      <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>TAAL / LANGUAGE / SPRACHE</p>
-      <div style={{ display:"flex", gap:8, marginBottom:"1.25rem" }}>
-        {[
-          { code:"nl", img:"afbeeldingen/vlagnederland.png", alt:"Nederlands" },
-          { code:"en", img:"afbeeldingen/vlagengeland.png",  alt:"English" },
-          { code:"de", img:"afbeeldingen/vlagduitsland.png", alt:"Deutsch" },
-        ].map(({ code, img, alt }) => (
-          <button key={code} onClick={() => setTaal(code)}
-            style={{ flex:1, padding:"4px", borderRadius:8, cursor:"pointer",
-              background: taal===code ? kleur.licht : "#fafafa",
-              border: taal===code ? `2px solid ${kleur.hoofd}` : "1px solid #ddd" }}>
-            <img src={img} alt={alt} style={{ width:"100%", height:20, objectFit:"cover", borderRadius:3, display:"block" }}
-              onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="block"; }} />
-            <span style={{ display:"none", fontSize:11, fontWeight:600 }}>{code.toUpperCase()}</span>
-          </button>
-        ))}
-      </div>
-
-      <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>{T?.tekstgrootte||"TEKSTGROOTTE"}</p>
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-        <button onClick={()=>setFs(s=>Math.max(12,s-1))} style={{ width:28,height:28,borderRadius:"50%",border:"1px solid #d0d0d0",background:"#f5f5f5",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center" }}>−</button>
-        <span style={{ flex:1,textAlign:"center",fontSize:14,fontWeight:500 }}>{fs}px</span>
-        <button onClick={()=>setFs(s=>Math.min(20,s+1))} style={{ width:28,height:28,borderRadius:"50%",border:"1px solid #d0d0d0",background:"#f5f5f5",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center" }}>+</button>
-      </div>
-      <input type="range" min={12} max={20} step={1} value={fs} onChange={e=>setFs(parseInt(e.target.value))} style={{ width:"100%", marginBottom:"1.25rem" }} />
-
-      <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>{T?.accentkleur||"ACCENTKLEUR"}</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, marginBottom:"1.25rem" }}>
-        {KLEUREN.map((k,i)=>(
-          <button key={k.label} onClick={()=>setKleurIdx(i)} style={{ padding:"6px 4px", borderRadius:8,
-            border:kleurIdx===i?`2.5px solid ${k.hoofd}`:"1px solid #ddd",
-            background:kleurIdx===i?k.licht:"#fafafa",
-            boxShadow:kleurIdx===i?`0 0 0 2px ${k.hoofd}33`:"none",
-            cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4, position:"relative" }}>
-            <div style={{ width:20,height:20,borderRadius:"50%",background:k.hoofd, display:"flex",
-              alignItems:"center", justifyContent:"center" }}>
-              {kleurIdx===i && <span style={{ color:"#fff", fontSize:12, fontWeight:700 }}>✓</span>}
+        {stap === 3 && (
+          <div>
+            <h2 style={{ margin:"0 0 0.5rem", color:"#1a1a1a", fontSize:19 }}>Welke onderdelen gaat u gebruiken?</h2>
+            <p style={{ color:"#666", fontSize:13.5, lineHeight:1.5, marginBottom:"1.25rem" }}>
+              Zet uit wat u niet nodig heeft — dat houdt het overzicht lekker rustig. U kunt dit altijd weer aanpassen.
+            </p>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:"1.5rem" }}>
+              {alleModulesBasis.map(m => {
+                const aan = modulesAan[m.id] !== false;
+                return (
+                  <div key={m.id} onClick={()=>toggleModule(m.id)}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                      padding:"10px 14px", borderRadius:10, cursor:"pointer",
+                      background: aan ? kleur.licht : "#f5f5f5", border:`1px solid ${aan ? kleur.hoofd+'33' : '#e5e5e5'}` }}>
+                    <span style={{ fontSize:14, color: aan ? kleur.donker : "#999" }}>{m.icon} {m.label}</span>
+                    <div style={{ width:36, height:20, borderRadius:99, position:"relative",
+                      background: aan ? kleur.hoofd : "#ccc" }}>
+                      <div style={{ position:"absolute", top:2, left: aan ? 18 : 2, width:16, height:16,
+                        borderRadius:"50%", background:"#fff", transition:"left 0.15s" }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <span style={{ fontSize:10, fontWeight:kleurIdx===i?700:400, color:kleurIdx===i?k.donker:"#666" }}>{k.label}</span>
-          </button>
-        ))}
-      </div>
 
-      <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>{T?.achtergrondkleur||"ACHTERGRONDKLEUR"}</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, marginBottom:"1.25rem" }}>
-        {BGOVS.map((b,i)=>(
-          <button key={b.label} onClick={()=>setBgIdx(i)} style={{ padding:"6px 4px", borderRadius:8,
-            border:bgIdx===i?`2.5px solid ${kleur.hoofd}`:"1px solid #ddd",
-            background:bgIdx===i?kleur.licht:"#fafafa",
-            boxShadow:bgIdx===i?`0 0 0 2px ${kleur.hoofd}33`:"none",
-            cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-            <div style={{ width:20,height:20,borderRadius:4,background:b.w,border:"1px solid #ccc",
-              display:"flex", alignItems:"center", justifyContent:"center" }}>
-              {bgIdx===i && <span style={{ color:kleur.hoofd, fontSize:12, fontWeight:700 }}>✓</span>}
+            <p style={{ color:"#888", fontSize:12.5, lineHeight:1.5, marginBottom:"1.5rem",
+              background:"#f5f5f5", padding:"10px 14px", borderRadius:8 }}>
+              💡 Logo, bedrijfsgegevens, modules en kleuren zijn altijd aan te passen via{" "}
+              <strong>⚙ Instellingen</strong> en <strong>👤 Mijn profiel</strong> linksonder in het scherm.
+            </p>
+
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>setStap(2)}
+                style={{ padding:"12px 18px", borderRadius:10, background:"#f5f5f5",
+                  color:"#666", border:"none", cursor:"pointer", fontSize:14 }}>
+                ← Terug
+              </button>
+              <button onClick={onClose}
+                style={{ flex:1, padding:"12px", borderRadius:10, background:kleur.hoofd,
+                  color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
+                Begrepen, aan de slag!
+              </button>
             </div>
-            <span style={{ fontSize:9, fontWeight:bgIdx===i?700:400, color:bgIdx===i?kleur.donker:"#555", textAlign:"center", lineHeight:1.2 }}>{b.label}</span>
-          </button>
-        ))}
+          </div>
+        )}
       </div>
-
-      {/* Modules */}
-      <button onClick={()=>setModulesOpen(o=>!o)}
-        style={{ width:"100%", padding:"8px 12px", borderRadius:8, cursor:"pointer",
-          border:`1px solid ${modulesOpen ? kleur.hoofd : "#ddd"}`,
-          background: modulesOpen ? kleur.licht : "#fafafa",
-          color: modulesOpen ? kleur.donker : "#555",
-          display:"flex", alignItems:"center", justifyContent:"space-between",
-          fontSize:12, fontWeight:500 }}>
-        <span>⊞ Zet modules aan of uit</span>
-        <span>{modulesOpen ? "▲" : "▼"}</span>
-      </button>
-
-      {modulesOpen && (
-        <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:6 }}>
-          {alleModules.map(m => {
-            const aan = modulesAan[m.id] !== false;
-            return (
-              <div key={m.id} onClick={()=>setModulesAan(prev=>({...prev,[m.id]:!aan}))}
-                style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px",
-                  borderRadius:8, cursor:"pointer",
-                  background: aan ? kleur.licht : "#f5f5f5",
-                  border: `1px solid ${aan ? kleur.hoofd : "#e0e0e0"}` }}>
-                <span style={{ fontSize:16 }}>{m.icon}</span>
-                <span style={{ flex:1, fontSize:12, fontWeight:500,
-                  color: aan ? kleur.donker : "#aaa" }}>{m.label}</span>
-                <div style={{ width:36, height:20, borderRadius:99,
-                  background: aan ? kleur.hoofd : "#ccc",
-                  position:"relative", transition:"background 0.2s" }}>
-                  <div style={{ position:"absolute", top:2,
-                    left: aan ? 18 : 2,
-                    width:16, height:16, borderRadius:"50%",
-                    background:"#fff", transition:"left 0.2s",
-                    boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
-                </div>
-              </div>
-            );
-          })}
-          <p style={{ fontSize:10, color:"#aaa", margin:"4px 0 0", textAlign:"center" }}>
-            Keuzes worden automatisch opgeslagen
-          </p>
-        </div>
-      )}
-
-      {!isGekoppeld && (
-        <button onClick={onOpenKoppelAccounts}
-          style={{ width:"100%", padding:"8px 12px", borderRadius:8, cursor:"pointer",
-            border:"1px solid #ddd", background:"#fafafa", color:"#555",
-            display:"flex", alignItems:"center", justifyContent:"space-between",
-            fontSize:12, fontWeight:500, marginTop:8 }}>
-          <span>👥 Koppel accounts</span>
-          <span>→</span>
-        </button>
-      )}
-
-      {/* Mijn abonnement */}
-      {!isAdmin && (
-        <>
-          <button onClick={()=>setAbonnementOpen(o=>!o)}
-            style={{ width:"100%", padding:"8px 12px", borderRadius:8, cursor:"pointer", marginTop:8,
-              border:`1px solid ${abonnementOpen ? kleur.hoofd : "#ddd"}`,
-              background: abonnementOpen ? kleur.licht : "#fafafa",
-              color: abonnementOpen ? kleur.donker : "#555",
-              display:"flex", alignItems:"center", justifyContent:"space-between",
-              fontSize:12, fontWeight:500 }}>
-            <span>💳 Mijn abonnement</span>
-            <span>{abonnementOpen ? "▲" : "▼"}</span>
-          </button>
-
-          {abonnementOpen && (() => {
-            const geldig = lidmaatschapTot ? new Date(lidmaatschapTot) >= new Date() : false;
-            const diff = lidmaatschapTot ? Math.ceil((new Date(lidmaatschapTot) - new Date()) / (1000*60*60*24)) : null;
-            const fmtD = iso => iso ? new Date(iso).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'}) : '—';
-            return (
-              <div style={{ marginTop:8, padding:"12px", borderRadius:10,
-                background: geldig ? "#eaf3de" : "#fcebeb" }}>
-                <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600,
-                  color: geldig ? "#27500a" : "#a32d2d" }}>
-                  {geldig ? "✓ Actief lidmaatschap" : "✕ Lidmaatschap verlopen"}
-                </p>
-                <p style={{ margin:0, fontSize:12, color:"#444" }}>
-                  Geldig {geldig ? "tot" : "tot was"}: <strong>{fmtD(lidmaatschapTot)}</strong>
-                </p>
-                {geldig && diff !== null && diff < 30 && (
-                  <p style={{ margin:"4px 0 0", fontSize:11, color:"#7a5800" }}>
-                    Verloopt over {diff} dag{diff!==1?'en':''}
-                  </p>
-                )}
-                <p style={{ margin:"8px 0 0", fontSize:10, color:"#888" }}>
-                  Verlengen kan binnenkort via uw accountpagina (Mollie betaling volgt).
-                </p>
-              </div>
-            );
-          })()}
-        </>
-      )}
     </div>
   );
 }
 
-// ── DEMO BANNER ───────────────────────────────────────────────────────────────
 function DemoBanner({ onUitloggen, fs, T }) {
   const [ingeklapt, setIngeklapt] = useState(false);
   const TT = T || VERTALINGEN.nl;
@@ -8158,159 +8724,418 @@ const DEMO_PRODUCTEN = [
 ];
 
 // ── PROFIEL PANEEL ────────────────────────────────────────────────────────────
-function ProfielPanel({ user, setUsers, onClose, kleur, fs, T }) {
-  const [tab, setTab] = useState("info");
-  const [huidigWw, setHuidigWw] = useState("");
-  const [nieuwWw, setNieuwWw]   = useState("");
-  const [bevestig, setBevestig] = useState("");
-  const [toonH, setToonH] = useState(false);
-  const [toonN, setToonN] = useState(false);
-  const [melding, setMelding] = useState(null);
+function InstellingenProfielPagina({ kleur, kleurIdx, setKleurIdx, fs, setFs, bgIdx, setBgIdx, taal, setTaal, T,
+  onClose, modulesAan, setModulesAan, lidmaatschapTot, isAdmin, isGekoppeld, toegestaneModules,
+  onOpenKoppelAccounts, startpagina, setStartpagina, user, initialTab="weergave" }) {
+
+  const [tab, setTab] = useState(initialTab);
+
+  // ── Bedrijfslogo state ──
+  const [heeftLogo, setHeeftLogo] = useState(false);
+  const [logoBezig, setLogoBezig] = useState(false);
+  const [logoFout, setLogoFout] = useState("");
+  const [logoVersie, setLogoVersie] = useState(0);
+
+  useEffect(() => {
+    API.haalLogoInfoOp().then(data => setHeeftLogo(!!data.heeft_logo)).catch(()=>{});
+  }, []);
+
+  async function uploadLogoBestand(file) {
+    setLogoFout("");
+    const toegestaan = ['image/png', 'image/svg+xml', 'image/jpeg'];
+    if (!toegestaan.includes(file.type)) { setLogoFout("Alleen PNG, SVG of JPG toegestaan."); return; }
+    if (file.size > 2 * 1024 * 1024) { setLogoFout("Bestand mag maximaal 2MB zijn."); return; }
+    setLogoBezig(true);
+    try {
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(",")[1]);
+        r.onerror = () => rej(new Error("Lezen mislukt"));
+        r.readAsDataURL(file);
+      });
+      await API.uploadLogo(base64, file.type);
+      setHeeftLogo(true);
+      setLogoVersie(v => v+1);
+    } catch(e) { setLogoFout(e.message || "Uploaden mislukt."); }
+    finally { setLogoBezig(false); }
+  }
+
+  async function verwijderLogoNu() {
+    if (!confirm("Bedrijfslogo verwijderen?")) return;
+    try {
+      await API.verwijderLogo();
+      setHeeftLogo(false);
+      setLogoVersie(v => v+1);
+    } catch(e) { alert("Verwijderen mislukt: "+e.message); }
+  }
+
+  // ── Bedrijfsgegevens state ──
   const [gegevens, setGegevens] = useState(null);
   const [gegevensForm, setGegevensForm] = useState({});
   const [gegevensBezig, setGegevensBezig] = useState(false);
+  const [gegevensMelding, setGegevensMelding] = useState(null);
 
   useEffect(() => {
     if (tab === "gegevens" && !gegevens) {
-      API.haalProfielOp().then(data => {
-        setGegevens(data);
-        setGegevensForm(data);
-      }).catch(() => {});
+      API.haalProfielOp().then(data => { setGegevens(data); setGegevensForm(data); }).catch(() => {});
     }
   }, [tab]);
-
-  async function slaWwOp() {
-    setMelding(null);
-    const regels = valideerWachtwoord(nieuwWw);
-    if (!regels.every(r => r.ok)) { setMelding({type:"fout", tekst:"Wachtwoord voldoet niet (min. 8 tekens, 1 hoofdletter, 1 speciaal teken)."}); return; }
-    if (nieuwWw !== bevestig) { setMelding({type:"fout", tekst:T.wachtwoordNietOvereen}); return; }
-    try {
-      await API.wijzigWachtwoord(huidigWw, nieuwWw);
-      setHuidigWw(""); setNieuwWw(""); setBevestig("");
-      setMelding({type:"ok", tekst:T.wachtwoordGewijzigd});
-    } catch(e) { setMelding({type:"fout", tekst:e.message||"Wijzigen mislukt."}); }
-  }
 
   async function slaGegevensOp() {
     setGegevensBezig(true);
     try {
       await API.updateProfiel(gegevensForm);
       setGegevens(gegevensForm);
-      setMelding({type:"ok", tekst:"Gegevens opgeslagen!"});
-    } catch(e) { setMelding({type:"fout", tekst:e.message||"Opslaan mislukt."}); }
+      setGegevensMelding({type:"ok", tekst:"Gegevens opgeslagen!"});
+    } catch(e) { setGegevensMelding({type:"fout", tekst:e.message||"Opslaan mislukt."}); }
     finally { setGegevensBezig(false); }
   }
 
+  // ── Wachtwoord state ──
+  const [huidigWw, setHuidigWw] = useState("");
+  const [nieuwWw, setNieuwWw]   = useState("");
+  const [bevestig, setBevestig] = useState("");
+  const [toonH, setToonH] = useState(false);
+  const [toonN, setToonN] = useState(false);
+  const [wwMelding, setWwMelding] = useState(null);
+
+  async function slaWwOp() {
+    setWwMelding(null);
+    const regels = valideerWachtwoord(nieuwWw);
+    if (!regels.every(r => r.ok)) { setWwMelding({type:"fout", tekst:"Wachtwoord voldoet niet (min. 8 tekens, 1 hoofdletter, 1 speciaal teken)."}); return; }
+    if (nieuwWw !== bevestig) { setWwMelding({type:"fout", tekst:T.wachtwoordNietOvereen}); return; }
+    try {
+      await API.wijzigWachtwoord(huidigWw, nieuwWw);
+      setHuidigWw(""); setNieuwWw(""); setBevestig("");
+      setWwMelding({type:"ok", tekst:T.wachtwoordGewijzigd});
+    } catch(e) { setWwMelding({type:"fout", tekst:e.message||"Wijzigen mislukt."}); }
+  }
+
+  // ── Modules ──
+  const [modulesOpen, setModulesOpen] = useState(true);
+  const alleModulesBasis = [
+    { id:"kassa",       label:T?.kassa||"Kassa",                      icon:"🧾" },
+    { id:"werkbonnen",  label:T?.werkbonnen||"Werkbonnen & Reparaties",     icon:"🔧" },
+    { id:"klanten",     label:T?.klanten||"Klanten",         icon:"👥" },
+    { id:"producten",   label:T?.producten||"Producten",     icon:"📦" },
+    { id:"agenda",      label:T?.agenda||"Agenda",           icon:"📅" },
+    { id:"offertes",    label:T?.offertes||"Offertes & Facturen",       icon:"📄" },
+    { id:"financieel",  label:T?.financieel||"Financieel overzicht",        icon:"💶" },
+    { id:"declaraties", label:T?.declaraties||"Declaraties & Boekhouding",   icon:"🧮" },
+    { id:"contact",     label:T?.contact||"Contact",         icon:"💬" },
+  ];
+  const alleModules = isGekoppeld && toegestaneModules
+    ? alleModulesBasis.filter(m => toegestaneModules.includes(m.id))
+    : alleModulesBasis;
+
+  const TABS = [
+    { id:"profiel",    label:"Profiel",              icon:"👤" },
+    { id:"gegevens",   label:"Bedrijfsgegevens",     icon:"🏢" },
+    { id:"weergave",   label:"Weergave",             icon:"🎨" },
+    { id:"modules",    label:"Modules & startpagina",icon:"⊞" },
+    { id:"wachtwoord", label:"Wachtwoord",           icon:"🔒" },
+    ...(!isAdmin ? [{ id:"abonnement", label:"Mijn abonnement", icon:"💳" }] : []),
+  ];
+
   return (
-    <div style={{ position:"absolute", bottom:60, left:12, width:280,
-      backgroundColor:"#ffffff", color:"#1a1a1a",
-      border:"1px solid #d0d0d0", borderRadius:12,
-      boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:500, overflow:"hidden" }}>
-      <div style={{ background:kleur.hoofd, padding:"14px 16px", display:"flex", alignItems:"center", gap:10 }}>
-        <Avatar naam={user.naam} size={36} kleur={{licht:"rgba(255,255,255,0.25)", donker:"#fff"}} />
-        <div style={{ flex:1, minWidth:0 }}>
-          <p style={{ margin:0, fontWeight:600, fontSize:fs, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.naam}</p>
-          <p style={{ margin:0, fontSize:fs-3, color:"rgba(255,255,255,0.75)" }}>@{user.username}{user.is_admin?" · Admin":""}</p>
-        </div>
-        <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.8)",fontSize:18,lineHeight:1,padding:"2px 4px" }}>×</button>
-      </div>
+    <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", backdropFilter:"blur(2px)",
+      display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:"1.5rem" }}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ background:"#fff", borderRadius:18, width:"100%", maxWidth:920, height:"85vh",
+        boxShadow:"0 24px 70px rgba(0,0,0,0.3)", display:"flex", overflow:"hidden" }}>
 
-      <div style={{ display:"flex", borderBottom:"0.5px solid #e8e8e8" }}>
-        {[{id:"info",label:"Profiel"},{id:"gegevens",label:"Gegevens"},{id:"ww",label:"Wachtwoord"}].map(t=>(
-          <button key={t.id} onClick={()=>{setTab(t.id);setMelding(null);}} style={{
-            flex:1, padding:"8px 4px", border:"none", background:"none", cursor:"pointer",
-            fontSize:fs-2, fontWeight:500,
-            color:tab===t.id?kleur.hoofd:"#888",
-            borderBottom:tab===t.id?`2px solid ${kleur.hoofd}`:"2px solid transparent"
-          }}>{t.label}</button>
-        ))}
-      </div>
-
-      <div style={{ padding:"1rem", maxHeight:420, overflowY:"auto" }}>
-        {tab==="info" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {[{l:"Naam",v:user.naam},{l:"Gebruikersnaam",v:`@${user.username}`},{l:"Rechten",v:user.is_admin?"Administrator":"Standaard gebruiker"}].map(r=>(
-              <div key={r.l}>
-                <p style={{ margin:0, fontSize:fs-3, color:"#888", marginBottom:2 }}>{r.l}</p>
-                <p style={{ margin:0, fontSize:fs-1, fontWeight:500, color:"#1a1a1a" }}>{r.v}</p>
-              </div>
-            ))}
+        {/* Linker tab-navigatie */}
+        <div style={{ width:220, flexShrink:0, background:"#f7f8fa", borderRight:"1px solid #eceff2",
+          padding:"1.5rem 0.9rem", display:"flex", flexDirection:"column" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"0 0.4rem 1.25rem" }}>
+            <Avatar naam={user?.naam||"?"} size={38} kleur={kleur} />
+            <div style={{ minWidth:0 }}>
+              <p style={{ margin:0, fontWeight:600, fontSize:14, color:"#1a1a1a", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.naam}</p>
+              <p style={{ margin:0, fontSize:11, color:"#888" }}>@{user?.username}</p>
+            </div>
           </div>
-        )}
-
-        {tab==="gegevens" && (
-          <div>
-            {!gegevens ? <p style={{ color:"#888", fontSize:fs-1 }}>Laden…</p> : (<>
-              <p style={{ margin:"0 0 10px", fontSize:fs-2, color:"#888" }}>
-                Deze gegevens worden gebruikt op offertes en in uitgaande mails.
-              </p>
-              {[
-                {l:"Volledige naam", k:"naam", verplicht:true},
-                {l:"Bedrijfsnaam", k:"bedrijfsnaam"},
-                {l:"Bedrijfsadres", k:"bedrijf_adres"},
-                {l:"IBAN", k:"iban"},
-                {l:"BTW-nummer", k:"btw_nummer"},
-                {l:"E-mailadres voor rapporten", k:"mail_adres"},
-              ].map(veld=>(
-                <div key={veld.k} style={{ marginBottom:10 }}>
-                  <label style={{ display:"block", fontSize:fs-3, color:"#555", marginBottom:3, fontWeight:500 }}>
-                    {veld.l}{veld.verplicht&&<span style={{color:"#a32d2d"}}> *</span>}
-                  </label>
-                  <input value={gegevensForm[veld.k]||""} onChange={e=>setGegevensForm(f=>({...f,[veld.k]:e.target.value}))}
-                    style={{ width:"100%", padding:"7px 10px", borderRadius:7, border:"1px solid #ddd",
-                      background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
-                </div>
-              ))}
-              {melding && tab==="gegevens" && (
-                <p style={{ fontSize:fs-2, padding:"7px 10px", borderRadius:6, marginBottom:8,
-                  background:melding.type==="ok"?"#eaf3de":"#fcebeb",
-                  color:melding.type==="ok"?"#27500a":"#a32d2d" }}>{melding.tekst}</p>
-              )}
-              <button onClick={slaGegevensOp} disabled={gegevensBezig}
-                style={{ width:"100%", padding:"9px", borderRadius:8, background:kleur.hoofd,
-                  color:"#fff", border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:500, opacity:gegevensBezig?0.7:1 }}>
-                {gegevensBezig?"Opslaan…":"💾 Gegevens opslaan"}
-              </button>
-            </>)}
-          </div>
-        )}
-
-        {tab==="ww" && (
-          <div>
-            <div style={{ marginBottom:10 }}>
-              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>{T.huidigWachtwoord}</label>
-              <div style={{ position:"relative" }}>
-                <input type={toonH?"text":"password"} value={huidigWw} onChange={e=>setHuidigWw(e.target.value)}
-                  style={{ width:"100%", padding:"8px 32px 8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
-                <button onClick={()=>setToonH(t=>!t)} style={{ position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:13 }}>{toonH?"🙈":"👁"}</button>
-              </div>
-            </div>
-            <div style={{ marginBottom:6 }}>
-              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>{T.nieuwWachtwoord}</label>
-              <div style={{ position:"relative" }}>
-                <input type={toonN?"text":"password"} value={nieuwWw} onChange={e=>setNieuwWw(e.target.value)}
-                  style={{ width:"100%", padding:"8px 32px 8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
-                <button onClick={()=>setToonN(t=>!t)} style={{ position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:13 }}>{toonN?"🙈":"👁"}</button>
-              </div>
-            </div>
-            <WachtwoordSterkte ww={nieuwWw} />
-            <div style={{ marginBottom:12, marginTop:8 }}>
-              <label style={{ display:"block", fontSize:fs-2, color:"#555", marginBottom:4 }}>{T.bevestigWachtwoord}</label>
-              <input type="password" value={bevestig} onChange={e=>setBevestig(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&slaWwOp()}
-                style={{ width:"100%", padding:"8px 10px", borderRadius:7, border:"1px solid #ccc", background:"#fafafa", fontSize:fs-1, color:"#1a1a1a", boxSizing:"border-box" }} />
-            </div>
-            {melding && tab==="ww" && (
-              <p style={{ margin:"0 0 10px", fontSize:fs-2, padding:"7px 10px", borderRadius:6,
-                background:melding.type==="ok"?"#eaf3de":"#fcebeb",
-                color:melding.type==="ok"?"#27500a":"#a32d2d" }}>{melding.tekst}</p>
-            )}
-            <button onClick={slaWwOp} style={{ width:"100%", padding:"9px", borderRadius:8,
-              background:kleur.hoofd, color:"#fff", border:"none", cursor:"pointer", fontSize:fs-1, fontWeight:500 }}>
-              {T.wachtwoordOpslaan}
+          {TABS.map(t => (
+            <button key={t.id} onClick={()=>setTab(t.id)}
+              style={{ display:"flex", alignItems:"center", gap:9, width:"100%", padding:"10px 12px",
+                borderRadius:9, border:"none", cursor:"pointer", fontSize:13.5, textAlign:"left", marginBottom:3,
+                background: tab===t.id ? kleur.hoofd : "transparent",
+                color: tab===t.id ? "#fff" : "#4a5058",
+                fontWeight: tab===t.id ? 600 : 400,
+                boxShadow: tab===t.id ? `0 3px 10px ${kleur.hoofd}55` : "none" }}>
+              <span>{t.icon}</span> {t.label}
             </button>
-          </div>
-        )}
+          ))}
+          <div style={{ flex:1 }} />
+          <button onClick={onClose}
+            style={{ padding:"9px 12px", borderRadius:9, border:"1px solid #ddd", background:"#fff",
+              cursor:"pointer", fontSize:13, color:"#666" }}>
+            ← Terug naar de app
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex:1, padding:"2rem 2.25rem", overflowY:"auto" }}>
+
+          {tab === "profiel" && (
+            <div>
+              <h2 style={{ margin:"0 0 1.5rem", fontSize:20 }}>👤 Profiel</h2>
+              <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:400 }}>
+                {[{l:"Naam",v:user?.naam},{l:"Gebruikersnaam",v:`@${user?.username}`},{l:"Rechten",v:user?.is_admin?"Administrator":"Standaard gebruiker"}].map(r=>(
+                  <div key={r.l} style={{ padding:"12px 14px", background:"#f7f8fa", borderRadius:10 }}>
+                    <p style={{ margin:0, fontSize:11, color:"#888", marginBottom:3 }}>{r.l}</p>
+                    <p style={{ margin:0, fontSize:14, fontWeight:600, color:"#1a1a1a" }}>{r.v}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === "gegevens" && (
+            <div style={{ maxWidth:460 }}>
+              <h2 style={{ margin:"0 0 0.4rem", fontSize:20 }}>🏢 Bedrijfsgegevens</h2>
+              <p style={{ margin:"0 0 1.25rem", fontSize:13, color:"#888" }}>
+                Deze gegevens worden automatisch gebruikt op offertes, facturen, kassabonnen en in uitgaande mails.
+              </p>
+
+              {!isGekoppeld && (
+                <div style={{ marginBottom:"1.5rem" }}>
+                  <p style={{ margin:"0 0 6px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>BEDRIJFSLOGO</p>
+                  <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px", borderRadius:10,
+                    border:"1px dashed #ccc", background:"#fafafa" }}>
+                    <div style={{ width:52, height:52, borderRadius:8, background:"#fff", border:"1px solid #e0e0e0",
+                      display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0 }}>
+                      {heeftLogo ? (
+                        <img src={`${API.logoUrl()}&v=${logoVersie}`} alt="Logo" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain" }} />
+                      ) : ( <span style={{ fontSize:20, color:"#ccc" }}>🖼</span> )}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <label style={{ display:"inline-block", padding:"6px 12px", borderRadius:7,
+                        background:kleur.hoofd, color:"#fff", fontSize:12, fontWeight:500, cursor:"pointer" }}>
+                        {logoBezig ? "Bezig…" : (heeftLogo ? "Vervangen" : "Uploaden")}
+                        <input type="file" accept="image/png,image/svg+xml,image/jpeg" style={{ display:"none" }}
+                          disabled={logoBezig}
+                          onChange={e => { if (e.target.files[0]) uploadLogoBestand(e.target.files[0]); e.target.value=""; }} />
+                      </label>
+                      {heeftLogo && (
+                        <button onClick={verwijderLogoNu}
+                          style={{ marginLeft:6, padding:"6px 12px", borderRadius:7, background:"#fcebeb",
+                            color:"#a32d2d", border:"none", fontSize:12, cursor:"pointer" }}>
+                          Verwijderen
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {logoFout && <p style={{ margin:"4px 0 0", fontSize:11, color:"#a32d2d" }}>{logoFout}</p>}
+                </div>
+              )}
+
+              {!gegevens ? <p style={{ color:"#888", fontSize:13 }}>Laden…</p> : (<>
+                {[
+                  {l:"Volledige naam", k:"naam", verplicht:true},
+                  {l:"Bedrijfsnaam", k:"bedrijfsnaam"},
+                  {l:"Bedrijfsadres", k:"bedrijf_adres"},
+                  {l:"IBAN", k:"iban"},
+                  {l:"BTW-nummer", k:"btw_nummer"},
+                  {l:"E-mailadres voor rapporten", k:"mail_adres"},
+                ].map(veld=>(
+                  <div key={veld.k} style={{ marginBottom:12 }}>
+                    <label style={{ display:"block", fontSize:12, color:"#555", marginBottom:4, fontWeight:500 }}>
+                      {veld.l}{veld.verplicht&&<span style={{color:"#a32d2d"}}> *</span>}
+                    </label>
+                    <input value={gegevensForm[veld.k]||""} onChange={e=>setGegevensForm(f=>({...f,[veld.k]:e.target.value}))}
+                      style={iSt(14)} />
+                  </div>
+                ))}
+                {gegevensMelding && (
+                  <p style={{ fontSize:12, padding:"8px 12px", borderRadius:7, marginBottom:10,
+                    background:gegevensMelding.type==="ok"?"#eaf3de":"#fcebeb",
+                    color:gegevensMelding.type==="ok"?"#27500a":"#a32d2d" }}>{gegevensMelding.tekst}</p>
+                )}
+                <Btn variant="primary" onClick={slaGegevensOp} kleur={kleur} disabled={gegevensBezig}>
+                  {gegevensBezig?"Opslaan…":"💾 Gegevens opslaan"}
+                </Btn>
+              </>)}
+            </div>
+          )}
+
+          {tab === "weergave" && (
+            <div style={{ maxWidth:460 }}>
+              <h2 style={{ margin:"0 0 1.5rem", fontSize:20 }}>🎨 Weergave</h2>
+
+              <p style={{ margin:"0 0 8px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>TAAL / LANGUAGE / SPRACHE</p>
+              <div style={{ display:"flex", gap:8, marginBottom:"1.5rem" }}>
+                {[
+                  { code:"nl", img:"afbeeldingen/vlagnederland.png", alt:"Nederlands" },
+                  { code:"en", img:"afbeeldingen/vlagengeland.png",  alt:"English" },
+                  { code:"de", img:"afbeeldingen/vlagduitsland.png", alt:"Deutsch" },
+                ].map(({ code, img, alt }) => (
+                  <button key={code} onClick={() => setTaal(code)}
+                    style={{ flex:1, padding:6, borderRadius:9, cursor:"pointer", position:"relative",
+                      background: "#fff",
+                      border: taal===code ? `2.5px solid ${kleur.hoofd}` : "1px solid #ddd" }}>
+                    <img src={img} alt={alt} style={{ width:"100%", height:26, objectFit:"cover", borderRadius:4, display:"block" }}
+                      onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="block"; }} />
+                    <span style={{ display:"none", fontSize:12, fontWeight:600 }}>{code.toUpperCase()}</span>
+                    {taal===code && (
+                      <span style={{ position:"absolute", top:-6, right:-6, width:18, height:18, borderRadius:"50%",
+                        background:kleur.hoofd, color:"#fff", fontSize:11, fontWeight:700,
+                        display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 1px 4px rgba(0,0,0,0.25)" }}>✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <p style={{ margin:"0 0 8px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>{T?.tekstgrootte||"TEKSTGROOTTE"}</p>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                <button onClick={()=>setFs(s=>Math.max(12,s-1))} style={{ width:30,height:30,borderRadius:"50%",border:"1px solid #d0d0d0",background:"#f5f5f5",cursor:"pointer",fontSize:16 }}>−</button>
+                <span style={{ flex:1,textAlign:"center",fontSize:14,fontWeight:500 }}>{fs}px</span>
+                <button onClick={()=>setFs(s=>Math.min(20,s+1))} style={{ width:30,height:30,borderRadius:"50%",border:"1px solid #d0d0d0",background:"#f5f5f5",cursor:"pointer",fontSize:16 }}>+</button>
+              </div>
+              <input type="range" min={12} max={20} step={1} value={fs} onChange={e=>setFs(parseInt(e.target.value))} style={{ width:"100%", marginBottom:"1.5rem" }} />
+
+              <p style={{ margin:"0 0 8px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>{T?.accentkleur||"ACCENTKLEUR"}</p>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:"1.5rem" }}>
+                {KLEUREN.map((k,i)=>(
+                  <button key={k.label} onClick={()=>setKleurIdx(i)} style={{ padding:"8px 4px", borderRadius:10,
+                    border:kleurIdx===i?`2.5px solid ${k.hoofd}`:"1px solid #ddd",
+                    background:kleurIdx===i?k.licht:"#fafafa",
+                    boxShadow:kleurIdx===i?`0 0 0 2px ${k.hoofd}33`:"none",
+                    cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+                    <div style={{ width:22,height:22,borderRadius:"50%",background:k.hoofd, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      {kleurIdx===i && <span style={{ color:"#fff", fontSize:12, fontWeight:700 }}>✓</span>}
+                    </div>
+                    <span style={{ fontSize:10, fontWeight:kleurIdx===i?700:400, color:kleurIdx===i?k.donker:"#666" }}>{k.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <p style={{ margin:"0 0 8px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>{T?.achtergrondkleur||"ACHTERGRONDKLEUR"}</p>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8 }}>
+                {BGOVS.map((b,i)=>(
+                  <button key={b.label} onClick={()=>setBgIdx(i)} style={{ padding:"8px 4px", borderRadius:10,
+                    border:bgIdx===i?`2.5px solid ${kleur.hoofd}`:"1px solid #ddd",
+                    background:bgIdx===i?kleur.licht:"#fafafa",
+                    boxShadow:bgIdx===i?`0 0 0 2px ${kleur.hoofd}33`:"none",
+                    cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+                    <div style={{ width:22,height:22,borderRadius:5,background:b.w,border:"1px solid #ccc",
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      {bgIdx===i && <span style={{ color:kleur.hoofd, fontSize:12, fontWeight:700 }}>✓</span>}
+                    </div>
+                    <span style={{ fontSize:9, fontWeight:bgIdx===i?700:400, color:bgIdx===i?kleur.donker:"#555", textAlign:"center", lineHeight:1.2 }}>{b.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === "modules" && (
+            <div style={{ maxWidth:480 }}>
+              <h2 style={{ margin:"0 0 0.4rem", fontSize:20 }}>⊞ Modules & startpagina</h2>
+              <p style={{ margin:"0 0 1.25rem", fontSize:13, color:"#888" }}>
+                Zet uit wat u niet nodig heeft, en kies met het sterretje welke module u als eerste ziet na het inloggen.
+              </p>
+              <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                {alleModules.map(m => {
+                  const aan = modulesAan[m.id] !== false;
+                  const isStart = (startpagina || "kassa") === m.id;
+                  return (
+                    <div key={m.id}
+                      style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+                        borderRadius:10, background: aan ? kleur.licht : "#f5f5f5",
+                        border: `1px solid ${aan ? kleur.hoofd : "#e0e0e0"}` }}>
+                      <span onClick={()=>setModulesAan(prev=>({...prev,[m.id]:!aan}))} style={{ fontSize:18, cursor:"pointer" }}>{m.icon}</span>
+                      <span onClick={()=>setModulesAan(prev=>({...prev,[m.id]:!aan}))} style={{ flex:1, fontSize:13.5, fontWeight:500,
+                        color: aan ? kleur.donker : "#aaa", cursor:"pointer" }}>{m.label}</span>
+                      {aan && (
+                        <button onClick={()=>setStartpagina(m.id)} title="Instellen als startpagina"
+                          style={{ background:"none", border:"none", cursor:"pointer", fontSize:17, padding:"2px 4px",
+                            color: isStart ? "#e8a400" : "#ccc" }}>
+                          {isStart ? "★" : "☆"}
+                        </button>
+                      )}
+                      <div onClick={()=>setModulesAan(prev=>({...prev,[m.id]:!aan}))} style={{ width:38, height:21, borderRadius:99, cursor:"pointer",
+                        background: aan ? kleur.hoofd : "#ccc", position:"relative", transition:"background 0.2s" }}>
+                        <div style={{ position:"absolute", top:2, left: aan ? 19 : 2, width:17, height:17, borderRadius:"50%",
+                          background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize:11, color:"#aaa", margin:"10px 0 0" }}>
+                ☆ Klik het sterretje om een module als startpagina in te stellen · keuzes worden automatisch opgeslagen
+              </p>
+
+              {!isGekoppeld && (
+                <button onClick={onOpenKoppelAccounts}
+                  style={{ width:"100%", padding:"10px 14px", borderRadius:10, cursor:"pointer",
+                    border:"1px solid #ddd", background:"#fafafa", color:"#555",
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                    fontSize:13, fontWeight:500, marginTop:"1.5rem" }}>
+                  <span>👥 Koppel accounts beheren</span>
+                  <span>→</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {tab === "wachtwoord" && (
+            <div style={{ maxWidth:380 }}>
+              <h2 style={{ margin:"0 0 1.5rem", fontSize:20 }}>🔒 Wachtwoord wijzigen</h2>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ display:"block", fontSize:12, color:"#555", marginBottom:4, fontWeight:500 }}>{T.huidigWachtwoord}</label>
+                <div style={{ position:"relative" }}>
+                  <input type={toonH?"text":"password"} value={huidigWw} onChange={e=>setHuidigWw(e.target.value)} style={iSt(14)} />
+                  <button onClick={()=>setToonH(t=>!t)} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:14 }}>{toonH?"🙈":"👁"}</button>
+                </div>
+              </div>
+              <div style={{ marginBottom:8 }}>
+                <label style={{ display:"block", fontSize:12, color:"#555", marginBottom:4, fontWeight:500 }}>{T.nieuwWachtwoord}</label>
+                <div style={{ position:"relative" }}>
+                  <input type={toonN?"text":"password"} value={nieuwWw} onChange={e=>setNieuwWw(e.target.value)} style={iSt(14)} />
+                  <button onClick={()=>setToonN(t=>!t)} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#aaa",fontSize:14 }}>{toonN?"🙈":"👁"}</button>
+                </div>
+              </div>
+              <WachtwoordSterkte ww={nieuwWw} />
+              <div style={{ marginBottom:14, marginTop:10 }}>
+                <label style={{ display:"block", fontSize:12, color:"#555", marginBottom:4, fontWeight:500 }}>{T.bevestigWachtwoord}</label>
+                <input type="password" value={bevestig} onChange={e=>setBevestig(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&slaWwOp()} style={iSt(14)} />
+              </div>
+              {wwMelding && (
+                <p style={{ margin:"0 0 12px", fontSize:12, padding:"8px 12px", borderRadius:7,
+                  background:wwMelding.type==="ok"?"#eaf3de":"#fcebeb",
+                  color:wwMelding.type==="ok"?"#27500a":"#a32d2d" }}>{wwMelding.tekst}</p>
+              )}
+              <Btn variant="primary" onClick={slaWwOp} kleur={kleur}>{T.wachtwoordOpslaan}</Btn>
+            </div>
+          )}
+
+          {tab === "abonnement" && !isAdmin && (() => {
+            const geldig = lidmaatschapTot ? new Date(lidmaatschapTot) >= new Date() : false;
+            const diff = lidmaatschapTot ? Math.ceil((new Date(lidmaatschapTot) - new Date()) / (1000*60*60*24)) : null;
+            const fmtD = iso => iso ? new Date(iso).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'}) : '—';
+            return (
+              <div style={{ maxWidth:420 }}>
+                <h2 style={{ margin:"0 0 1.5rem", fontSize:20 }}>💳 Mijn abonnement</h2>
+                <div style={{ padding:"16px", borderRadius:12, background: geldig ? "#eaf3de" : "#fcebeb" }}>
+                  <p style={{ margin:"0 0 6px", fontSize:13, fontWeight:600, color: geldig ? "#27500a" : "#a32d2d" }}>
+                    {geldig ? "✓ Actief lidmaatschap" : "✕ Lidmaatschap verlopen"}
+                  </p>
+                  <p style={{ margin:0, fontSize:14, color:"#444" }}>
+                    Geldig {geldig ? "tot" : "tot was"}: <strong>{fmtD(lidmaatschapTot)}</strong>
+                  </p>
+                  {geldig && diff !== null && diff < 30 && (
+                    <p style={{ margin:"6px 0 0", fontSize:12, color:"#7a5800" }}>Verloopt over {diff} dag{diff!==1?'en':''}</p>
+                  )}
+                  <p style={{ margin:"10px 0 0", fontSize:11, color:"#888" }}>
+                    Verlengen kan binnenkort via uw accountpagina (Mollie betaling volgt).
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       </div>
     </div>
   );
@@ -8388,6 +9213,31 @@ export default function App() {
     const nieuw = typeof fn === 'function' ? fn(modulesAan) : fn;
     updateInstelling({ modulesAan: nieuw });
   }
+
+  // Volgorde van voorkeur voor de startpagina, gebruikt als fallback wanneer de ingestelde
+  // startpagina-module is uitgeschakeld (of nog niet is gekozen).
+  const MODULE_VOLGORDE = ["kassa","werkbonnen","klanten","producten","agenda","offertes","financieel","declaraties","contact"];
+  function bepaalStartpagina() {
+    const gekozen = instellingen.startpagina;
+    if (gekozen && modulesAan[gekozen] !== false) return gekozen;
+    const eersteAan = MODULE_VOLGORDE.find(id => modulesAan[id] !== false);
+    return eersteAan || "contact";
+  }
+
+  // Zet de juiste startpagina zodra de instellingen zijn geladen (login / page refresh)
+  useEffect(() => {
+    if (instellingenGeladen && !isDemoMode) {
+      setPagina(bepaalStartpagina());
+    }
+  }, [instellingenGeladen]);
+
+  // Als de huidige pagina tussentijds wordt uitgeschakeld (bv. via Instellingen), spring dan weg
+  // naar een module die wel aan staat, zodat een verborgen pagina nooit zichtbaar blijft.
+  useEffect(() => {
+    if (!isDemoMode && instellingenGeladen && modulesAan[pagina] === false) {
+      setPagina(bepaalStartpagina());
+    }
+  }, [modulesAan]);
 
   const T = VERTALINGEN[taal] || VERTALINGEN.nl;
 
@@ -8697,6 +9547,22 @@ export default function App() {
     <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh",
       fontFamily:"var(--font-sans)", fontSize:fs, background:bg.w, color:tekstK }}>
 
+      <style>{`
+        button:not(:disabled) { transition: filter 0.13s ease, transform 0.08s ease, box-shadow 0.15s ease; }
+        button:not(:disabled):hover { filter: brightness(0.96); }
+        button:not(:disabled):active { transform: scale(0.98); }
+        input, select, textarea { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+        input:focus, select:focus, textarea:focus {
+          outline: none !important;
+          box-shadow: 0 0 0 3px ${kleur.hoofd}2a !important;
+          border-color: ${kleur.hoofd} !important;
+        }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)"}; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: ${isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.25)"}; }
+      `}</style>
+
       {isDemoMode && <DemoBanner onUitloggen={logout} fs={fs} T={T} />}
 
       {/* API foutmelding banner */}
@@ -8742,16 +9608,16 @@ export default function App() {
 
         {(!isMobiel || mobielMenuOpen) && (
         <aside style={{
-          width: isMobiel ? "100%" : 220, flexShrink:0,
-          background:isDark?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)",
-          borderRight: isMobiel ? "none" : `0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`,
-          borderBottom: isMobiel ? `0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}` : "none",
+          width: isMobiel ? "100%" : 224, flexShrink:0,
+          background:isDark?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.55)",
+          borderRight: isMobiel ? "none" : `1px solid ${isDark?"rgba(255,255,255,0.1)":"rgba(0,0,0,0.07)"}`,
+          borderBottom: isMobiel ? `1px solid ${isDark?"rgba(255,255,255,0.1)":"rgba(0,0,0,0.07)"}` : "none",
           padding:"1.5rem 1rem", display:"flex", flexDirection:"column", position: isMobiel ? "relative" : "relative",
           maxHeight: isMobiel ? "80vh" : "none", overflowY: isMobiel ? "auto" : "visible", zIndex: isMobiel ? 90 : "auto" }}>
           {!isMobiel && (
-            <div style={{ marginBottom:"2rem" }}>
-              <h1 style={{ margin:0, fontSize:fs+4, fontWeight:500, color:kleur.hoofd }}>DenCRM</h1>
-              <p style={{ margin:"2px 0 0", fontSize:fs-2, color:isDark?"rgba(255,255,255,0.5)":"#888" }}>
+            <div style={{ marginBottom:"2rem", paddingBottom:"1.25rem", borderBottom:`1px solid ${isDark?"rgba(255,255,255,0.08)":"rgba(0,0,0,0.06)"}` }}>
+              <h1 style={{ margin:0, fontSize:fs+6, fontWeight:700, color:kleur.hoofd, letterSpacing:"-0.02em" }}>DenCRM</h1>
+              <p style={{ margin:"3px 0 0", fontSize:fs-2, color:isDark?"rgba(255,255,255,0.45)":"#8a8f98" }}>
                 {actieveKlanten.length} klanten · {actieveProducten.length} producten
               </p>
             </div>
@@ -8760,47 +9626,40 @@ export default function App() {
             {nav.map(n=>(
               <button key={n.id} onClick={()=>{ n.isReview ? setReviewModal(true) : setPagina(n.id); setMobielMenuOpen(false); }}
                 style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
-                padding:"10px 12px", borderRadius:8,
+                padding:"10px 12px", borderRadius:9,
                 background: n.isReview ? "#fffbf0" : (pagina===n.id?kleur.hoofd:"none"),
-                color: n.isReview ? "#7a5800" : (pagina===n.id?"#fff":(isDark?"rgba(255,255,255,0.85)":tekstK)),
+                color: n.isReview ? "#7a5800" : (pagina===n.id?"#fff":(isDark?"rgba(255,255,255,0.8)":"#4a5058")),
                 border: n.isReview ? "1px dashed #e8c44a" : "none",
-                cursor:"pointer", fontSize:fs, textAlign:"left", marginBottom:4, fontWeight: n.isReview?600:400 }}>
+                boxShadow: pagina===n.id && !n.isReview ? `0 3px 10px ${kleur.hoofd}55` : "none",
+                cursor:"pointer", fontSize:fs, textAlign:"left", marginBottom:3,
+                fontWeight: n.isReview ? 600 : (pagina===n.id ? 600 : 400) }}>
                 <span>{n.icon}</span> {n.label}
                 {n.id==="gebruikers"&&<span style={{ marginLeft:"auto", fontSize:10, background:"rgba(255,255,255,0.25)", borderRadius:99, padding:"1px 6px" }}>Admin</span>}
               </button>
             ))}
           </nav>
 
-          {instellOpen&&(
-            <InstellingenPanel kleur={kleur} kleurIdx={kleurIdx} setKleurIdx={setKleurIdx}
+          {(instellOpen || profielOpen) && !isDemoMode && huidigUser && (
+            <InstellingenProfielPagina kleur={kleur} kleurIdx={kleurIdx} setKleurIdx={setKleurIdx}
               fs={fs} setFs={setFs} bgIdx={bgIdx} setBgIdx={setBgIdx}
               taal={taal} setTaal={setTaal} T={T}
               modulesAan={modulesAan} setModulesAan={setModulesAan}
+              startpagina={instellingen.startpagina} setStartpagina={(id)=>updateInstelling({ startpagina: id })}
               lidmaatschapTot={huidigUser?.lidmaatschap_tot} isAdmin={huidigUser?.is_admin || isDemoMode}
               isGekoppeld={!!huidigUser?.hoofdgebruiker_id}
               toegestaneModules={huidigUser?.toegestane_modules ? huidigUser.toegestane_modules.split(',') : null}
-              onOpenKoppelAccounts={()=>{ setInstellOpen(false); setKoppelAccountsOpen(true); }}
-              onClose={()=>setInstellOpen(false)} />
+              onOpenKoppelAccounts={()=>{ setInstellOpen(false); setProfielOpen(false); setKoppelAccountsOpen(true); }}
+              user={huidigUser}
+              initialTab={profielOpen ? "profiel" : "weergave"}
+              onClose={()=>{ setInstellOpen(false); setProfielOpen(false); }} />
           )}
 
           {koppelAccountsOpen && !isDemoMode && (
             <KoppelAccountsPanel kleur={kleur} fs={fs} onClose={()=>setKoppelAccountsOpen(false)} />
           )}
 
-          {profielOpen && !isDemoMode && huidigUser && (
-            <ProfielPanel
-              user={huidigUser}
-              setUsers={() => {}} // wordt afgehandeld via API
-              onWachtwoordWijzigen={async (huidig, nieuw) => {
-                await API.wijzigWachtwoord(huidig, nieuw);
-              }}
-              onClose={()=>setProfielOpen(false)}
-              kleur={kleur} fs={fs} T={T}
-            />
-          )}
-
           <div style={{ borderTop:`0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`, paddingTop:8, marginTop:8 }}>
-            <button onClick={()=>setInstellOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
+            <button onClick={()=>{ setInstellOpen(true); setProfielOpen(false); }} style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
               padding:"9px 12px", borderRadius:8,
               background:instellOpen?kleur.licht:"none",
               color:instellOpen?kleur.donker:(isDark?"rgba(255,255,255,0.7)":"#666"),
@@ -8811,7 +9670,7 @@ export default function App() {
             <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 12px",
               borderRadius:8, cursor:isDemoMode?"default":"pointer",
               background:profielOpen?kleur.licht:"none", transition:"background 0.15s" }}
-              onClick={()=>{ if(!isDemoMode){ setProfielOpen(o=>!o); setInstellOpen(false); } }}>
+              onClick={()=>{ if(!isDemoMode){ setProfielOpen(true); setInstellOpen(false); } }}>
               {isDemoMode
                 ? <span style={{ fontSize:18 }}>🧪</span>
                 : <Avatar naam={gebruikersnaam} size={26} kleur={kleur} />
@@ -8829,10 +9688,18 @@ export default function App() {
         </aside>
         )}
 
-        <main style={{ flex:1, padding: isMobiel ? "1rem" : "1.5rem 2rem", overflowY:"auto", overflowX:"hidden", minWidth:0 }}>
-          <h2 style={{ margin:"0 0 1.25rem", fontSize: isMobiel ? fs+2 : fs+6, fontWeight:500, color:tekstK }}>
-            {!isMobiel && <>{nav.find(n=>n.id===pagina)?.icon} {nav.find(n=>n.id===pagina)?.label}</>}
-          </h2>
+        <main style={{ flex:1, padding: isMobiel ? "1rem" : "1.75rem 2.25rem", overflowY:"auto", overflowX:"hidden", minWidth:0 }}>
+          {!isMobiel && (
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:"1.5rem" }}>
+              <div style={{ width:40, height:40, borderRadius:11, background:kleur.licht,
+                display:"flex", alignItems:"center", justifyContent:"center", fontSize:19, flexShrink:0 }}>
+                {nav.find(n=>n.id===pagina)?.icon}
+              </div>
+              <h2 style={{ margin:0, fontSize:fs+7, fontWeight:700, color:tekstK, letterSpacing:"-0.01em" }}>
+                {nav.find(n=>n.id===pagina)?.label}
+              </h2>
+            </div>
+          )}
           {pagina==="klanten"    && <KlantenPage   klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} agenda={actieveAgenda} werkbonnen={appWerkbonnen} kassaBonnen={appKassaBonnen} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} isMobiel={isMobiel} />}
           {pagina==="producten"  && <ProductenPage producten={actieveProducten} setProducten={setProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
           {pagina==="agenda"     && <AgendaPage    klanten={actieveKlanten} agenda={actieveAgenda} setAgenda={setAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} instellingen={instellingen} updateInstelling={updateInstelling} />}
@@ -8848,28 +9715,9 @@ export default function App() {
       </div>
 
       {/* ── Welkomstmelding bij eerste login ── */}
-      {welkomModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
-          display:"flex", alignItems:"center", justifyContent:"center", zIndex:2000, padding:"1rem" }}>
-          <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:440,
-            textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontSize:48, marginBottom:"0.75rem" }}>👋</div>
-            <h2 style={{ margin:"0 0 0.75rem", color:"#1a1a1a", fontSize:20 }}>Welkom bij DenCRM!</h2>
-            <p style={{ color:"#555", fontSize:14, lineHeight:1.6, marginBottom:"1.25rem" }}>
-              Pas eerst het product aan naar uw wens door modules aan of uit te zetten en de kleur te bepalen
-              die het beste bij u past.
-            </p>
-            <p style={{ color:"#888", fontSize:13, lineHeight:1.5, marginBottom:"1.5rem",
-              background:"#f5f5f5", padding:"10px 14px", borderRadius:8 }}>
-              💡 U kunt dit ten allen tijde aanpassen via <strong>⚙ Instellingen</strong> linksonder in het scherm.
-            </p>
-            <button onClick={()=>setWelkomModal(false)}
-              style={{ padding:"11px 28px", borderRadius:10, background:kleur.hoofd,
-                color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
-              Begrepen, aan de slag!
-            </button>
-          </div>
-        </div>
+      {welkomModal && !isDemoMode && (
+        <WelkomOnboardingModal kleur={kleur} modulesAan={modulesAan} setModulesAan={setModulesAan}
+          onClose={()=>setWelkomModal(false)} />
       )}
 
       {/* ── Review modal ── */}
