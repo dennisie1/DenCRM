@@ -74,6 +74,9 @@ export async function login(username, wachtwoord) {
     method: 'POST',
     body: { username, wachtwoord },
   });
+  if (data.tfa_vereist) {
+    return { tfaVereist: true, preAuthToken: data.preAuthToken };
+  }
   tokensBewaren(data.accessToken, data.refreshToken);
   return data.gebruiker;
 }
@@ -138,7 +141,7 @@ export function geimporteerdBestandUrl(offerteId) {
   const token = localStorage.getItem('dencrm_access');
   return `${API_URL}/offertes/${offerteId}/bestand?token=${encodeURIComponent(token||'')}`;
 }
-export async function updateOfferteStatus(id, status) { return apiFetch(`/offertes/${id}/status`, { method: 'PATCH', body: { status } }); }
+export async function updateOfferteStatus(id, status, betaald_op) { return apiFetch(`/offertes/${id}/status`, { method: 'PATCH', body: { status, betaald_op } }); }
 export async function verwijderOfferte(id)          { return apiFetch(`/offertes/${id}`, { method: 'DELETE' }); }
 
 // ============================================================
@@ -199,6 +202,7 @@ export async function haalAuditLogOp()       { return apiFetch('/audit'); }
 // WERKBONNEN
 // ============================================================
 export async function haalWerkbonnenOp()           { return apiFetch('/werkbonnen'); }
+export async function koppelFactuurAanWerkbon(werkbonId, offerteId) { return apiFetch(`/werkbonnen/${werkbonId}/koppel-factuur`, { method:'PATCH', body:{ offerte_id: offerteId } }); }
 export async function maakWerkbonAan(data)         { return apiFetch('/werkbonnen', { method: 'POST', body: data }); }
 export async function updateWerkbon(id, data)      { return apiFetch(`/werkbonnen/${id}`, { method: 'PUT', body: data }); }
 export async function verwijderWerkbon(id)         { return apiFetch(`/werkbonnen/${id}`, { method: 'DELETE' }); }
@@ -327,3 +331,43 @@ export async function annuleerExterneAfspraak(token)                 { return pu
 export async function haalDocumentTemplatesOp(type)  { return apiFetch(`/document-templates?type=${type}`); }
 export async function maakDocumentTemplateAan(data)   { return apiFetch('/document-templates', { method:'POST', body:data }); }
 export async function verwijderDocumentTemplate(id)   { return apiFetch(`/document-templates/${id}`, { method:'DELETE' }); }
+
+// ============================================================
+// PAKBONNEN
+// ============================================================
+export async function haalPakbonnenOp()                     { return apiFetch('/pakbonnen'); }
+export async function maakPakbonAan(data)                   { return apiFetch('/pakbonnen', { method:'POST', body:data }); }
+export async function updatePakbon(id, data)                { return apiFetch(`/pakbonnen/${id}`, { method:'PUT', body:data }); }
+export async function updatePakbonStatus(id, status, ontvanger_naam) { return apiFetch(`/pakbonnen/${id}/status`, { method:'PATCH', body:{ status, ontvanger_naam } }); }
+export async function verwijderPakbon(id)                   { return apiFetch(`/pakbonnen/${id}`, { method:'DELETE' }); }
+export async function haalPakbonVanuitOfferteOp(offerteId)  { return apiFetch(`/pakbonnen/vanuit-offerte/${offerteId}`); }
+export function pakbonPdfUrl(id) {
+  const token = localStorage.getItem('dencrm_access');
+  return `${API_URL}/pakbonnen/${id}/pdf?token=${encodeURIComponent(token||'')}`;
+}
+
+// ============================================================
+// TWEE-FACTOR AUTHENTICATIE
+// ============================================================
+export async function haal2faStatusOp()          { return apiFetch('/auth/2fa/status'); }
+export async function start2faSetup()            { return apiFetch('/auth/2fa/setup', { method:'POST' }); }
+export async function activeer2fa(code)          { return apiFetch('/auth/2fa/activeren', { method:'POST', body:{ code } }); }
+export async function schakel2faUit(wachtwoord)  { return apiFetch('/auth/2fa/uitschakelen', { method:'POST', body:{ wachtwoord } }); }
+
+// Publieke aanroep (geen auth-header nodig, gebruikt de pre-auth token uit de eerste inlogstap)
+export async function verifieer2faLogin(preAuthToken, code) {
+  const res = await fetch(`${API_URL}/auth/2fa/verifieer`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ preAuthToken, code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.fout || 'Verificatie mislukt');
+  tokensBewaren(data.accessToken, data.refreshToken);
+  return data.gebruiker;
+}
+
+// ============================================================
+// ABONNEMENT / MOLLIE BETALINGEN
+// ============================================================
+export async function startAbonnementBetaling(periode) { return apiFetch('/abonnement/betaling-starten', { method:'POST', body:{ periode } }); }
+export async function haalAbonnementBetalingenOp()      { return apiFetch('/abonnement/betalingen'); }
