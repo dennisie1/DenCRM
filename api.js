@@ -87,6 +87,11 @@ export async function haalSessieOp() {
   return data.gebruiker;
 }
 
+// Lichte check op de actuele lidmaatschapsstatus (gebruikt na terugkomst van een Mollie-betaling)
+export async function haalLidmaatschapOp() {
+  return apiFetch('/auth/lidmaatschap');
+}
+
 export async function logout() {
   await apiFetch('/auth/logout', { method: 'POST', body: { refreshToken } }).catch(() => {});
   tokensWissen();
@@ -218,6 +223,9 @@ export async function verwijderGebruiker(id) {
 }
 export async function blokkeerGebruiker(id, blokkeren) {
   return apiFetch(`/gebruikers/${id}`, { method: 'PATCH', body: { is_actief: !blokkeren } });
+}
+export async function stuurActivatieOpnieuw(gebruiker_id) {
+  return apiFetch('/mail/activatie', { method: 'POST', body: { gebruiker_id } });
 }
 
 // ============================================================
@@ -371,3 +379,36 @@ export async function verifieer2faLogin(preAuthToken, code) {
 // ============================================================
 export async function startAbonnementBetaling(periode) { return apiFetch('/abonnement/betaling-starten', { method:'POST', body:{ periode } }); }
 export async function haalAbonnementBetalingenOp()      { return apiFetch('/abonnement/betalingen'); }
+
+// ============================================================
+// KILOMETERREGISTRATIE
+// ============================================================
+export async function haalKilometersOp()          { return apiFetch('/kilometers'); }
+export async function maakKilometerAan(data)       { return apiFetch('/kilometers', { method:'POST', body:data }); }
+export async function updateKilometer(id, data)    { return apiFetch(`/kilometers/${id}`, { method:'PUT', body:data }); }
+export async function verwijderKilometer(id)       { return apiFetch(`/kilometers/${id}`, { method:'DELETE' }); }
+
+// ============================================================
+// VAKANTIE (meerdaagse afspraak, blokkeert online boeken)
+// ============================================================
+export async function haalVakantiesOp()               { return apiFetch('/agenda/vakanties'); }
+export async function maakVakantieAan(data)            { return apiFetch('/agenda/vakantie', { method:'POST', body:data }); }
+export async function verwijderVakantie(groepId)       { return apiFetch(`/agenda/vakantie/${groepId}`, { method:'DELETE' }); }
+
+// ============================================================
+// PONTO BANKKOPPELING
+// ============================================================
+export async function haalBankStatusOp()                { return apiFetch('/bank/status'); }
+export async function startBankKoppeling()               { return apiFetch('/bank/koppel-starten'); }
+export async function haalBankKoppelingenOp()            { return apiFetch('/bank/koppelingen'); }
+export async function verwijderBankKoppeling(id)         { return apiFetch(`/bank/koppeling/${id}`, { method:'DELETE' }); }
+export async function syncBankKoppeling(id)              { return apiFetch(`/bank/sync/${id}`, { method:'POST' }); }
+export async function haalBankTransactiesOp(alle=false)  { return apiFetch(`/bank/transacties${alle?'?alle=true':''}`); }
+export async function bankTransactieNaarDeclaratie(id, data) { return apiFetch(`/bank/transactie/${id}/naar-declaratie`, { method:'POST', body:data }); }
+export async function negeerBankTransactie(id)           { return apiFetch(`/bank/transactie/${id}/negeren`, { method:'POST' }); }
+
+// ============================================================
+// AGENDA-KOPPELING (iCalendar/.ics feed)
+// ============================================================
+export async function haalIcsTokenOp()      { return apiFetch('/agenda/ics-token'); }
+export async function genereerIcsToken()    { return apiFetch('/agenda/ics-token', { method:'POST' }); }

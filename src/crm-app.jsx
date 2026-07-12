@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import * as API from './api.js';
 import QRCode from 'qrcode';
 
@@ -50,6 +51,9 @@ const VERTALINGEN = {
     klanten: "Klanten",
     producten: "Producten",
     agenda: "Agenda",
+    kilometers: "Kilometerregistratie",
+    pakbonnen: "Pakbonnen",
+    status: "Status",
     offertes: "Offertes & Facturen",
     financieel: "Financieel",
     gebruikers: "Gebruikers",
@@ -292,6 +296,9 @@ const VERTALINGEN = {
     klanten: "Customers",
     producten: "Products",
     agenda: "Calendar",
+    kilometers: "Mileage Log",
+    pakbonnen: "Delivery Notes",
+    status: "Status",
     offertes: "Quotes & Invoices",
     financieel: "Financial",
     gebruikers: "Users",
@@ -525,6 +532,9 @@ const VERTALINGEN = {
     klanten: "Kunden",
     producten: "Produkte",
     agenda: "Kalender",
+    kilometers: "Kilometererfassung",
+    pakbonnen: "Lieferscheine",
+    status: "Status",
     offertes: "Angebote & Rechnungen",
     financieel: "Finanzen",
     gebruikers: "Benutzer",
@@ -1127,7 +1137,7 @@ function ActivatiePagina({ token, kleur }) {
         boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
 
         <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-          <img src="afbeeldingen/dencrm.png" alt="DenCRM"
+          <img src="/afbeeldingen/dencrm.png" alt="DenCRM"
             style={{ height:100, objectFit:"contain" }}
             onError={e=>{ e.target.style.display="none"; }} />
           <h1 style={{ margin:"1rem 0 0", fontSize:24, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
@@ -1269,7 +1279,7 @@ function WachtwoordResetPagina({ token, kleur }) {
         boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
 
         <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-          <img src="afbeeldingen/dencrm.png" alt="DenCRM"
+          <img src="/afbeeldingen/dencrm.png" alt="DenCRM"
             style={{ height:100, objectFit:"contain" }}
             onError={e=>{ e.target.style.display="none"; }} />
           <h1 style={{ margin:"1rem 0 0", fontSize:24, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
@@ -1392,7 +1402,7 @@ function UitnodigingAccepterenPagina({ token, kleur }) {
 
   useEffect(() => {
     API.controleerUitnodiging(token)
-      .then(data => { setInfo(data); setNaam(data.naam || ''); setFase('formulier'); })
+      .then(data => { setInfo(data); setNaam(data.naam || ''); setUsername(data.email || ''); setFase('formulier'); })
       .catch(() => setFase('fout'));
   }, [token]);
 
@@ -1418,7 +1428,7 @@ function UitnodigingAccepterenPagina({ token, kleur }) {
         boxShadow:"0 24px 80px rgba(0,0,0,0.35)", margin:"1rem" }}>
 
         <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-          <img src="afbeeldingen/dencrm.png" alt="DenCRM" style={{ height:90, objectFit:"contain" }}
+          <img src="/afbeeldingen/dencrm.png" alt="DenCRM" style={{ height:90, objectFit:"contain" }}
             onError={e=>{ e.target.style.display="none"; }} />
           <h1 style={{ margin:"1rem 0 0", fontSize:24, fontWeight:700, color:"#1a1a1a" }}>DenCRM</h1>
         </div>
@@ -1462,8 +1472,8 @@ function UitnodigingAccepterenPagina({ token, kleur }) {
                   background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
             </div>
             <div style={{ marginBottom:"0.75rem" }}>
-              <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>Gebruikersnaam</label>
-              <input value={username} onChange={e=>setUsername(e.target.value)}
+              <label style={{ display:"block", fontSize:13, color:"#555", marginBottom:4, fontWeight:500 }}>E-mailadres (wordt uw inlognaam)</label>
+              <input type="email" value={username} onChange={e=>setUsername(e.target.value)}
                 style={{ width:"100%", padding:"11px 12px", borderRadius:8, border:"1.5px solid #ddd",
                   background:"#fafafa", fontSize:14, color:"#1a1a1a", boxSizing:"border-box" }} />
             </div>
@@ -1794,6 +1804,7 @@ function OverOnsPagina({ kleur }) {
               <tr><td style={{ color:"#888", width:180, verticalAlign:"top" }}>Handelsnaam</td><td style={{ fontWeight:500 }}>Dennis Software Solutions</td></tr>
               <tr><td style={{ color:"#888", verticalAlign:"top" }}>Product / dienst</td><td style={{ fontWeight:500 }}>DenCRM — CRM-software (SaaS)</td></tr>
               <tr><td style={{ color:"#888", verticalAlign:"top" }}>KVK-nummer</td><td style={{ fontWeight:500 }}>42105830</td></tr>
+              <tr><td style={{ color:"#888", verticalAlign:"top" }}>BTW-nummer</td><td style={{ fontWeight:500 }}>NL005497501B33</td></tr>
               <tr><td style={{ color:"#888", verticalAlign:"top" }}>Land</td><td style={{ fontWeight:500 }}>Nederland</td></tr>
               <tr><td style={{ color:"#888", verticalAlign:"top" }}>Website</td><td style={{ fontWeight:500 }}>https://dencrm.nl</td></tr>
               <tr><td style={{ color:"#888", verticalAlign:"top" }}>E-mail</td><td style={{ fontWeight:500 }}>info@dencrm.nl</td></tr>
@@ -1865,8 +1876,9 @@ function OverOnsPagina({ kleur }) {
 
 function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
   const T = VERTALINGEN[taal] || VERTALINGEN.nl;
+  const [toonLanding, setToonLanding] = useState(true);
   const [un, setUn] = useState(() => localStorage.getItem('dencrm_onthoud_gebruikersnaam') || "");
-  const [pw, setPw] = useState(() => localStorage.getItem('dencrm_onthoud_wachtwoord') || "");
+  const [pw, setPw] = useState("");  // wachtwoord wordt nooit onthouden/opgeslagen — alleen via browser-autofill
   const [onthoudMij, setOnthoudMij] = useState(() => !!localStorage.getItem('dencrm_onthoud_gebruikersnaam'));
   const [err, setErr] = useState(""); const [toon, setToon] = useState(false);
   const [bezig, setBezig] = useState(false);
@@ -1894,10 +1906,10 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
     setTfaBezig(true); setTfaErr("");
     try {
       const gebruiker = await API.verifieer2faLogin(tfaPreAuthToken, tfaCode.trim());
-      if (onthoudMij) {
-        localStorage.setItem('dencrm_onthoud_gebruikersnaam', un);
-        localStorage.setItem('dencrm_onthoud_wachtwoord', pw);
-      }
+      // Alleen de gebruikersnaam onthouden — wachtwoorden nooit zelf in localStorage opslaan.
+      // De browser's eigen wachtwoordbeheer (autofill) is hiervoor de veilige, standaard manier.
+      if (onthoudMij) localStorage.setItem('dencrm_onthoud_gebruikersnaam', un);
+      else localStorage.removeItem('dencrm_onthoud_gebruikersnaam');
       onLogin(gebruiker);
     } catch(e) { setTfaErr(e.message || "Verificatie mislukt."); }
     finally { setTfaBezig(false); }
@@ -1919,13 +1931,10 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
         setBezig(false);
         return;
       }
-      if (onthoudMij) {
-        localStorage.setItem('dencrm_onthoud_gebruikersnaam', un);
-        localStorage.setItem('dencrm_onthoud_wachtwoord', pw);
-      } else {
-        localStorage.removeItem('dencrm_onthoud_gebruikersnaam');
-        localStorage.removeItem('dencrm_onthoud_wachtwoord');
-      }
+      // Alleen de gebruikersnaam onthouden — wachtwoorden nooit zelf in localStorage opslaan.
+      // De browser's eigen wachtwoordbeheer (autofill) is hiervoor de veilige, standaard manier.
+      if (onthoudMij) localStorage.setItem('dencrm_onthoud_gebruikersnaam', un);
+      else localStorage.removeItem('dencrm_onthoud_gebruikersnaam');
       onLogin(resultaat);
     } catch (e) {
       const nieuwePogingen = pogingen + 1;
@@ -1947,6 +1956,191 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
       await API.registreer(regForm.naam, regForm.email, regForm.bedrijf);
       setRegOk(true);
     } catch (e) { setRegErr(e.message || "Registratie mislukt."); }
+  }
+
+  if (toonLanding) {
+    const FUNCTIES = [
+      { icon:"🧾", titel:"Kassa", tekst:"Verkoop direct afrekenen, met bon-afdruk en dagomzet-overzicht.", kleurAccent:"#e08a3c" },
+      { icon:"🔧", titel:"Werkbonnen & reparaties", tekst:"Klussen bijhouden van intake tot factuur, in één workflow.", kleurAccent:"#4a90a4" },
+      { icon:"📅", titel:"Agenda & online boeken", tekst:"Klanten plannen zelf een afspraak in, u hoeft niets te doen.", kleurAccent:"#185FA5" },
+      { icon:"📄", titel:"Offertes & facturen", tekst:"Professionele documenten in een paar klikken, met uw eigen huisstijl.", kleurAccent:"#7a5fb5" },
+      { icon:"🧮", titel:"Boekhouding & declaraties", tekst:"Kosten bijhouden, bankkoppeling, automatisch belastingoverzicht.", kleurAccent:"#3ba05f" },
+      { icon:"🚗", titel:"Kilometerregistratie", tekst:"Ritten vastleggen voor de fiscale kilometervergoeding.", kleurAccent:"#c24a4a" },
+    ];
+    const PRIJZEN = [
+      { periode:"1 maand", prijs:"9,99", sub:"Maandelijks" },
+      { periode:"6 maanden", prijs:"49,99", sub:"€8,33 / maand", aanbevolen:true },
+      { periode:"1 jaar", prijs:"89,99", sub:"€7,50 / maand" },
+    ];
+    return (
+      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)", position:"relative", overflow:"hidden" }}>
+        <style>{`
+          @keyframes lpFadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+          @keyframes lpFadeIn { from { opacity:0; } to { opacity:1; } }
+          @keyframes lpZweefA { 0%{transform:translate(0,0) rotate(0deg);} 50%{transform:translate(30px,-40px) rotate(12deg);} 100%{transform:translate(0,0) rotate(0deg);} }
+          @keyframes lpZweefB { 0%{transform:translate(0,0) rotate(0deg);} 50%{transform:translate(-35px,30px) rotate(-10deg);} 100%{transform:translate(0,0) rotate(0deg);} }
+          @keyframes lpZweefC { 0%{transform:translate(0,0) rotate(0deg);} 50%{transform:translate(20px,35px) rotate(8deg);} 100%{transform:translate(0,0) rotate(0deg);} }
+          @keyframes lpPulseGlow { 0%,100% { box-shadow:0 8px 24px ${kleur.hoofd}55; } 50% { box-shadow:0 8px 36px ${kleur.hoofd}99; } }
+          @keyframes lpShimmer { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
+          .lp-zwever { position:absolute; opacity:0.14; pointer-events:none; user-select:none; filter:blur(0.3px); }
+          .lp-fade { animation: lpFadeUp 0.7s ease both; }
+          .lp-card { transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+          .lp-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.28); border-color: rgba(255,255,255,0.25) !important; }
+          .lp-prijs-card:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+          .lp-cta { animation: lpPulseGlow 2.8s ease-in-out infinite; transition: transform 0.2s ease; }
+          .lp-cta:hover { transform: translateY(-2px) scale(1.03); }
+          .lp-icon-circle { transition: transform 0.25s ease; }
+          .lp-card:hover .lp-icon-circle { transform: scale(1.1) rotate(-4deg); }
+        `}</style>
+
+        {/* Zwevende achtergrond-iconen, zelfde stijl als het inlogscherm */}
+        <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0 }}>
+          <span className="lp-zwever" style={{ top:"6%", left:"4%", fontSize:44, animation:"lpZweefA 9s ease-in-out infinite" }}>💼</span>
+          <span className="lp-zwever" style={{ top:"12%", left:"88%", fontSize:36, animation:"lpZweefB 11s ease-in-out infinite" }}>🧾</span>
+          <span className="lp-zwever" style={{ top:"75%", left:"8%", fontSize:40, animation:"lpZweefC 10s ease-in-out infinite" }}>💻</span>
+          <span className="lp-zwever" style={{ top:"85%", left:"90%", fontSize:34, animation:"lpZweefA 8s ease-in-out infinite 1s" }}>🧮</span>
+          <span className="lp-zwever" style={{ top:"45%", left:"1%", fontSize:32, animation:"lpZweefB 12s ease-in-out infinite 0.5s" }}>☕</span>
+          <span className="lp-zwever" style={{ top:"55%", left:"96%", fontSize:38, animation:"lpZweefC 9s ease-in-out infinite 2s" }}>🛠️</span>
+          <span className="lp-zwever" style={{ top:"30%", left:"50%", fontSize:28, animation:"lpZweefA 13s ease-in-out infinite 1.5s" }}>📊</span>
+          <span className="lp-zwever" style={{ top:"93%", left:"48%", fontSize:32, animation:"lpZweefB 10s ease-in-out infinite" }}>📅</span>
+        </div>
+
+        <div style={{ maxWidth:1100, margin:"0 auto", padding:"2rem 1.5rem 4rem", position:"relative", zIndex:1 }}>
+
+          {/* Header */}
+          <div className="lp-fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"3rem" }}>
+            <h1 style={{ margin:0, fontSize:26, fontWeight:700, color:"#fff", letterSpacing:"-0.02em" }}>DenCRM</h1>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={onDemo}
+                style={{ padding:"9px 16px", borderRadius:10, border:"1px solid rgba(255,255,255,0.3)",
+                  background:"transparent", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:500, transition:"background 0.2s" }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                Probeer de demo
+              </button>
+              <button onClick={()=>setToonLanding(false)}
+                style={{ padding:"9px 20px", borderRadius:10, border:"none",
+                  background:"#fff", color:kleur.hoofd, cursor:"pointer", fontSize:14, fontWeight:600, transition:"transform 0.2s" }}
+                onMouseEnter={e=>e.currentTarget.style.transform="translateY(-1px)"}
+                onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+                Inloggen
+              </button>
+            </div>
+          </div>
+
+          {/* Hero */}
+          <div className="lp-fade" style={{ textAlign:"center", marginBottom:"3.5rem", animationDelay:"0.1s" }}>
+            <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 16px", borderRadius:99,
+              background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", marginBottom:"1.25rem" }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", background:"#3ba05f", flexShrink:0,
+                boxShadow:"0 0 0 3px rgba(59,160,95,0.25)" }} />
+              <span style={{ fontSize:12.5, color:"rgba(255,255,255,0.85)", fontWeight:500 }}>Gemaakt in Nederland, voor Nederlandse ondernemers</span>
+            </div>
+            <h2 style={{ margin:"0 0 1rem", fontSize:"clamp(28px, 5vw, 46px)", fontWeight:800, color:"#fff", lineHeight:1.15, letterSpacing:"-0.02em" }}>
+              Eén CRM voor kassa, agenda,<br/>facturatie en boekhouding
+            </h2>
+            <p style={{ margin:"0 auto 1.75rem", maxWidth:600, fontSize:17, color:"rgba(255,255,255,0.75)", lineHeight:1.6 }}>
+              Gemaakt voor ZZP'ers en kleine winkels/bedrijven in Nederland. Alles op één plek,
+              zonder losse abonnementen voor kassa, agenda en boekhouding apart.
+            </p>
+            <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
+              <button className="lp-cta" onClick={()=>{ setToonLanding(false); setRegModal(true); }}
+                style={{ padding:"14px 28px", borderRadius:12, border:"none",
+                  background:kleur.hoofd, color:"#fff", cursor:"pointer", fontSize:16, fontWeight:700 }}>
+                🎁 Start gratis — eerste maand cadeau
+              </button>
+              <button onClick={onDemo}
+                style={{ padding:"14px 24px", borderRadius:12, border:"1px solid rgba(255,255,255,0.3)",
+                  background:"transparent", color:"#fff", cursor:"pointer", fontSize:16, fontWeight:500, transition:"background 0.2s" }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                Bekijk eerst de demo
+              </button>
+            </div>
+            <p style={{ margin:"1rem 0 0", fontSize:12.5, color:"rgba(255,255,255,0.45)" }}>
+              ✓ Geen creditcard nodig &nbsp;·&nbsp; ✓ Binnen 2 minuten aan de slag &nbsp;·&nbsp; ✓ Nederlandse support
+            </p>
+          </div>
+
+          {/* Functies */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", gap:16, marginBottom:"3.5rem" }}>
+            {FUNCTIES.map((f,i) => (
+              <div key={f.titel} className="lp-card lp-fade" style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)",
+                borderRadius:16, padding:"1.5rem", backdropFilter:"blur(8px)", animationDelay:`${0.15 + i*0.08}s` }}>
+                <div className="lp-icon-circle" style={{ width:48, height:48, borderRadius:14, background:`${f.kleurAccent}22`,
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, marginBottom:12 }}>
+                  {f.icon}
+                </div>
+                <h3 style={{ margin:"0 0 6px", fontSize:16, fontWeight:700, color:"#fff" }}>{f.titel}</h3>
+                <p style={{ margin:0, fontSize:14, color:"rgba(255,255,255,0.7)", lineHeight:1.5 }}>{f.tekst}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Prijzen */}
+          <div className="lp-fade" style={{ marginBottom: reviews.length ? "3.5rem" : "2rem", animationDelay:"0.2s" }}>
+            <h3 style={{ textAlign:"center", margin:"0 0 1.5rem", fontSize:22, fontWeight:700, color:"#fff" }}>
+              Simpele, eerlijke prijzen
+            </h3>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:16, maxWidth:760, margin:"0 auto" }}>
+              {PRIJZEN.map(p => (
+                <div key={p.periode} className="lp-prijs-card" onClick={()=>{ setToonLanding(false); setRegModal(true); }}
+                  style={{ background: p.aanbevolen ? "#fff" : "rgba(255,255,255,0.06)",
+                    border: p.aanbevolen ? `2px solid ${kleur.hoofd}` : "1px solid rgba(255,255,255,0.15)",
+                    borderRadius:16, padding:"1.5rem", textAlign:"center", cursor:"pointer", position:"relative" }}>
+                  {p.aanbevolen && (
+                    <span style={{ position:"absolute", top:-10, left:"50%", transform:"translateX(-50%)",
+                      background:kleur.hoofd, color:"#fff", fontSize:11, fontWeight:700, padding:"3px 12px", borderRadius:99 }}>
+                      Meest gekozen
+                    </span>
+                  )}
+                  <p style={{ margin:"6px 0 4px", fontSize:14, fontWeight:600, color: p.aanbevolen ? "#333" : "rgba(255,255,255,0.8)" }}>{p.periode}</p>
+                  <p style={{ margin:"0 0 2px", fontSize:32, fontWeight:800, color: p.aanbevolen ? kleur.hoofd : "#fff" }}>€{p.prijs}</p>
+                  <p style={{ margin:0, fontSize:12, color: p.aanbevolen ? "#888" : "rgba(255,255,255,0.6)" }}>{p.sub}</p>
+                </div>
+              ))}
+            </div>
+            <p style={{ textAlign:"center", marginTop:14, fontSize:13, color:"rgba(255,255,255,0.6)" }}>
+              Inclusief btw. Eerste maand altijd gratis, geen creditcard nodig om te starten.
+            </p>
+          </div>
+
+          {/* Reviews */}
+          {reviews.length > 0 && (
+            <div className="lp-fade" style={{ animationDelay:"0.25s" }}>
+              <h3 style={{ textAlign:"center", margin:"0 0 1.5rem", fontSize:22, fontWeight:700, color:"#fff" }}>
+                Wat gebruikers zeggen
+              </h3>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))", gap:16, maxWidth:900, margin:"0 auto" }}>
+                {reviews.slice(0,6).map((r,i) => (
+                  <div key={i} className="lp-card" style={{ background:"rgba(255,255,255,0.06)", borderRadius:14, padding:"1.25rem",
+                    border:"1px solid rgba(255,255,255,0.1)" }}>
+                    <div style={{ marginBottom:6 }}>
+                      {[1,2,3,4,5].map(s => (
+                        <span key={s} style={{ color: s<=r.sterren ? "#f5b400" : "rgba(255,255,255,0.2)", fontSize:14 }}>★</span>
+                      ))}
+                    </div>
+                    <p style={{ color:"rgba(255,255,255,0.85)", fontSize:13, lineHeight:1.5, margin:"0 0 8px" }}>"{r.tekst}"</p>
+                    <p style={{ color:"rgba(255,255,255,0.55)", fontSize:11, margin:0, fontWeight:500 }}>— {r.bedrijfsnaam || "DenCRM gebruiker"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="lp-fade" style={{ textAlign:"center", marginTop:"3rem", animationDelay:"0.3s" }}>
+            <button onClick={()=>{ setToonLanding(false); setVoorwaardenModal(true); }}
+              style={{ background:"none", border:"none", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:12, marginRight:16 }}>
+              Algemene voorwaarden & privacy
+            </button>
+            <button onClick={()=>{ setToonLanding(false); setBedrijfsgegevensModal(true); }}
+              style={{ background:"none", border:"none", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:12 }}>
+              Bedrijfsgegevens & abonnement
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -2010,13 +2204,20 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
         boxShadow:"0 24px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.6) inset, 0 -60px 120px -60px rgba(24,95,165,0.15) inset",
         margin:"1rem" }}>
 
+        <button onClick={()=>setToonLanding(true)}
+          style={{ position:"absolute", top:16, left:16, background:"none", border:"none",
+            color:"var(--color-text-secondary,#888)", cursor:"pointer", fontSize:13, zIndex:2,
+            display:"flex", alignItems:"center", gap:4 }}>
+          ← Terug
+        </button>
+
         {/* Kleuraccent bovenaan */}
         <div style={{ position:"absolute", top:0, left:0, right:0, height:5,
           background:`linear-gradient(90deg, ${kleur.hoofd}, #4fa3e0, ${kleur.hoofd})` }} />
 
         {/* Logo */}
         <div style={{ textAlign:"center", marginBottom:"2rem" }}>
-          <img src="afbeeldingen/dencrm.png" alt="DenCRM logo"
+          <img src="/afbeeldingen/dencrm.png" alt="DenCRM logo"
             style={{ height:96, objectFit:"contain", marginBottom:"0.25rem" }}
             onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="block"; }} />
           <div style={{ display:"none", textAlign:"center" }}>
@@ -2072,7 +2273,7 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
           <label style={{ display:"block", fontSize:14, color:"#555", marginBottom:6, fontWeight:500 }}>{T.wachtwoord}</label>
           <div style={{ position:"relative" }}>
             <input type={toon?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doLogin()}
-              placeholder={T.wachtwoord}
+              placeholder={T.wachtwoord} autoComplete="current-password"
               style={{ width:"100%", padding:"13px 48px 13px 16px", borderRadius:10, border:"1.5px solid #ddd",
                 background:"#fafafa", fontSize:15, color:"#1a1a1a", boxSizing:"border-box" }} />
             <button onClick={()=>setToon(t=>!t)} style={{ position:"absolute", right:14, top:"50%",
@@ -2142,10 +2343,6 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
         )}
 
         <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop:14, flexWrap:"wrap" }}>
-          <a href="/functies/" style={{ padding:"8px 4px", fontSize:11, color:"#aaa", textDecoration:"none" }}>
-            Functies
-          </a>
-          <span style={{ color:"#ccc", fontSize:11 }}>·</span>
           <button onClick={()=>setVoorwaardenModal(true)}
             style={{ padding:"8px 4px", background:"none", border:"none",
               cursor:"pointer", fontSize:11, color:"#aaa" }}>
@@ -2505,6 +2702,16 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T, huidigUserId }) {
   const [gebruikers, setGebruikers] = useState([]);
   const [laden, setLaden] = useState(true);
   const [verwijderModal, setVerwijderModal] = useState(null); // gebruiker object of null
+  const [activatieVersturenId, setActivatieVersturenId] = useState(null);
+
+  async function stuurActivatieOpnieuw(u) {
+    setActivatieVersturenId(u.id);
+    try {
+      await API.stuurActivatieOpnieuw(u.id);
+      alert(`Activatiemail opnieuw verstuurd naar ${u.email}.`);
+    } catch(e) { alert("Versturen mislukt: "+e.message); }
+    finally { setActivatieVersturenId(null); }
+  }
 
   useEffect(() => {
     API.haalGebruikersOp().then(data => {
@@ -2577,9 +2784,14 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T, huidigUserId }) {
               <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
                 <Avatar naam={u.naam} kleur={kleur} />
                 <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
                     <p style={{ margin:0, fontWeight:500, fontSize:fs }}>{u.naam}</p>
                     {u.is_admin && <Badge kleur={kleur}>Admin</Badge>}
+                    {u.hoofdgebruiker_id && (
+                      <span style={{ fontSize:fs-3, padding:"2px 8px", borderRadius:99, background:"#f0f4ff", color:"#185FA5", fontWeight:500 }}>
+                        🔗 Gekoppeld aan {u.hoofdgebruiker_naam || "hoofdaccount"}
+                      </span>
+                    )}
                     {!u.is_actief && <span style={{ fontSize:fs-3, padding:"2px 8px", borderRadius:99, background:"#fcebeb", color:"#a32d2d" }}>Inactief</span>}
                   </div>
                   <p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)" }}>@{u.username} · {u.email||"geen email"}</p>
@@ -2612,6 +2824,13 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T, huidigUserId }) {
                 {u.id !== huidigUserId && (
                   <>
                     <span style={{ width:1, height:18, background:"var(--color-border-tertiary)", margin:"0 4px" }} />
+                    {!u.laatste_login && (
+                      <button onClick={()=>stuurActivatieOpnieuw(u)} disabled={activatieVersturenId===u.id}
+                        style={{ padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:fs-3, border:"none",
+                          background:"#e6f1fb", color:"#0c447c", opacity: activatieVersturenId===u.id?0.6:1 }}>
+                        {activatieVersturenId===u.id ? "Bezig…" : "✉ Activatiemail opnieuw versturen"}
+                      </button>
+                    )}
                     <button onClick={()=>toggleBlokkeren(u)}
                       style={{ padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:fs-3, border:"none",
                         background: u.is_actief ? "#fffbf0" : "#eaf3de",
@@ -3468,7 +3687,69 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
   const [view, setView] = useState(instellingen?.agendaStartWeergave || "werkweek"); // blok | week | werkweek | lijst
   const [modal, setModal] = useState(false);
   const [agendaInstellingenModal, setAgendaInstellingenModal] = useState(false);
-  const [agendaInstellingenTab, setAgendaInstellingenTab] = useState("werknemers"); // werknemers | boeken | afspraaktypes | werkweek
+  const [agendaInstellingenTab, setAgendaInstellingenTab] = useState("werknemers"); // werknemers | boeken | afspraaktypes | werkweek | vakantie
+
+  const [vakanties, setVakanties] = useState([]);
+  const [vakantieForm, setVakantieForm] = useState({ van:"", tot:"", omschrijving:"" });
+  const [vakantieBezig, setVakantieBezig] = useState(false);
+  const [vakantieFout, setVakantieFout] = useState("");
+
+  useEffect(() => {
+    if (agendaInstellingenTab === "vakantie" && !isDemoMode) {
+      API.haalVakantiesOp().then(setVakanties).catch(()=>{});
+    }
+  }, [agendaInstellingenTab]);
+
+  async function voegVakantieToe() {
+    setVakantieFout("");
+    if (!vakantieForm.van || !vakantieForm.tot) { setVakantieFout("Vul een van- en tot-datum in."); return; }
+    if (vakantieForm.van > vakantieForm.tot) { setVakantieFout("De einddatum moet na de begindatum liggen."); return; }
+    setVakantieBezig(true);
+    try {
+      await API.maakVakantieAan(vakantieForm);
+      setVakantieForm({ van:"", tot:"", omschrijving:"" });
+      setVakanties(await API.haalVakantiesOp());
+      await herlaad(); // zodat de nieuwe vakantie-dagen ook meteen in de agenda zelf zichtbaar zijn
+    } catch(e) { setVakantieFout(e.message || "Aanmaken mislukt."); }
+    finally { setVakantieBezig(false); }
+  }
+
+  async function verwijderVakantie(groepId) {
+    if (!confirm("Deze vakantieperiode verwijderen? De geblokkeerde dagen komen dan weer vrij.")) return;
+    try {
+      await API.verwijderVakantie(groepId);
+      setVakanties(await API.haalVakantiesOp());
+      await herlaad();
+    } catch(e) { alert("Verwijderen mislukt: "+e.message); }
+  }
+
+  // ── Handmatig verversen ── zodat de gebruiker zelf nieuwe (bv. online geboekte) afspraken
+  // kan ophalen zonder de hele pagina te hoeven verversen.
+  const [ververBezig, setVerverBezig] = useState(false);
+  async function ververs() {
+    setVerverBezig(true);
+    try { await herlaad(); }
+    catch(e) { alert("Verversen mislukt: "+e.message); }
+    finally { setTimeout(()=>setVerverBezig(false), 500); }
+  }
+
+  // ── Agenda-koppeling (iCalendar/.ics) ──
+  const [icsUrl, setIcsUrl] = useState(null);
+  const [icsBezig, setIcsBezig] = useState(false);
+  useEffect(() => {
+    if (agendaInstellingenTab === "koppeling" && !isDemoMode) {
+      API.haalIcsTokenOp().then(d=>setIcsUrl(d.url)).catch(()=>{});
+    }
+  }, [agendaInstellingenTab]);
+  async function maakIcsLink() {
+    if (icsUrl && !confirm("Een nieuwe link aanmaken maakt de huidige link direct ongeldig. Doorgaan?")) return;
+    setIcsBezig(true);
+    try {
+      const { url } = await API.genereerIcsToken();
+      setIcsUrl(url);
+    } catch(e) { alert("Aanmaken mislukt: "+e.message); }
+    finally { setIcsBezig(false); }
+  }
   const [editId, setEditId] = useState(null);
   const [editAfspraak, setEditAfspraak] = useState(null);
   const [form, setForm] = useState({ klantId:"", datum:"", tijd:"", tijdTot:"", notitie:"" });
@@ -3662,8 +3943,20 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
       if (editId) await API.updateAfspraak(editId, data);
       else { const r = await API.maakAfspraakAan(data); afspraakId = r.id; }
       await API.koppelPersonenAanAfspraak(afspraakId, gekozenPersonen);
-      await herlaad();
+
+      // Direct de lokale weergave bijwerken (optimistisch), zodat de afspraak meteen zichtbaar
+      // is zonder te hoeven wachten op (of afhankelijk te zijn van) de volledige herlaad hieronder.
+      const klant = klanten.find(k => k.id === form.klantId);
+      const nieuweAfspraak = {
+        id: afspraakId, klantId: form.klantId || null, klant_id: form.klantId || null,
+        datum: form.datum, tijd: form.tijd, tijdTot: form.tijdTot || null,
+        notitie: form.notitie || null, klant_naam: klant?.naam || null,
+        personen: (personen||[]).filter(p => gekozenPersonen.includes(p.id)),
+      };
+      setAgenda(p => editId ? p.map(a => a.id===editId ? {...a, ...nieuweAfspraak} : a) : [...p, nieuweAfspraak]);
+
       setModal(false);
+      herlaad(); // ververst op de achtergrond alsnog met de volledig correcte serverdata (niet blokkerend)
     } catch(e) { alert("Opslaan mislukt: " + e.message); }
   }
 
@@ -3741,6 +4034,14 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
         </div>
 
         <div style={{ flex:1 }}/>
+        <button onClick={ververs} disabled={ververBezig} title="Agenda verversen — bijvoorbeeld na een nieuwe online boeking"
+          style={{ padding:"7px 12px", borderRadius:8, border:"1px solid var(--color-border-secondary)",
+            background:"var(--color-background-primary)", color:"var(--color-text-secondary)",
+            cursor: ververBezig ? "wait" : "pointer", fontSize:fs-2, display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ display:"inline-block", transition:"transform 0.5s",
+            transform: ververBezig ? "rotate(360deg)" : "rotate(0deg)" }}>🔄</span>
+          Ververs
+        </button>
         <button onClick={()=>setAgendaInstellingenModal(true)}
           style={{ padding:"7px 12px", borderRadius:8, border:"1px solid var(--color-border-secondary)",
             background:"var(--color-background-primary)", color:"var(--color-text-secondary)",
@@ -3981,6 +4282,8 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
                 { id:"boeken", label:"🌐 Online boeken", icon:"" },
                 { id:"afspraaktypes", label:"📋 Afspraaktypes", icon:"" },
                 { id:"werkweek", label:"💼 Werkweek", icon:"" },
+                { id:"vakantie", label:"🏖️ Vakantie", icon:"" },
+                { id:"koppeling", label:"🔗 Koppelen", icon:"" },
               ].map(t => (
                 <button key={t.id} onClick={()=>setAgendaInstellingenTab(t.id)}
                   style={{ display:"flex", alignItems:"center", gap:9, width:"100%", padding:"10px 12px",
@@ -4221,6 +4524,126 @@ function AgendaPage({ klanten, agenda, setAgenda, kleur, fs, isDemoMode, herlaad
                   </div>
                 </div>
               )}
+
+              {agendaInstellingenTab === "vakantie" && (
+                <div>
+                  <h2 style={{ margin:"0 0 0.5rem", fontSize:20 }}>🏖️ Vakantie</h2>
+                  <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1.25rem" }}>
+                    Blokkeer meerdere aaneengesloten dagen in één keer, bijvoorbeeld voor vakantie of een sluitingsperiode.
+                    Deze dagen verschijnen als afspraak in uw agenda, en er kan tijdens deze periode niets meer
+                    online geboekt worden door klanten.
+                  </p>
+
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                    <FF label="Van" fs={fs}>
+                      <input type="date" value={vakantieForm.van} onChange={e=>setVakantieForm(f=>({...f,van:e.target.value}))} style={iSt(fs)} />
+                    </FF>
+                    <FF label="Tot en met" fs={fs}>
+                      <input type="date" value={vakantieForm.tot} onChange={e=>setVakantieForm(f=>({...f,tot:e.target.value}))} style={iSt(fs)} />
+                    </FF>
+                  </div>
+                  <FF label="Omschrijving (optioneel)" fs={fs}>
+                    <input value={vakantieForm.omschrijving} onChange={e=>setVakantieForm(f=>({...f,omschrijving:e.target.value}))}
+                      placeholder="Bijv. Zomervakantie" style={iSt(fs)} />
+                  </FF>
+                  {vakantieFout && <p style={{ color:"#a32d2d", fontSize:fs-2, marginBottom:8 }}>{vakantieFout}</p>}
+                  <Btn variant="primary" onClick={voegVakantieToe} kleur={kleur} fs={fs} disabled={vakantieBezig}>
+                    {vakantieBezig ? "Bezig…" : "+ Vakantie toevoegen"}
+                  </Btn>
+
+                  <p style={{ margin:"1.5rem 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>
+                    INGEPLANDE PERIODES
+                  </p>
+                  {vakanties.length === 0 && (
+                    <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)" }}>Nog geen vakanties ingepland.</p>
+                  )}
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {vakanties.map(v => (
+                      <div key={v.groep_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                        padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)" }}>
+                        <div>
+                          <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>
+                            {v.van} t/m {v.tot}
+                          </p>
+                          {v.omschrijving && <p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)" }}>{v.omschrijving}</p>}
+                        </div>
+                        <button onClick={()=>verwijderVakantie(v.groep_id)}
+                          style={{ padding:"5px 12px", borderRadius:7, background:"#fcebeb", color:"#a32d2d",
+                            border:"none", cursor:"pointer", fontSize:fs-2 }}>
+                          ✕ Verwijderen
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {agendaInstellingenTab === "koppeling" && (
+                <div>
+                  <h2 style={{ margin:"0 0 0.5rem", fontSize:20 }}>🔗 Koppelen met iPhone / Outlook / Google Agenda</h2>
+                  <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)", margin:"0 0 1.25rem", lineHeight:1.6 }}>
+                    Abonneer uw telefoon- of computeragenda op uw DenCRM-agenda, zodat uw afspraken daar
+                    automatisch (periodiek) worden bijgewerkt. Dit is eenrichtingsverkeer: wijzigingen in
+                    DenCRM verschijnen in uw andere agenda, maar niet andersom.
+                  </p>
+
+                  {!icsUrl ? (
+                    <Btn variant="primary" onClick={maakIcsLink} kleur={kleur} fs={fs} disabled={icsBezig}>
+                      {icsBezig ? "Bezig…" : "🔗 Koppel-link aanmaken"}
+                    </Btn>
+                  ) : (
+                    <>
+                      <FF label="Uw persoonlijke koppel-link" fs={fs}>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <input readOnly value={icsUrl} onClick={e=>e.target.select()}
+                            style={{ ...iSt(fs-1), flex:1, fontFamily:"monospace", fontSize:fs-3 }} />
+                          <Btn onClick={()=>{ navigator.clipboard.writeText(icsUrl); alert("Link gekopieerd!"); }} fs={fs}>Kopiëren</Btn>
+                        </div>
+                      </FF>
+                      <p style={{ fontSize:fs-2, color:"#a32d2d", marginBottom:"1.25rem" }}>
+                        ⚠️ Deel deze link niet met anderen — iedereen die de link heeft, kan uw agenda inzien.
+                        Bent u de link kwijt of vermoedt u misbruik? Maak dan een nieuwe aan; de oude stopt dan direct met werken.
+                      </p>
+                      <Btn onClick={maakIcsLink} kleur={kleur} fs={fs-1} disabled={icsBezig}>
+                        {icsBezig ? "Bezig…" : "🔄 Nieuwe link aanmaken (oude stopt met werken)"}
+                      </Btn>
+
+                      <div style={{ marginTop:"1.5rem", borderTop:"1px solid #eee", paddingTop:"1rem" }}>
+                        <p style={{ fontSize:fs-1, fontWeight:600, margin:"0 0 10px" }}>Hoe koppel ik dit?</p>
+                        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                          {[
+                            { naam:"📱 iPhone / iPad (Agenda-app)", stappen:[
+                              "Ga naar Instellingen → Agenda → Accounts → Account toevoegen.",
+                              "Kies 'Ander' → 'Voeg geabonneerde agenda toe'.",
+                              "Plak de koppel-link hierboven en tik op 'Volgende', daarna op 'Bewaar'.",
+                            ]},
+                            { naam:"📧 Outlook (desktop of web)", stappen:[
+                              "Ga naar Agenda → 'Agenda toevoegen' → 'Abonneren via internet' (of 'From internet').",
+                              "Plak de koppel-link hierboven en geef de agenda een naam, bijv. 'DenCRM'.",
+                              "Klik op Importeren/Toevoegen.",
+                            ]},
+                            { naam:"🗓 Google Agenda", stappen:[
+                              "Ga op een computer naar Google Agenda → links bij 'Andere agenda's' op '+' → 'Via URL'.",
+                              "Plak de koppel-link hierboven en klik op 'Agenda toevoegen'.",
+                            ]},
+                          ].map(g => (
+                            <div key={g.naam} style={{ background:"#f7f8fa", borderRadius:10, padding:"10px 14px" }}>
+                              <p style={{ margin:"0 0 6px", fontSize:fs-1, fontWeight:600 }}>{g.naam}</p>
+                              <ol style={{ margin:0, paddingLeft:18, fontSize:fs-2, color:"#555", lineHeight:1.7 }}>
+                                {g.stappen.map((s,i) => <li key={i}>{s}</li>)}
+                              </ol>
+                            </div>
+                          ))}
+                        </div>
+                        <p style={{ fontSize:fs-3, color:"var(--color-text-secondary)", margin:"10px 0 0" }}>
+                          Let op: de meeste agenda-apps verversen een geabonneerde agenda niet direct, maar
+                          elke paar uur — dit is een instelling van uw eigen agenda-app, niet van DenCRM.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -4403,7 +4826,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T, inst
 
   const [betaalmethode, setBetaalmethode] = useState("contant");
   const [zoek, setZoek] = useState("");
-  const [toonTeller, setToonTeller] = useState(true);
+  const [kassaInstellingenModal, setKassaInstellingenModal] = useState(false);
   const [dagBonnen, setDagBonnen] = useState([]);
   const [bezig, setBezig] = useState(false);
   const [succesBon, setSuccesBon] = useState(null);
@@ -4639,8 +5062,49 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T, inst
       {/* ── Linker kolom: producten ── */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
 
+        <div style={{ display:"flex", justifyContent:"flex-end" }}>
+          <button onClick={()=>setKassaInstellingenModal(true)}
+            style={{ padding:"6px 12px", borderRadius:8, border:"1px solid var(--color-border-secondary)",
+              background:"var(--color-background-primary)", color:"var(--color-text-secondary)",
+              cursor:"pointer", fontSize:fs-2 }}>
+            ⚙ Instellingen
+          </button>
+        </div>
+
+        {kassaInstellingenModal && (
+          <Modal title="⚙ Instellingen" onClose={()=>setKassaInstellingenModal(false)} fs={fs}>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {[
+                { label:"Toon 'Vandaag verkocht'-balk", sub:"De omzetteller bovenaan de kassa", key:"kassaToonDagomzet" },
+                { label:"Toon korting", sub:"Mogelijkheid om korting toe te passen op een bon", key:"kassaToonKorting" },
+                { label:"Toon 'BTW toevoegen'", sub:"Schakelaar om BTW aan een bon toe te voegen", key:"kassaToonBtwToggle" },
+              ].map(o => {
+                const aan = instellingen?.[o.key] !== false;
+                return (
+                  <div key={o.key} onClick={()=>updateInstelling({ [o.key]: !aan })}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer",
+                      padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)" }}>
+                    <div>
+                      <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>{o.label}</p>
+                      <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>{o.sub}</p>
+                    </div>
+                    <div style={{ width:36,height:20,borderRadius:99,flexShrink:0,
+                      background:aan?kleur.hoofd:"#ccc",position:"relative",transition:"background 0.2s" }}>
+                      <div style={{ position:"absolute",top:2,left:aan?18:2,width:16,height:16,
+                        borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
+              <Btn onClick={()=>setKassaInstellingenModal(false)} fs={fs}>Sluiten</Btn>
+            </div>
+          </Modal>
+        )}
+
         {/* Dagomzet teller */}
-        {toonTeller && (
+        {instellingen?.kassaToonDagomzet !== false && (
           <div style={{ background:kleur.hoofd, borderRadius:12, padding:"12px 16px",
             display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <div>
@@ -4648,19 +5112,12 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T, inst
               <p style={{ margin:0, fontSize:fs+8, fontWeight:700, color:"#fff" }}>{fmt(dagTotaal)}</p>
               <p style={{ margin:0, fontSize:fs-3, color:"rgba(255,255,255,0.7)" }}>{dagBonnen.length} {dagBonnen.length===1?"bon":"bonnen"}</p>
             </div>
-            <button onClick={()=>setToonTeller(false)}
+            <button onClick={()=>updateInstelling({ kassaToonDagomzet: false })}
               style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:8,
                 color:"#fff", cursor:"pointer", padding:"6px 10px", fontSize:fs-2 }}>
               Verberg
             </button>
           </div>
-        )}
-        {!toonTeller && (
-          <button onClick={()=>setToonTeller(true)}
-            style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${kleur.hoofd}`,
-              background:kleur.licht, color:kleur.donker, cursor:"pointer", fontSize:fs-2, textAlign:"left" }}>
-            📊 Toon dagomzet teller
-          </button>
         )}
 
         {/* Zoek + categoriefilter */}
@@ -4838,6 +5295,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T, inst
           </div>
 
           {/* BTW toggle */}
+          {instellingen?.kassaToonBtwToggle !== false && (
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
             padding:"6px 8px", background:"var(--color-background-secondary)", borderRadius:8, marginBottom:8 }}>
             <div>
@@ -4853,8 +5311,10 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T, inst
                 borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
             </div>
           </div>
+          )}
 
           {/* Korting */}
+          {instellingen?.kassaToonKorting !== false && (
           <div style={{ marginBottom:8, padding:"8px", background:"var(--color-background-secondary)", borderRadius:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
               <span style={{ fontSize:fs-2, fontWeight:500 }}>🏷 Korting</span>
@@ -4874,6 +5334,7 @@ function KassaPage({ producten, klanten, kleur, fs, isDemoMode, herlaad, T, inst
               step={kortingType==="percentage"?"1":"0.01"}
               style={{ ...iSt(fs-1), padding:"5px 8px" }} />
           </div>
+          )}
 
           {/* Totaal */}
           <div style={{ borderTop:"0.5px solid var(--color-border-tertiary)", paddingTop:8, marginBottom:8 }}>
@@ -5110,6 +5571,251 @@ const WERKBON_STATUSSEN = [
 ];
 
 // ── PAKBONNEN ──────────────────────────────────────────────────
+// ── KILOMETERREGISTRATIE ──────────────────────────────────────────────────
+function KilometersPage({ klanten, kleur, fs, isDemoMode, T, isMobiel, instellingen, updateInstelling }) {
+  const [ritten, setRitten] = useState([]);
+  const [laden, setLaden] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [instellingenModal, setInstellingenModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [zoek, setZoek] = useState("");
+  const [kwartaalFilter, setKwartaalFilter] = useState("alle");
+
+  const standaardTarief = parseFloat(instellingen?.kmVergoedingPerKm) || 0.23;
+  const thuisadres = instellingen?.thuisadres || "";
+
+  useEffect(() => { laad(); }, []);
+  async function laad() {
+    setLaden(true);
+    try { if (!isDemoMode) setRitten(await API.haalKilometersOp()); }
+    catch(e) { console.error(e); }
+    finally { setLaden(false); }
+  }
+
+  const leegForm = () => ({
+    datum: new Date().toISOString().slice(0,10), van:"", naar:"", kilometers:"", retour:false,
+    omschrijving:"", klantId:"", notitie:"",
+  });
+  const [form, setForm] = useState(leegForm);
+
+  function openNieuw() { setForm(leegForm()); setEditId(null); setModal(true); }
+  function openEdit(r) {
+    setForm({
+      datum: r.datum, van: r.van, naar: r.naar, kilometers: r.kilometers, retour: !!r.retour,
+      omschrijving: r.omschrijving || "", klantId: r.klant_id || "", notitie: r.notitie || "",
+    });
+    setEditId(r.id); setModal(true);
+  }
+
+  async function slaOp() {
+    if (!form.van.trim() || !form.naar.trim() || !form.kilometers) { alert("Vul van, naar en kilometers in."); return; }
+    try {
+      const payload = {
+        datum: form.datum, van: form.van.trim(), naar: form.naar.trim(),
+        kilometers: parseFloat(form.kilometers), retour: form.retour,
+        omschrijving: form.omschrijving.trim(), klant_id: form.klantId || null,
+        vergoeding_per_km: standaardTarief, notitie: form.notitie.trim(),
+      };
+      if (editId) await API.updateKilometer(editId, payload);
+      else await API.maakKilometerAan(payload);
+      await laad();
+      setModal(false);
+    } catch(e) { alert("Opslaan mislukt: "+e.message); }
+  }
+
+  async function verwijder(id) {
+    if (!confirm("Deze rit verwijderen?")) return;
+    try { await API.verwijderKilometer(id); await laad(); }
+    catch(e) { alert("Verwijderen mislukt: "+e.message); }
+  }
+
+  function kwartaalVan(datum) {
+    const d = new Date(datum+"T12:00:00");
+    return `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`;
+  }
+
+  const kwartalen = [...new Set(ritten.map(r=>kwartaalVan(r.datum)))].sort().reverse();
+
+  const gefilterd = ritten.filter(r => {
+    if (kwartaalFilter !== "alle" && kwartaalVan(r.datum) !== kwartaalFilter) return false;
+    if (!zoek) return true;
+    const q = zoek.toLowerCase();
+    return r.van.toLowerCase().includes(q) || r.naar.toLowerCase().includes(q) || (r.omschrijving||"").toLowerCase().includes(q) || (r.klant_naam||"").toLowerCase().includes(q);
+  });
+
+  function werkelijkeKm(r) { return parseFloat(r.kilometers) * (r.retour ? 2 : 1); }
+  function vergoeding(r) { return werkelijkeKm(r) * parseFloat(r.vergoeding_per_km || standaardTarief); }
+
+  const totaalKm = gefilterd.reduce((s,r)=>s+werkelijkeKm(r), 0);
+  const totaalVergoeding = gefilterd.reduce((s,r)=>s+vergoeding(r), 0);
+
+  if (isDemoMode) {
+    return <p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>Kilometerregistratie is niet beschikbaar in de demo-modus.</p>;
+  }
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:8, marginBottom:"1rem", flexWrap:"wrap", alignItems:"center" }}>
+        <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Zoek op locatie, klant of omschrijving..."
+          style={{ ...iSt(fs), flex:1, minWidth:180 }} />
+        <select value={kwartaalFilter} onChange={e=>setKwartaalFilter(e.target.value)} style={iSt(fs)}>
+          <option value="alle">Alle periodes</option>
+          {kwartalen.map(k => <option key={k} value={k}>{k}</option>)}
+        </select>
+        <button onClick={()=>setInstellingenModal(true)}
+          style={{ padding:"7px 12px", borderRadius:8, border:"1px solid var(--color-border-secondary)",
+            background:"var(--color-background-primary)", color:"var(--color-text-secondary)",
+            cursor:"pointer", fontSize:fs-2 }}>
+          ⚙ Instellingen
+        </button>
+        <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuwe rit</Btn>
+      </div>
+
+      {/* Samenvatting */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))", gap:12, marginBottom:"1.5rem" }}>
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:10, padding:"14px 16px" }}>
+          <p style={{ margin:"0 0 4px", fontSize:fs-2, color:"var(--color-text-secondary)" }}>Totaal kilometers</p>
+          <p style={{ margin:0, fontSize:fs+6, fontWeight:600 }}>{totaalKm.toLocaleString("nl-NL",{maximumFractionDigits:1})} km</p>
+        </div>
+        <div style={{ background:"#eaf3de", borderRadius:10, padding:"14px 16px" }}>
+          <p style={{ margin:"0 0 4px", fontSize:fs-2, color:"#27500a" }}>Totale vergoeding</p>
+          <p style={{ margin:0, fontSize:fs+6, fontWeight:600, color:"#27500a" }}>€{totaalVergoeding.toLocaleString("nl-NL",{minimumFractionDigits:2})}</p>
+        </div>
+        <div style={{ background:"var(--color-background-secondary)", borderRadius:10, padding:"14px 16px" }}>
+          <p style={{ margin:"0 0 4px", fontSize:fs-2, color:"var(--color-text-secondary)" }}>Aantal ritten</p>
+          <p style={{ margin:0, fontSize:fs+6, fontWeight:600 }}>{gefilterd.length}</p>
+        </div>
+      </div>
+
+      {laden ? <p style={{ color:"var(--color-text-secondary)" }}>Laden…</p> : (
+        gefilterd.length === 0 ? (
+          <p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>Nog geen ritten geregistreerd.</p>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {gefilterd.map(r => (
+              <div key={r.id} style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 16px", borderRadius:12,
+                background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)" }}>
+                <span style={{ fontSize:22 }}>🚗</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ margin:0, fontWeight:500, fontSize:fs }}>
+                    {r.van} → {r.naar} {r.retour && <span style={{ fontSize:fs-3, color:"var(--color-text-secondary)" }}>(retour)</span>}
+                  </p>
+                  <p style={{ margin:0, fontSize:fs-1, color:"var(--color-text-secondary)" }}>
+                    {r.datum} · {werkelijkeKm(r).toLocaleString("nl-NL",{maximumFractionDigits:1})} km
+                    {r.klant_naam && <> · {r.klant_naam}</>}
+                    {r.omschrijving && <> · {r.omschrijving}</>}
+                  </p>
+                </div>
+                <p style={{ margin:0, fontWeight:600, color:"#27500a", fontSize:fs }}>
+                  €{vergoeding(r).toLocaleString("nl-NL",{minimumFractionDigits:2})}
+                </p>
+                <button onClick={()=>openEdit(r)}
+                  style={{ background:"none", border:"none", cursor:"pointer", color:"var(--color-text-secondary)", fontSize:fs+2, padding:4 }}>✎</button>
+                <button onClick={()=>verwijder(r.id)}
+                  style={{ background:"none", border:"none", cursor:"pointer", color:"#A32D2D", fontSize:fs+2, padding:4 }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* Instellingen modal */}
+      {instellingenModal && (
+        <Modal title="⚙ Instellingen" onClose={()=>setInstellingenModal(false)} fs={fs}>
+          <FF label="Kilometervergoeding (€ per km)" fs={fs}>
+            <input type="number" step="0.01" min="0" value={standaardTarief}
+              onChange={e=>updateInstelling({ kmVergoedingPerKm: e.target.value })}
+              style={iSt(fs)} />
+          </FF>
+          <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)", lineHeight:1.5, marginBottom:"1.25rem" }}>
+            Dit tarief wordt gebruikt voor nieuwe ritten. Al ingevoerde ritten behouden het tarief van het
+            moment van invoer, zodat uw overzicht historisch correct blijft ook als het fiscale tarief wijzigt.
+            Controleer het actuele tarief op <a href="https://www.belastingdienst.nl" target="_blank" rel="noreferrer" style={{color:kleur.hoofd}}>belastingdienst.nl</a>.
+          </p>
+          <FF label="Thuisadres" fs={fs}>
+            <input value={thuisadres} onChange={e=>updateInstelling({ thuisadres: e.target.value })}
+              placeholder="Bijv. Kerkstraat 1, 1234 AB Amsterdam" style={iSt(fs)} />
+          </FF>
+          <p style={{ fontSize:fs-2, color:"var(--color-text-secondary)", lineHeight:1.5 }}>
+            Vul hier uw thuisadres in — daarna verschijnt bij het invoeren van een rit een knopje
+            "🏠 Thuisadres" onder zowel het "Van"- als het "Naar"-veld, om dit adres met één klik in te vullen.
+          </p>
+          <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setInstellingenModal(false)} fs={fs}>Sluiten</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* Nieuw/bewerken */}
+      {modal && (
+        <Modal title={editId?"Rit bewerken":"Nieuwe rit"} onClose={()=>setModal(false)} fs={fs}>
+          <FF label="Datum" fs={fs}>
+            <input type="date" value={form.datum} onChange={e=>setForm(f=>({...f,datum:e.target.value}))} style={iSt(fs)} />
+          </FF>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label="Van" fs={fs}>
+              <input value={form.van} onChange={e=>setForm(f=>({...f,van:e.target.value}))} placeholder="Bijv. Thuisadres" style={iSt(fs)} />
+              {thuisadres && (
+                <button onClick={()=>setForm(f=>({...f,van:thuisadres}))} type="button"
+                  style={{ marginTop:5, padding:"3px 10px", borderRadius:6, border:`1px solid ${kleur.hoofd}`,
+                    background:"transparent", color:kleur.hoofd, cursor:"pointer", fontSize:fs-3 }}>
+                  🏠 Thuisadres
+                </button>
+              )}
+            </FF>
+            <FF label="Naar" fs={fs}>
+              <input value={form.naar} onChange={e=>setForm(f=>({...f,naar:e.target.value}))} placeholder="Bijv. Klantadres" style={iSt(fs)} />
+              {thuisadres && (
+                <button onClick={()=>setForm(f=>({...f,naar:thuisadres}))} type="button"
+                  style={{ marginTop:5, padding:"3px 10px", borderRadius:6, border:`1px solid ${kleur.hoofd}`,
+                    background:"transparent", color:kleur.hoofd, cursor:"pointer", fontSize:fs-3 }}>
+                  🏠 Thuisadres
+                </button>
+              )}
+            </FF>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <FF label="Kilometers (enkele reis)" fs={fs}>
+              <input type="number" step="0.1" min="0" value={form.kilometers}
+                onChange={e=>setForm(f=>({...f,kilometers:e.target.value}))} style={iSt(fs)} />
+            </FF>
+            <FF label=" " fs={fs}>
+              <label style={{ display:"flex", alignItems:"center", gap:8, marginTop:8, cursor:"pointer" }}>
+                <input type="checkbox" checked={form.retour} onChange={e=>setForm(f=>({...f,retour:e.target.checked}))}
+                  style={{ width:16, height:16, accentColor:kleur.hoofd }} />
+                <span style={{ fontSize:fs-1 }}>Retour (heen en terug)</span>
+              </label>
+            </FF>
+          </div>
+          <FF label="Klant (optioneel)" fs={fs}>
+            <KlantZoekBox klanten={klanten} value={form.klantId} onChange={id=>setForm(f=>({...f,klantId:id}))} fs={fs} />
+          </FF>
+          <FF label="Omschrijving / doel van de rit" fs={fs}>
+            <input value={form.omschrijving} onChange={e=>setForm(f=>({...f,omschrijving:e.target.value}))}
+              placeholder="Bijv. Bezoek klant voor installatie" style={iSt(fs)} />
+          </FF>
+          <FF label="Notitie (optioneel)" fs={fs}>
+            <textarea value={form.notitie} onChange={e=>setForm(f=>({...f,notitie:e.target.value}))} rows={2}
+              style={{...iSt(fs),resize:"vertical"}} />
+          </FF>
+
+          {form.kilometers && (
+            <p style={{ fontSize:fs-1, color:"#27500a", background:"#eaf3de", padding:"8px 12px", borderRadius:8, marginBottom:"0.5rem" }}>
+              Vergoeding: {(parseFloat(form.kilometers)||0) * (form.retour?2:1)} km × €{standaardTarief.toFixed(2)} =
+              €{((parseFloat(form.kilometers)||0) * (form.retour?2:1) * standaardTarief).toLocaleString("nl-NL",{minimumFractionDigits:2})}
+            </p>
+          )}
+
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
+            <Btn onClick={()=>setModal(false)} fs={fs}>Annuleren</Btn>
+            <Btn variant="primary" onClick={slaOp} kleur={kleur} fs={fs}>💾 Opslaan</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function PakbonnenPage({ klanten, kleur, fs, isDemoMode, T, isMobiel }) {
   const [pakbonnen, setPakbonnen] = useState([]);
   const [laden, setLaden] = useState(true);
@@ -5856,7 +6562,7 @@ const DECLARATIE_CATEGORIEEN = [
   { id:"overig",       label:"Overig",                 icon:"📄" },
 ];
 
-function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
+function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel, instellingen, updateInstelling }) {
   const [tabblad, setTabblad] = useState("declaraties"); // declaraties | afschrijvingen
   const [declaraties, setDeclaraties] = useState([]);
   const [laden, setLaden] = useState(true);
@@ -5865,6 +6571,23 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
   const [detail, setDetail] = useState(null);
   const [filterCat, setFilterCat] = useState("alle");
   const [zoek, setZoek] = useState("");
+  const [instellingenMenuOpen, setInstellingenMenuOpen] = useState(false);
+
+  // ── Vanaf/tot datumfilter, met standaard periode uit instellingen ──
+  function periodeGrenzen(periode) {
+    const vandaag = new Date();
+    const tot = vandaag.toISOString().slice(0,10);
+    let vanDatum;
+    if (periode === "week") { vanDatum = new Date(vandaag); vanDatum.setDate(vanDatum.getDate()-7); }
+    else if (periode === "maand") { vanDatum = new Date(vandaag); vanDatum.setMonth(vanDatum.getMonth()-1); }
+    else if (periode === "kwartaal") { vanDatum = new Date(vandaag); vanDatum.setMonth(Math.floor(vandaag.getMonth()/3)*3, 1); }
+    else if (periode === "jaar") { vanDatum = new Date(vandaag); vanDatum.setFullYear(vanDatum.getFullYear()-1); }
+    else return { van:"", tot:"" }; // "alles"
+    return { van: vanDatum.toISOString().slice(0,10), tot };
+  }
+  const standaardPeriode = instellingen?.declaratiesStandaardPeriode || "alles";
+  const [filterVan, setFilterVan] = useState(()=>periodeGrenzen(standaardPeriode).van);
+  const [filterTot, setFilterTot] = useState(()=>periodeGrenzen(standaardPeriode).tot);
 
   // ── Importeer declaraties (CSV / bankafschrift) ──
   const IMPORT_VELDEN = [
@@ -5884,6 +6607,72 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
   const [importVoortgang, setImportVoortgang] = useState(0);
   const [importFout, setImportFout] = useState("");
   const [bankHulpOpen, setBankHulpOpen] = useState(false);
+
+  // ── Ponto bankkoppeling ──
+  const [bankModal, setBankModal] = useState(false);
+  const [bankBeschikbaar, setBankBeschikbaar] = useState(false);
+  const [bankKoppelingen, setBankKoppelingen] = useState([]);
+  const [bankTransacties, setBankTransacties] = useState([]);
+  const [bankBezig, setBankBezig] = useState(false);
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    API.haalBankStatusOp().then(d=>setBankBeschikbaar(d.beschikbaar)).catch(()=>{});
+    // Kwam de gebruiker net terug van Ponto? Toon een korte melding en ververs.
+    const params = new URLSearchParams(window.location.search);
+    const bankResultaat = params.get('bank');
+    if (bankResultaat) {
+      window.history.replaceState({}, '', window.location.pathname);
+      if (bankResultaat === 'gelukt') { alert('Bankrekening succesvol gekoppeld!'); setBankModal(true); }
+      else if (bankResultaat === 'geweigerd') alert('Koppelen geannuleerd.');
+      else alert('Koppelen van de bankrekening is niet gelukt. Probeer het nogmaals.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (bankModal && !isDemoMode) {
+      API.haalBankKoppelingenOp().then(setBankKoppelingen).catch(()=>{});
+      API.haalBankTransactiesOp().then(setBankTransacties).catch(()=>{});
+    }
+  }, [bankModal]);
+
+  async function koppelBank() {
+    setBankBezig(true);
+    try {
+      const { autorisatieUrl } = await API.startBankKoppeling();
+      window.location.href = autorisatieUrl;
+    } catch(e) { alert("Koppelen starten mislukt: "+e.message); setBankBezig(false); }
+  }
+
+  async function ontkoppelBank(id) {
+    if (!confirm("Deze bankkoppeling verwijderen?")) return;
+    try { await API.verwijderBankKoppeling(id); setBankKoppelingen(await API.haalBankKoppelingenOp()); }
+    catch(e) { alert("Ontkoppelen mislukt: "+e.message); }
+  }
+
+  async function syncBank(id) {
+    setBankBezig(true);
+    try {
+      const { nieuwe_transacties } = await API.syncBankKoppeling(id);
+      setBankKoppelingen(await API.haalBankKoppelingenOp());
+      setBankTransacties(await API.haalBankTransactiesOp());
+      alert(`${nieuwe_transacties} nieuwe transactie(s) opgehaald.`);
+    } catch(e) { alert("Synchroniseren mislukt: "+e.message); }
+    finally { setBankBezig(false); }
+  }
+
+  async function transactieNaarDeclaratie(id) {
+    try {
+      await API.bankTransactieNaarDeclaratie(id, { btw_percentage: 21 });
+      setBankTransacties(await API.haalBankTransactiesOp());
+      await laad();
+    } catch(e) { alert("Omzetten mislukt: "+e.message); }
+  }
+
+  async function negeerTransactie(id) {
+    try { await API.negeerBankTransactie(id); setBankTransacties(await API.haalBankTransactiesOp()); }
+    catch(e) { alert("Mislukt: "+e.message); }
+  }
 
   function resetImport() {
     setImportStap(1); setImportBestandNaam(""); setImportCsv({ headers:[], rows:[] });
@@ -6071,6 +6860,8 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
 
   const gefilterd = declaraties
     .filter(d => filterCat==="alle" || d.categorie===filterCat)
+    .filter(d => !filterVan || d.datum >= filterVan)
+    .filter(d => !filterTot || d.datum <= filterTot)
     .filter(d => !zoek || d.omschrijving.toLowerCase().includes(zoek.toLowerCase())
                || (d.leverancier||"").toLowerCase().includes(zoek.toLowerCase()));
 
@@ -6116,6 +6907,12 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
           </div>
         </div>
 
+        <div style={{ display:"flex", gap:6 }}>
+          <input type="date" lang="nl-NL" value={filterVan} onChange={e=>setFilterVan(e.target.value)}
+            style={{ ...iSt(fs), flex:1, fontSize:fs-2 }} title="Vanaf" />
+          <input type="date" lang="nl-NL" value={filterTot} onChange={e=>setFilterTot(e.target.value)}
+            style={{ ...iSt(fs), flex:1, fontSize:fs-2 }} title="Tot en met" />
+        </div>
         <input value={zoek} onChange={e=>setZoek(e.target.value)} placeholder="Zoek op omschrijving of leverancier…" style={iSt(fs)} />
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
           <button onClick={()=>setFilterCat("alle")}
@@ -6134,10 +6931,159 @@ function DeclaratiesPage({ kleur, fs, isDemoMode, T, isMobiel }) {
           ))}
         </div>
 
-        <div style={{ display:"flex", gap:8 }}>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           <Btn variant="primary" onClick={openNieuw} kleur={kleur} fs={fs}>+ Nieuwe declaratie</Btn>
-          <Btn onClick={()=>{ resetImport(); setImportModal(true); }} kleur={kleur} fs={fs}>📥 Importeer declaraties en onkosten direct uit uw bank</Btn>
+          <Btn variant="primary" onClick={()=>setInstellingenMenuOpen(true)} kleur={kleur} fs={fs}>⚙ Instellingen en bank</Btn>
         </div>
+
+        {instellingenMenuOpen && (
+          <Modal title="⚙ Instellingen en bank" onClose={()=>setInstellingenMenuOpen(false)} fs={fs}>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:"1.25rem" }}>
+              <button onClick={()=>{ setInstellingenMenuOpen(false); setBankModal(true); }}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%",
+                  padding:"12px 16px", borderRadius:10, cursor:"pointer",
+                  border:"1px solid var(--color-border-secondary)", background:"var(--color-background-primary)" }}>
+                <span style={{ fontSize:fs, fontWeight:500 }}>🏦 Bankkoppeling</span>
+                <span style={{ color:"var(--color-text-secondary)" }}>→</span>
+              </button>
+              <button onClick={()=>{ setInstellingenMenuOpen(false); resetImport(); setImportModal(true); }}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%",
+                  padding:"12px 16px", borderRadius:10, cursor:"pointer",
+                  border:"1px solid var(--color-border-secondary)", background:"var(--color-background-primary)" }}>
+                <span style={{ fontSize:fs, fontWeight:500 }}>📥 Importeer declaraties en onkosten direct uit uw bank</span>
+                <span style={{ color:"var(--color-text-secondary)" }}>→</span>
+              </button>
+            </div>
+
+            <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>
+              STANDAARD ZICHTBARE PERIODE
+            </p>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {[
+                { id:"alles", label:"Alles" },
+                { id:"week", label:"Afgelopen week" },
+                { id:"maand", label:"Afgelopen maand" },
+                { id:"kwartaal", label:"Dit kwartaal" },
+                { id:"jaar", label:"Afgelopen jaar" },
+              ].map(o => (
+                <button key={o.id} onClick={()=>updateInstelling({ declaratiesStandaardPeriode: o.id })}
+                  style={{ padding:"7px 14px", borderRadius:99, cursor:"pointer", fontSize:fs-2,
+                    border:`1.5px solid ${(instellingen?.declaratiesStandaardPeriode||"alles")===o.id?kleur.hoofd:"var(--color-border-secondary)"}`,
+                    background:(instellingen?.declaratiesStandaardPeriode||"alles")===o.id?kleur.hoofd:"var(--color-background-primary)",
+                    color:(instellingen?.declaratiesStandaardPeriode||"alles")===o.id?"#fff":"var(--color-text-secondary)" }}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize:fs-3, color:"var(--color-text-secondary)", margin:"8px 0 0" }}>
+              Bepaalt welke periode standaard geselecteerd is bij het openen van deze pagina.
+              U kunt de datums daarna altijd zelf aanpassen.
+            </p>
+
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
+              <Btn onClick={()=>setInstellingenMenuOpen(false)} fs={fs}>Sluiten</Btn>
+            </div>
+          </Modal>
+        )}
+
+        {bankModal && (
+          <Modal title="🏦 Bankkoppeling" onClose={()=>setBankModal(false)} fs={fs}>
+            <p style={{ fontSize:fs-1, color:"#555", marginBottom:"1rem", lineHeight:1.6 }}>
+              Koppel uw bankrekening rechtstreeks via <strong>Ponto</strong>, zodat nieuwe transacties automatisch
+              worden opgehaald — u hoeft dan niet meer zelf een CSV-bestand te downloaden en te uploaden.
+            </p>
+            <div style={{ background:"#f0f4ff", borderRadius:10, padding:"10px 14px", marginBottom:"1.25rem" }}>
+              <p style={{ margin:0, fontSize:fs-2, color:"#185FA5", lineHeight:1.5 }}>
+                💳 Ponto rekent hiervoor <strong>rechtstreeks bij u</strong> ca. €4 per maand per gekoppelde
+                rekening — dit staat volledig los van uw DenCRM-abonnement en wordt apart door Ponto/Isabel
+                gefactureerd. DenCRM zelf brengt hiervoor niets in rekening en maakt geen winst op deze koppeling.
+              </p>
+            </div>
+
+            {!bankBeschikbaar ? (
+              <p style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>
+                Bankkoppeling is momenteel nog niet beschikbaar op dit account.
+              </p>
+            ) : (
+              <>
+                {bankKoppelingen.length === 0 ? (
+                  <Btn variant="primary" onClick={koppelBank} kleur={kleur} fs={fs} disabled={bankBezig}>
+                    {bankBezig ? "Bezig…" : "🔗 Koppel mijn bankrekening"}
+                  </Btn>
+                ) : (
+                  <div>
+                    <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>
+                      GEKOPPELDE REKENINGEN
+                    </p>
+                    <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:"1rem" }}>
+                      {bankKoppelingen.map(k => (
+                        <div key={k.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                          padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)" }}>
+                          <div>
+                            <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>{k.bank_naam || "Bankrekening"}</p>
+                            <p style={{ margin:0, fontSize:fs-2, color:"var(--color-text-secondary)" }}>
+                              {k.iban} {k.laatste_sync_op && `· laatst gesynchroniseerd: ${new Date(k.laatste_sync_op).toLocaleString("nl-NL")}`}
+                            </p>
+                          </div>
+                          <div style={{ display:"flex", gap:6 }}>
+                            <button onClick={()=>syncBank(k.id)} disabled={bankBezig}
+                              style={{ padding:"5px 12px", borderRadius:7, background:kleur.licht, color:kleur.donker,
+                                border:"none", cursor:"pointer", fontSize:fs-2 }}>
+                              🔄 Sync
+                            </button>
+                            <button onClick={()=>ontkoppelBank(k.id)}
+                              style={{ padding:"5px 12px", borderRadius:7, background:"#fcebeb", color:"#a32d2d",
+                                border:"none", cursor:"pointer", fontSize:fs-2 }}>
+                              ✕ Ontkoppelen
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Btn onClick={koppelBank} kleur={kleur} fs={fs-1} disabled={bankBezig}>+ Nog een rekening koppelen</Btn>
+
+                    {bankTransacties.length > 0 && (
+                      <div style={{ marginTop:"1.5rem" }}>
+                        <p style={{ margin:"0 0 8px", fontSize:fs-2, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.05em" }}>
+                          NOG TE VERWERKEN ({bankTransacties.length})
+                        </p>
+                        <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:"30vh", overflowY:"auto" }}>
+                          {bankTransacties.map(t => (
+                            <div key={t.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                              padding:"8px 12px", borderRadius:8, background:"var(--color-background-secondary)" }}>
+                              <div style={{ minWidth:0 }}>
+                                <p style={{ margin:0, fontSize:fs-2, fontWeight:500 }}>{t.omschrijving || t.tegenpartij_naam || "Onbekend"}</p>
+                                <p style={{ margin:0, fontSize:fs-3, color:"var(--color-text-secondary)" }}>{t.datum} · €{Math.abs(t.bedrag).toLocaleString("nl-NL",{minimumFractionDigits:2})}</p>
+                              </div>
+                              <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                                {parseFloat(t.bedrag) < 0 && (
+                                  <button onClick={()=>transactieNaarDeclaratie(t.id)}
+                                    style={{ padding:"4px 10px", borderRadius:6, background:"#eaf3de", color:"#27500a",
+                                      border:"none", cursor:"pointer", fontSize:fs-3 }}>
+                                    → Declaratie
+                                  </button>
+                                )}
+                                <button onClick={()=>negeerTransactie(t.id)}
+                                  style={{ padding:"4px 10px", borderRadius:6, background:"var(--color-background-primary)", color:"var(--color-text-secondary)",
+                                    border:"1px solid var(--color-border-secondary)", cursor:"pointer", fontSize:fs-3 }}>
+                                  Negeren
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
+              <Btn onClick={()=>setBankModal(false)} fs={fs}>Sluiten</Btn>
+            </div>
+          </Modal>
+        )}
 
         <div style={{ overflowY:"auto", flex: isMobiel ? "none" : 1, maxHeight: isMobiel ? "40vh" : "none", display:"flex", flexDirection:"column", gap:6 }}>
           {laden && <p style={{ color:"var(--color-text-secondary)", fontSize:fs-1 }}>Laden…</p>}
@@ -7450,13 +8396,23 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
   function updateRegel(id, veld, val) { setRegels(r=>r.map(x=>x.id===id?{...x,[veld]:val}:x)); }
   function delRegel(id) { setRegels(r=>r.filter(x=>x.id!==id)); }
 
-  function voegKlantToe() {
+  const [nieuweKlantBezig, setNieuweKlantBezig] = useState(false);
+  const [nieuweKlantFout, setNieuweKlantFout] = useState("");
+  async function voegKlantToe() {
     if (!nkForm.naam) return;
-    const nieuw = { ...nkForm, id:"k"+uid(), producten:[], offertes:[] };
-    setKlanten(p=>[...p, nieuw]);
-    setKlantId(nieuw.id);
-    setNieuweKlantModal(false);
-    setNkForm({ naam:"", email:"", telefoon:"", adres:"" });
+    setNieuweKlantFout("");
+    setNieuweKlantBezig(true);
+    try {
+      const { id } = await API.maakKlantAan({
+        naam: nkForm.naam, email: nkForm.email, telefoon: nkForm.telefoon,
+        straat: nkForm.straat || "", postcode: nkForm.postcode || "", stad: nkForm.stad || "",
+      });
+      setKlanten(p=>[...p, { ...nkForm, id, producten:[], offertes:[] }]);
+      setKlantId(id);
+      setNieuweKlantModal(false);
+      setNkForm({ naam:"", email:"", telefoon:"", adres:"" });
+    } catch(e) { setNieuweKlantFout(e.message || "Klant aanmaken mislukt."); }
+    finally { setNieuweKlantBezig(false); }
   }
 
   async function slaOp() {
@@ -7711,9 +8667,12 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
                 <FF label="Postcode" fs={fs}><input value={nkForm.postcode||""} onChange={e=>setNkForm(f=>({...f,postcode:e.target.value}))} style={iSt(fs)} /></FF>
                 <FF label="Dorp / Stad" fs={fs}><input value={nkForm.stad||""} onChange={e=>setNkForm(f=>({...f,stad:e.target.value}))} style={iSt(fs)} /></FF>
               </div>
+              {nieuweKlantFout && <p style={{ color:"#a32d2d", fontSize:fs-2, marginBottom:8 }}>{nieuweKlantFout}</p>}
               <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:"1rem" }}>
                 <Btn onClick={()=>setNieuweKlantModal(false)} fs={fs}>Annuleren</Btn>
-                <Btn variant="primary" onClick={voegKlantToe} kleur={kleur} fs={fs}>Klant toevoegen & selecteren</Btn>
+                <Btn variant="primary" onClick={voegKlantToe} kleur={kleur} fs={fs} disabled={nieuweKlantBezig}>
+                  {nieuweKlantBezig ? "Bezig…" : "Klant toevoegen & selecteren"}
+                </Btn>
               </div>
             </Modal>
           )}
@@ -8089,7 +9048,7 @@ function OffertesPage({ klanten, setKlanten, producten, kleur, fs, isDemoMode, h
 }
 
 // ── FINANCIEEL OVERZICHT ──────────────────────────────────────────────────────
-function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T }) {
+function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T, instellingen, updateInstelling }) {
   const [filterKlant, setFilterKlant] = useState("");
   const [filterVan,   setFilterVan]   = useState("");
   const [filterTot,   setFilterTot]   = useState("");
@@ -8425,11 +9384,10 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
           paddingRight: 4 }}>
           {gefilterd.map(o => (
             <div key={o.id} style={{
-              background: o.isVervallen ? "#fff5f5" : "var(--color-background-primary)",
+              background: o.isVervallen ? "#fff5f5" : o.betaald ? "var(--color-background-secondary)" : "var(--color-background-primary)",
               border: `0.5px solid ${o.isVervallen ? "#f5a0a0" : o.betaald ? "#c0ddb0" : "var(--color-border-tertiary)"}`,
               borderRadius: 12, padding: "12px 16px",
               display: "flex", alignItems: "center", gap: 14,
-              opacity: o.betaald ? 0.75 : 1, transition: "opacity 0.15s"
             }}>
               <button onClick={() => toggleBetaald(o.klant.id, o.id)}
                 title={o.betaald ? "Markeer als onbetaald" : "Markeer als betaald"}
@@ -8488,9 +9446,15 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                     const label = o.type==="kassa" ? "kassabon" : o.type==="declaratie" ? "declaratie" : o.type==="factuur" ? "factuur" : "offerte";
                     if (!confirm(`Deze ${label} definitief verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
                     try {
-                      if (o.type === "kassa") await API.verwijderKassaBon(o.id);
-                      else if (o.type === "declaratie") await API.verwijderDeclaratie(o.id);
-                      else await API.verwijderOfferte(o.id);
+                      if (o.type === "kassa") {
+                        await API.verwijderKassaBon(o.id);
+                        setKassaBonnen(prev => prev.filter(b => b.id !== o.id));
+                      } else if (o.type === "declaratie") {
+                        await API.verwijderDeclaratie(o.id);
+                        setDeclaraties(prev => prev.filter(d => d.id !== o.id));
+                      } else {
+                        await API.verwijderOfferte(o.id);
+                      }
                       await herlaad();
                     } catch(e) { alert("Verwijderen mislukt: " + e.message); }
                   }}
@@ -8716,6 +9680,38 @@ function FinancieelPage({ klanten, setKlanten, kleur, fs, isDemoMode, herlaad, T
                 Vervallen offertes tellen niet mee in "nog te ontvangen" en worden rood gemarkeerd.
               </p>
             )}
+          </div>
+
+          <div style={{ padding:"12px 14px", borderRadius:10, background:"var(--color-background-secondary)", marginTop:8 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }}
+              onClick={()=>updateInstelling({ betalingsherinneringAan: !(instellingen?.betalingsherinneringAan) })}>
+              <p style={{ margin:0, fontSize:fs-1, fontWeight:500 }}>
+                📬 Automatische betalingsherinnering
+              </p>
+              <div style={{ width:36,height:20,borderRadius:99,
+                background: instellingen?.betalingsherinneringAan ? kleur.hoofd : "#ccc",
+                position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                <div style={{ position:"absolute",top:2,left: instellingen?.betalingsherinneringAan?18:2,
+                  width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left 0.2s" }} />
+              </div>
+            </div>
+            {instellingen?.betalingsherinneringAan && (
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginTop:10 }}>
+                <span style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>Stuur een herinneringsmail na</span>
+                <input type="number" min="1" max="180"
+                  value={instellingen?.betalingsherinneringDagen ?? 14}
+                  onChange={e=>updateInstelling({ betalingsherinneringDagen: parseInt(e.target.value)||14 })}
+                  style={{ width:60, padding:"6px 8px", borderRadius:6, border:`1px solid ${kleur.hoofd}`,
+                    textAlign:"center", fontSize:fs-1, color:"var(--color-text-primary)",
+                    background:"var(--color-background-primary)" }} />
+                <span style={{ fontSize:fs-1, color:"var(--color-text-secondary)" }}>dagen</span>
+              </div>
+            )}
+            <p style={{ fontSize:fs-3, color:"var(--color-text-secondary)", margin:"8px 0 0" }}>
+              Stuurt automatisch één keer een vriendelijke herinnering naar de klant wanneer een offerte of
+              factuur na de ingestelde periode nog niet als betaald is gemarkeerd (alleen als er een
+              e-mailadres bij de klant bekend is).
+            </p>
           </div>
 
           <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
@@ -9104,6 +10100,20 @@ function BelastingOverzichtModal({ onClose, kleur, fs, isDemoMode, T }) {
             </div>
           )}
 
+          {/* Kilometervergoeding */}
+          {data.kilometers?.totaal_vergoeding > 0 && (
+            <div style={{ background:"var(--color-background-secondary)", borderRadius:10, padding:"14px", marginBottom:10 }}>
+              <p style={{ margin:"0 0 8px", fontSize:fs-1, fontWeight:600, color:kleur.hoofd }}>2c. Kilometervergoeding in deze periode</p>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-2, marginBottom:4 }}>
+                <span>{data.kilometers.aantal_ritten} rit(ten), {data.kilometers.totaal_km} km</span>
+                <span>{fmt(data.kilometers.totaal_vergoeding)}</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs, fontWeight:700, borderTop:"1px solid var(--color-border-tertiary)", paddingTop:6, marginTop:6 }}>
+                <span>Totaal kilometervergoeding</span><span style={{ color:kleur.hoofd }}>{fmt(data.kilometers.totaal_vergoeding)}</span>
+              </div>
+            </div>
+          )}
+
           {/* Btw saldo */}
           <div style={{ background: data.btw.saldo >= 0 ? "#fcebeb" : "#eaf3de", borderRadius:10, padding:"14px", marginBottom:10 }}>
             <p style={{ margin:"0 0 4px", fontSize:fs-1, fontWeight:600, color: data.btw.saldo >= 0 ? "#a32d2d" : "#27500a" }}>
@@ -9128,6 +10138,11 @@ function BelastingOverzichtModal({ onClose, kleur, fs, isDemoMode, T }) {
                 <span>− Afschrijvingen</span><span>{fmt(data.resultaat.afschrijvingen)}</span>
               </div>
             )}
+            {data.resultaat.kilometervergoeding > 0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs-2, marginBottom:4, color:kleur.donker }}>
+                <span>− Kilometervergoeding</span><span>{fmt(data.resultaat.kilometervergoeding)}</span>
+              </div>
+            )}
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:fs+2, fontWeight:700, borderTop:`1px solid ${kleur.hoofd}44`, paddingTop:6, marginTop:6 }}>
               <span style={{ color:kleur.donker }}>Netto resultaat</span>
               <span style={{ color:kleur.donker }}>{fmt(data.resultaat.netto_resultaat)}</span>
@@ -9149,7 +10164,7 @@ function BelastingOverzichtModal({ onClose, kleur, fs, isDemoMode, T }) {
   );
 }
 
-function KoppelAccountsPanel({ kleur, fs, onClose }) {
+function KoppelAccountsPanel({ kleur, fs, onClose, alsTab=false }) {
   const [data, setData] = useState({ uitnodigingen:[], gekoppeld:[] });
   const [laden, setLaden] = useState(true);
   const [uitnodigModal, setUitnodigModal] = useState(false);
@@ -9218,21 +10233,16 @@ function KoppelAccountsPanel({ kleur, fs, onClose }) {
     catch(e) { alert("Verwijderen mislukt: "+e.message); }
   }
 
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000,
-      display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
-      onClick={e=>e.target===e.currentTarget && onClose()}>
-      <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:640,
-        maxHeight:"85vh", overflowY:"auto", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
-
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1rem" }}>
+  const inhoud = (
+    <>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1rem" }}>
           <div>
             <h2 style={{ margin:0, fontSize:20, color:"#1a1a1a" }}>👥 Koppel accounts</h2>
             <p style={{ margin:"4px 0 0", fontSize:13, color:"#666" }}>
               Nodig collega's of medewerkers uit om samen te werken in uw DenCRM-omgeving.
             </p>
           </div>
-          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:22, color:"#666" }}>×</button>
+          {!alsTab && <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:22, color:"#666" }}>×</button>}
         </div>
 
         <button onClick={()=>setUitnodigModal(true)}
@@ -9305,7 +10315,6 @@ function KoppelAccountsPanel({ kleur, fs, onClose }) {
             )}
           </>
         )}
-      </div>
 
       {/* Uitnodig modal */}
       {uitnodigModal && (
@@ -9353,6 +10362,19 @@ function KoppelAccountsPanel({ kleur, fs, onClose }) {
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (alsTab) return <div>{inhoud}</div>;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000,
+      display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
+      onClick={e=>e.target===e.currentTarget && onClose()}>
+      <div style={{ background:"#fff", borderRadius:16, padding:"2rem", width:"100%", maxWidth:640,
+        maxHeight:"85vh", overflowY:"auto", boxShadow:"0 16px 48px rgba(0,0,0,0.25)" }}>
+        {inhoud}
+      </div>
     </div>
   );
 }
@@ -9381,6 +10403,7 @@ function WelkomOnboardingModal({ kleur, modulesAan, setModulesAan, onClose }) {
     { id:"agenda",      label:"Agenda",                      icon:"📅" },
     { id:"offertes",    label:"Offertes & Facturen",         icon:"📄" },
     { id:"pakbonnen",   label:"Pakbonnen",                   icon:"🚚" },
+    { id:"kilometers",  label:"Kilometerregistratie",         icon:"🚗" },
     { id:"financieel",  label:"Financieel overzicht",        icon:"💶" },
     { id:"declaraties", label:"Declaraties & Boekhouding",   icon:"🧮" },
     { id:"contact",     label:"Contact",                     icon:"💬" },
@@ -9435,13 +10458,40 @@ function WelkomOnboardingModal({ kleur, modulesAan, setModulesAan, onClose }) {
           <div style={{ textAlign:"center" }}>
             <div style={{ fontSize:48, marginBottom:"0.75rem" }}>👋</div>
             <h2 style={{ margin:"0 0 0.75rem", color:"#1a1a1a", fontSize:20 }}>Welkom bij DenCRM!</h2>
-            <p style={{ color:"#555", fontSize:14, lineHeight:1.6, marginBottom:"1.5rem" }}>
-              Laten we uw account in een paar stappen inrichten. Wilt u meteen uw bedrijfslogo uploaden?
-              Dit verschijnt straks automatisch op uw offertes, facturen en kassabonnen.
+            <p style={{ color:"#555", fontSize:14, lineHeight:1.6, marginBottom:"1rem" }}>
+              Laten we uw account in een paar stappen inrichten.
+            </p>
+
+            <div style={{ background:"#eaf3de", borderRadius:10, padding:"10px 14px", marginBottom:"0.75rem", textAlign:"left" }}>
+              <p style={{ margin:0, fontSize:13, color:"#27500a", lineHeight:1.5 }}>
+                🎁 <strong>De eerste maand is gratis</strong> — u kunt DenCRM een volledige maand vrijblijvend gebruiken
+                voordat er iets betaald hoeft te worden.
+              </p>
+            </div>
+            <div style={{ background:"#f0f4ff", borderRadius:10, padding:"10px 14px", marginBottom:"1.5rem", textAlign:"left" }}>
+              <p style={{ margin:0, fontSize:13, color:"#185FA5", lineHeight:1.5 }}>
+                🛡️ <strong>Tip:</strong> we raden aan om twee-factor authenticatie (2FA) te activeren via
+                Instellingen &gt; Beveiliging, voor extra bescherming van uw account.
+              </p>
+            </div>
+
+            <button onClick={()=>setStap(2)}
+              style={{ width:"100%", padding:"12px", borderRadius:10, background:kleur.hoofd,
+                color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
+              Volgende →
+            </button>
+          </div>
+        )}
+
+        {stap === 2 && (
+          <div>
+            <h2 style={{ margin:"0 0 0.5rem", color:"#1a1a1a", fontSize:19 }}>Uw bedrijfsgegevens</h2>
+            <p style={{ color:"#666", fontSize:13.5, lineHeight:1.5, marginBottom:"1.25rem" }}>
+              Deze gegevens worden automatisch ingevuld op uw offertes, facturen en kassabonnen.
             </p>
 
             <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px", borderRadius:10,
-              border:"1px dashed #ccc", background:"#fafafa", marginBottom:"1rem", textAlign:"left" }}>
+              border:"1px dashed #ccc", background:"#fafafa", marginBottom:"1.25rem", textAlign:"left" }}>
               <div style={{ width:56, height:56, borderRadius:8, background:"#fff", border:"1px solid #e0e0e0",
                 display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0 }}>
                 {heeftLogo ? (
@@ -9462,21 +10512,6 @@ function WelkomOnboardingModal({ kleur, modulesAan, setModulesAan, onClose }) {
                 <p style={{ margin:"6px 0 0", fontSize:11, color:"#999" }}>PNG, SVG of JPG, max 2MB</p>
               </div>
             </div>
-
-            <button onClick={()=>setStap(2)}
-              style={{ width:"100%", padding:"12px", borderRadius:10, background:kleur.hoofd,
-                color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:600 }}>
-              Volgende →
-            </button>
-          </div>
-        )}
-
-        {stap === 2 && (
-          <div>
-            <h2 style={{ margin:"0 0 0.5rem", color:"#1a1a1a", fontSize:19 }}>Uw bedrijfsgegevens</h2>
-            <p style={{ color:"#666", fontSize:13.5, lineHeight:1.5, marginBottom:"1.25rem" }}>
-              Deze gegevens worden automatisch ingevuld op uw offertes, facturen en kassabonnen.
-            </p>
 
             <div style={{ marginBottom:10 }}>
               <label style={{ fontSize:12, color:"#555", fontWeight:500 }}>Bedrijfsnaam</label>
@@ -9785,6 +10820,7 @@ function InstellingenProfielPagina({ kleur, kleurIdx, setKleurIdx, fs, setFs, bg
     { id:"agenda",      label:T?.agenda||"Agenda",           icon:"📅" },
     { id:"offertes",    label:T?.offertes||"Offertes & Facturen",       icon:"📄" },
     { id:"pakbonnen",   label:T?.pakbonnen||"Pakbonnen",     icon:"🚚" },
+    { id:"kilometers",  label:T?.kilometers||"Kilometerregistratie", icon:"🚗" },
     { id:"financieel",  label:T?.financieel||"Financieel overzicht",        icon:"💶" },
     { id:"declaraties", label:T?.declaraties||"Declaraties & Boekhouding",   icon:"🧮" },
     { id:"contact",     label:T?.contact||"Contact",         icon:"💬" },
@@ -9800,10 +10836,11 @@ function InstellingenProfielPagina({ kleur, kleurIdx, setKleurIdx, fs, setFs, bg
     { id:"modules",    label:"Modules & startpagina",icon:"⊞" },
     { id:"wachtwoord", label:"Wachtwoord",           icon:"🔒" },
     { id:"beveiliging",label:"Beveiliging",          icon:"🛡️" },
+    ...(!isGekoppeld ? [{ id:"koppelaccounts", label:"Koppel accounts", icon:"👥" }] : []),
     { id:"abonnement", label:"Mijn abonnement", icon:"💳" },
   ];
 
-  return (
+  return createPortal((
     <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", backdropFilter:"blur(2px)",
       display:"flex", alignItems:"center", justifyContent:"center", zIndex:99999, padding:"1.5rem" }}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -9931,17 +10968,17 @@ function InstellingenProfielPagina({ kleur, kleurIdx, setKleurIdx, fs, setFs, bg
               <p style={{ margin:"0 0 8px", fontSize:11, color:"#666", fontWeight:600, letterSpacing:"0.05em" }}>TAAL / LANGUAGE / SPRACHE</p>
               <div style={{ display:"flex", gap:8, marginBottom:"1.5rem" }}>
                 {[
-                  { code:"nl", img:"afbeeldingen/vlagnederland.png", alt:"Nederlands" },
-                  { code:"en", img:"afbeeldingen/vlagengeland.png",  alt:"English" },
-                  { code:"de", img:"afbeeldingen/vlagduitsland.png", alt:"Deutsch" },
-                ].map(({ code, img, alt }) => (
+                  { code:"nl", emoji:"🇳🇱", label:"Nederlands" },
+                  { code:"en", emoji:"🇬🇧", label:"English" },
+                  { code:"de", emoji:"🇩🇪", label:"Deutsch" },
+                ].map(({ code, emoji, label }) => (
                   <button key={code} onClick={() => setTaal(code)}
-                    style={{ flex:1, padding:6, borderRadius:9, cursor:"pointer", position:"relative",
-                      background: "#f2f2f2",
+                    style={{ flex:1, padding:"14px 6px", borderRadius:9, cursor:"pointer", position:"relative",
+                      background: taal===code ? kleur.licht : "#f7f7f7", display:"flex", flexDirection:"column",
+                      alignItems:"center", gap:5,
                       border: taal===code ? `2.5px solid ${kleur.hoofd}` : "1px solid #ddd" }}>
-                    <img src={img} alt={alt} style={{ width:"100%", height:38, objectFit:"contain", borderRadius:4, display:"block" }}
-                      onError={e=>{ e.target.style.display="none"; e.target.nextSibling.style.display="block"; }} />
-                    <span style={{ display:"none", fontSize:12, fontWeight:600 }}>{code.toUpperCase()}</span>
+                    <span style={{ fontSize:28, lineHeight:1 }}>{emoji}</span>
+                    <span style={{ fontSize:11, fontWeight:taal===code?700:500, color: taal===code?kleur.donker:"#777" }}>{label}</span>
                     {taal===code && (
                       <span style={{ position:"absolute", top:-6, right:-6, width:18, height:18, borderRadius:"50%",
                         background:kleur.hoofd, color:"#fff", fontSize:11, fontWeight:700,
@@ -10031,17 +11068,12 @@ function InstellingenProfielPagina({ kleur, kleurIdx, setKleurIdx, fs, setFs, bg
               <p style={{ fontSize:11, color:"#aaa", margin:"10px 0 0" }}>
                 ☆ Klik het sterretje om een module als startpagina in te stellen · keuzes worden automatisch opgeslagen
               </p>
+            </div>
+          )}
 
-              {!isGekoppeld && (
-                <button onClick={onOpenKoppelAccounts}
-                  style={{ width:"100%", padding:"10px 14px", borderRadius:10, cursor:"pointer",
-                    border:"1px solid #ddd", background:"#fafafa", color:"#555",
-                    display:"flex", alignItems:"center", justifyContent:"space-between",
-                    fontSize:13, fontWeight:500, marginTop:"1.5rem" }}>
-                  <span>👥 Koppel accounts beheren</span>
-                  <span>→</span>
-                </button>
-              )}
+          {tab === "koppelaccounts" && !isGekoppeld && (
+            <div style={{ maxWidth:560 }}>
+              <KoppelAccountsPanel kleur={kleur} fs={fs} alsTab={true} onClose={()=>{}} />
             </div>
           )}
 
@@ -10246,7 +11278,7 @@ function InstellingenProfielPagina({ kleur, kleurIdx, setKleurIdx, fs, setFs, bg
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 // ── APP SHELL ─────────────────────────────────────────────────────────────────
@@ -10260,6 +11292,7 @@ export default function App() {
     return () => window.removeEventListener('resize', checkSize);
   }, []);
   const [welkomModal, setWelkomModal] = useState(false);
+  const [handleidingOpen, setHandleidingOpen] = useState(false);
   const [reviewModal, setReviewModal] = useState(false);
   const [isDemoMode, setIsDemoMode]  = useState(false);
   const [laden, setLaden]            = useState(true); // eerste laad-check
@@ -10277,13 +11310,22 @@ export default function App() {
   const [demoAgenda,    setDemoAgenda]    = useState(DEMO_AGENDA);
 
   // ── UI state ───────────────────────────────────────────────
-  const [pagina,      setPagina]      = useState("kassa");
+  const [pagina,      setPagina]      = useState(() => {
+    // Kwam de gebruiker net terug van een Ponto-bankkoppeling? Ga dan direct naar
+    // Declaraties (waar die koppeling beheerd wordt), i.p.v. terug te vallen op de
+    // normale startpagina — anders zie je de bevestiging/melding daarvan nooit.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get('bank')) {
+      return "declaraties";
+    }
+    return "kassa";
+  });
+  const [lidVerlengBezig, setLidVerlengBezig] = useState(false);
+  const [lidVerlengFout, setLidVerlengFout] = useState("");
   const [offertePrefill, setOffertePrefill] = useState(null); // vult offerte-wizard vooraf, bv. vanuit werkbon
   const [kleurIdx,    setKleurIdx]    = useState(0);
   const [fs,          setFs]          = useState(14);
   const [bgIdx,       setBgIdx]       = useState(0);
   const [instellOpen, setInstellOpen] = useState(false);
-  const [koppelAccountsOpen, setKoppelAccountsOpen] = useState(false);
   const [profielOpen, setProfielOpen] = useState(false);
   const [apiError,    setApiError]    = useState(null);
   const [autoRetryPoging, setAutoRetryPoging] = useState(0);
@@ -10323,13 +11365,21 @@ export default function App() {
     updateInstelling({ modulesAan: nieuw });
   }
 
+  // Gekoppelde (dochter-)accounts mogen alleen de modules zien die de hoofdgebruiker heeft toegestaan.
+  const toegestaneModulesLijst = huidigUser?.hoofdgebruiker_id
+    ? (huidigUser.toegestane_modules || "").split(",").map(m=>m.trim()).filter(Boolean)
+    : null; // null = geen beperking (hoofdaccount of admin)
+  function moduleToegestaan(id) {
+    return modulesAan[id] !== false && (!toegestaneModulesLijst || toegestaneModulesLijst.includes(id));
+  }
+
   // Volgorde van voorkeur voor de startpagina, gebruikt als fallback wanneer de ingestelde
   // startpagina-module is uitgeschakeld (of nog niet is gekozen).
-  const MODULE_VOLGORDE = ["kassa","werkbonnen","klanten","producten","agenda","offertes","pakbonnen","financieel","declaraties","contact"];
+  const MODULE_VOLGORDE = ["kassa","werkbonnen","klanten","producten","agenda","kilometers","offertes","pakbonnen","financieel","declaraties","contact"];
   function bepaalStartpagina() {
     const gekozen = instellingen.startpagina;
-    if (gekozen && modulesAan[gekozen] !== false) return gekozen;
-    const eersteAan = MODULE_VOLGORDE.find(id => modulesAan[id] !== false);
+    if (gekozen && moduleToegestaan(gekozen)) return gekozen;
+    const eersteAan = MODULE_VOLGORDE.find(id => moduleToegestaan(id));
     return eersteAan || "contact";
   }
 
@@ -10343,7 +11393,7 @@ export default function App() {
   // Als de huidige pagina tussentijds wordt uitgeschakeld (bv. via Instellingen), spring dan weg
   // naar een module die wel aan staat, zodat een verborgen pagina nooit zichtbaar blijft.
   useEffect(() => {
-    if (!isDemoMode && instellingenGeladen && modulesAan[pagina] === false) {
+    if (!isDemoMode && instellingenGeladen && !moduleToegestaan(pagina)) {
       setPagina(bepaalStartpagina());
     }
   }, [modulesAan]);
@@ -10386,13 +11436,42 @@ export default function App() {
   }
 
   // ── Bij opstarten: kijk of er nog een token is ────────────
+  const [lidmaatschapVerifieren, setLidmaatschapVerifieren] = useState(false);
+  const [betalingResultaat, setBetalingResultaat] = useState(null); // { succes: bool, nieuweDatum } of null
+
   useEffect(() => {
     if (API.heeftTokens()) {
       // Herstel de ingelogde gebruiker (voorkomt dat een pagina-refresh je uitlogt)
       API.haalSessieOp()
-        .then(gebruiker => { setHuidigUser(gebruiker); return laadAlleData(); })
-        .catch(() => { API.tokensWissen(); })
-        .finally(() => setLaden(false));
+        .then(async gebruiker => {
+          setHuidigUser(gebruiker);
+          await laadAlleData();
+          setLaden(false);
+
+          // Komt de gebruiker net terug van een Mollie-betaling? Dan even actief pollen op de
+          // bijgewerkte lidmaatschapsstatus — de webhook van Mollie kan een paar seconden na
+          // de terugkeer-redirect pas binnenkomen, dus één enkele check kan nog de oude status tonen.
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('abonnement') === 'afgerond') {
+            window.history.replaceState({}, '', window.location.pathname); // url opschonen
+            setLidmaatschapVerifieren(true);
+            let bijgewerkteDatum = null;
+            for (let poging = 0; poging < 8; poging++) {
+              await new Promise(r => setTimeout(r, 1500));
+              try {
+                const { tot } = await API.haalLidmaatschapOp();
+                if (tot && tot !== gebruiker.lidmaatschap_tot) {
+                  bijgewerkteDatum = tot;
+                  setHuidigUser(u => ({ ...u, lidmaatschap_tot: tot }));
+                  break;
+                }
+              } catch { /* volgende poging */ }
+            }
+            setLidmaatschapVerifieren(false);
+            setBetalingResultaat(bijgewerkteDatum ? { succes:true, nieuweDatum:bijgewerkteDatum } : { succes:false });
+          }
+        })
+        .catch(() => { API.tokensWissen(); setLaden(false); });
     } else {
       setLaden(false);
     }
@@ -10497,8 +11576,9 @@ export default function App() {
   async function doLogin(gebruiker) {
     setHuidigUser(gebruiker);
     await laadAlleData();
-    // Welkomstmelding bij eerste keer inloggen
-    if (gebruiker.login_count === 1) {
+    // Welkomstmelding bij eerste keer inloggen — niet voor gekoppelde (dochter-)accounts,
+    // die gebruiken de bedrijfsgegevens/logo van het hoofdaccount en hoeven deze wizard niet.
+    if (gebruiker.login_count === 1 && !gebruiker.hoofdgebruiker_id) {
       setWelkomModal(true);
     }
   }
@@ -10544,6 +11624,57 @@ export default function App() {
     );
   }
 
+  // ── Betaling verifiëren na terugkomst van Mollie (voor alle gebruikers, ook admins) ──
+  if (!isDemoMode && huidigUser && lidmaatschapVerifieren) {
+    return (
+      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+        background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)", padding:"1rem" }}>
+        <div style={{ background:"#fff", borderRadius:24, padding:"2.5rem", maxWidth:420, width:"100%",
+          boxShadow:"0 24px 80px rgba(0,0,0,0.35)", textAlign:"center" }}>
+          <div style={{ fontSize:40, marginBottom:"1rem" }}>⏳</div>
+          <h2 style={{ margin:"0 0 0.5rem", fontSize:19, color:"#1a1a1a" }}>Betaling verifiëren…</h2>
+          <p style={{ color:"#666", fontSize:14, lineHeight:1.6 }}>
+            Een moment geduld, we controleren de bevestiging van uw betaling bij Mollie.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const betalingResultaatPopup = betalingResultaat && (
+    <div style={{ position:"fixed", inset:0, background:"rgba(15,20,30,0.72)", backdropFilter:"blur(2px)",
+      display:"flex", alignItems:"center", justifyContent:"center", zIndex:99999, padding:"1rem" }}
+      onClick={e=>e.target===e.currentTarget && setBetalingResultaat(null)}>
+      <div style={{ background:"#fff", borderRadius:20, padding:"2.5rem", maxWidth:420, width:"100%",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.35)", textAlign:"center" }}>
+        <div style={{ fontSize:44, marginBottom:"1rem" }}>{betalingResultaat.succes ? "✅" : "❌"}</div>
+        {betalingResultaat.succes ? (
+          <>
+            <h2 style={{ margin:"0 0 0.5rem", fontSize:20, color:"#1a1a1a" }}>Bedankt voor uw betaling!</h2>
+            <p style={{ color:"#555", fontSize:14.5, lineHeight:1.6, margin:0 }}>
+              Uw lidmaatschap is nu geldig tot: <strong>
+                {new Date(betalingResultaat.nieuweDatum+"T12:00:00").toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'})}
+              </strong>
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 style={{ margin:"0 0 0.5rem", fontSize:20, color:"#1a1a1a" }}>Betaling niet gelukt</h2>
+            <p style={{ color:"#555", fontSize:14.5, lineHeight:1.6, margin:0 }}>
+              Uw betaling is helaas mislukt, probeer het nogmaals.
+            </p>
+          </>
+        )}
+        <button onClick={()=>setBetalingResultaat(null)}
+          style={{ marginTop:"1.5rem", padding:"11px 24px", borderRadius:10, border:"none",
+            background: betalingResultaat.succes ? kleur.hoofd : "#a32d2d", color:"#fff",
+            cursor:"pointer", fontSize:14, fontWeight:600 }}>
+          Sluiten
+        </button>
+      </div>
+    </div>
+  );
+
   // ── Lidmaatschap check (niet voor admins en niet in demo) ──
   if (!isDemoMode && huidigUser && !huidigUser.is_admin) {
     const lidTot = huidigUser.lidmaatschap_tot;
@@ -10554,7 +11685,7 @@ export default function App() {
           background:"linear-gradient(160deg,#0f1e2e 0%,#1a3a5c 50%,#0f1e2e 100%)", padding:"1rem" }}>
           <div style={{ background:"#fff", borderRadius:24, padding:"2.5rem", maxWidth:520, width:"100%",
             boxShadow:"0 24px 80px rgba(0,0,0,0.35)", textAlign:"center" }}>
-            <img src="afbeeldingen/dencrm.png" alt="DenCRM" style={{ height:80, marginBottom:"1rem" }}
+            <img src="/afbeeldingen/dencrm.png" alt="DenCRM" style={{ height:80, marginBottom:"1rem" }}
               onError={e=>e.target.style.display="none"} />
             <h2 style={{ margin:"0 0 0.5rem", fontSize:22, color:"#1a1a1a" }}>Lidmaatschap verlopen</h2>
             <p style={{ color:"#666", fontSize:14, marginBottom:"1rem", lineHeight:1.6 }}>
@@ -10577,16 +11708,28 @@ export default function App() {
             </div>
 
             {/* Prijsopties */}
+            {lidVerlengFout && (
+              <p style={{ background:"#fcebeb", color:"#a32d2d", padding:"8px 12px", borderRadius:8, fontSize:13, marginBottom:10 }}>{lidVerlengFout}</p>
+            )}
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:"1.5rem" }}>
               {[
-                { label:"1 maand", prijs:"€9,99", sub:"Maandelijks opzegbaar" },
-                { label:"6 maanden", prijs:"€49,99", sub:"Bespaar €9,95 t.o.v. maandelijks" },
-                { label:"1 jaar", prijs:"€89,99", sub:"Bespaar €29,89 t.o.v. maandelijks", aanbevolen:true },
+                { periode:1,  label:"1 maand", prijs:"€9,99", sub:"Eenmalig, geen automatische verlenging" },
+                { periode:6,  label:"6 maanden", prijs:"€49,99", sub:"Bespaar €9,95 t.o.v. maandelijks" },
+                { periode:12, label:"1 jaar", prijs:"€89,99", sub:"Bespaar €29,89 t.o.v. maandelijks", aanbevolen:true },
               ].map(opt=>(
-                <div key={opt.label} style={{ position:"relative", padding:"14px 16px", borderRadius:12,
+                <button key={opt.label} disabled={lidVerlengBezig}
+                  onClick={async()=>{
+                    setLidVerlengFout(""); setLidVerlengBezig(true);
+                    try {
+                      const { checkoutUrl } = await API.startAbonnementBetaling(opt.periode);
+                      window.location.href = checkoutUrl;
+                    } catch(e) { setLidVerlengFout(e.message || "Betaling starten mislukt."); setLidVerlengBezig(false); }
+                  }}
+                  style={{ position:"relative", padding:"14px 16px", borderRadius:12,
                   border:`2px solid ${opt.aanbevolen ? kleur.hoofd : "#ddd"}`,
                   background: opt.aanbevolen ? kleur.licht : "#fafafa",
-                  display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"default" }}>
+                  display:"flex", justifyContent:"space-between", alignItems:"center",
+                  cursor: lidVerlengBezig ? "wait" : "pointer", width:"100%", opacity: lidVerlengBezig ? 0.6 : 1 }}>
                   {opt.aanbevolen && (
                     <span style={{ position:"absolute", top:-10, right:12, fontSize:11, fontWeight:700,
                       background:kleur.hoofd, color:"#fff", padding:"2px 10px", borderRadius:99 }}>
@@ -10599,15 +11742,15 @@ export default function App() {
                   </div>
                   <div style={{ textAlign:"right" }}>
                     <p style={{ margin:0, fontWeight:700, fontSize:18, color:kleur.hoofd }}>{opt.prijs}</p>
-                    <p style={{ margin:0, fontSize:11, color:"#aaa" }}>Binnenkort beschikbaar</p>
+                    <p style={{ margin:0, fontSize:11, color:kleur.hoofd }}>{lidVerlengBezig ? "Bezig…" : "Nu betalen →"}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 
             <p style={{ fontSize:12, color:"#aaa", marginBottom:"1rem" }}>
-              Betaling via Mollie (iDEAL, creditcard) — binnenkort beschikbaar.<br/>
-              Neem contact op via <a href="mailto:info@dencrm.nl" style={{ color:kleur.hoofd }}>info@dencrm.nl</a> voor handmatige verlenging.
+              Betaling via Mollie (iDEAL, creditcard, en meer). Prijzen zijn inclusief btw.<br/>
+              Vragen? Neem contact op via <a href="mailto:info@dencrm.nl" style={{ color:kleur.hoofd }}>info@dencrm.nl</a>.
             </p>
             <button onClick={logout}
               style={{ padding:"10px 20px", borderRadius:8, background:"#f0f0f0",
@@ -10626,6 +11769,7 @@ export default function App() {
     { id:"klanten",    label:T.klanten,    icon:"👥" },
     { id:"producten",  label:T.producten,  icon:"📦" },
     { id:"agenda",     label:T.agenda,     icon:"📅" },
+    { id:"kilometers", label:T?.kilometers||"Kilometerregistratie", icon:"🚗" },
     { id:"offertes",   label:T.offertes,   icon:"📄" },
     { id:"pakbonnen",  label:T?.pakbonnen||"Pakbonnen", icon:"🚚" },
     { id:"financieel", label:T?.financieel||"Financieel overzicht", icon:"💶" },
@@ -10648,7 +11792,8 @@ export default function App() {
     ] : []),
   ];
 
-  const nav = alleNav.filter(n => modulesAan[n.id] !== false);
+  const nav = alleNav.filter(n => modulesAan[n.id] !== false)
+    .filter(n => !toegestaneModulesLijst || toegestaneModulesLijst.includes(n.id) || n.isReview);
 
   const tekstK      = isDark ? "#e8e8e8" : "#1a1a1a";
   const gebruikersnaam = isDemoMode ? "Demo modus" : huidigUser?.naam;
@@ -10681,6 +11826,7 @@ export default function App() {
         ::-webkit-scrollbar-thumb:hover { background: ${isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.25)"}; }
       `}</style>
 
+      {betalingResultaatPopup}
       {isDemoMode && <DemoBanner onUitloggen={logout} fs={fs} T={T} />}
 
       {/* API foutmelding banner */}
@@ -10720,7 +11866,15 @@ export default function App() {
               {mobielMenuOpen ? "✕" : "☰"}
               <span style={{ fontSize:fs }}>{nav.find(n=>n.id===pagina)?.icon} {nav.find(n=>n.id===pagina)?.label}</span>
             </button>
-            <h1 style={{ margin:0, fontSize:fs+2, fontWeight:500, color:kleur.hoofd, flexShrink:0 }}>DenCRM</h1>
+            <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+              <h1 style={{ margin:0, fontSize:fs+2, fontWeight:500, color:kleur.hoofd }}>DenCRM</h1>
+              <button onClick={()=>setHandleidingOpen(true)} title="Handleiding"
+                style={{ borderRadius:99, border:`1px solid ${kleur.hoofd}`, padding:"3px 10px",
+                  background:"none", color:kleur.hoofd, cursor:"pointer", fontSize:fs-4, fontWeight:600,
+                  display:"flex", alignItems:"center", justifyContent:"center", whiteSpace:"nowrap" }}>
+                Handleiding
+              </button>
+            </div>
           </div>
         )}
 
@@ -10737,7 +11891,15 @@ export default function App() {
           overflowY: isMobiel ? "auto" : "hidden", zIndex: isMobiel ? 90 : "auto" }}>
           {!isMobiel && (
             <div style={{ marginBottom:"2rem", paddingBottom:"1.25rem", borderBottom:`1px solid ${isDark?"rgba(255,255,255,0.08)":"rgba(0,0,0,0.06)"}`, flexShrink:0 }}>
-              <h1 style={{ margin:0, fontSize:fs+6, fontWeight:700, color:kleur.hoofd, letterSpacing:"-0.02em" }}>DenCRM</h1>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <h1 style={{ margin:0, fontSize:fs+6, fontWeight:700, color:kleur.hoofd, letterSpacing:"-0.02em" }}>DenCRM</h1>
+                <button onClick={()=>setHandleidingOpen(true)} title="Handleiding"
+                  style={{ borderRadius:99, border:`1.5px solid ${kleur.hoofd}`, padding:"3px 12px",
+                    background:"none", color:kleur.hoofd, cursor:"pointer", fontSize:fs-3, fontWeight:600,
+                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, whiteSpace:"nowrap" }}>
+                  Handleiding
+                </button>
+              </div>
               <p style={{ margin:"3px 0 0", fontSize:fs-2, color:isDark?"rgba(255,255,255,0.45)":"#8a8f98" }}>
                 {actieveKlanten.length} klanten · {actieveProducten.length} producten
               </p>
@@ -10769,14 +11931,9 @@ export default function App() {
               lidmaatschapTot={huidigUser?.lidmaatschap_tot} isAdmin={huidigUser?.is_admin || isDemoMode}
               isGekoppeld={!!huidigUser?.hoofdgebruiker_id}
               toegestaneModules={huidigUser?.toegestane_modules ? huidigUser.toegestane_modules.split(',') : null}
-              onOpenKoppelAccounts={()=>{ setInstellOpen(false); setProfielOpen(false); setKoppelAccountsOpen(true); }}
               user={huidigUser}
               initialTab={profielOpen ? "profiel" : "weergave"}
               onClose={()=>{ setInstellOpen(false); setProfielOpen(false); }} />
-          )}
-
-          {koppelAccountsOpen && !isDemoMode && (
-            <KoppelAccountsPanel kleur={kleur} fs={fs} onClose={()=>setKoppelAccountsOpen(false)} />
           )}
 
           <div style={{ borderTop:`0.5px solid ${isDark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.1)"}`, paddingTop:8, marginTop:8, flexShrink:0 }}>
@@ -10834,15 +11991,21 @@ export default function App() {
           {pagina==="agenda"     && <AgendaPage    klanten={actieveKlanten} agenda={actieveAgenda} setAgenda={setAgenda} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} instellingen={instellingen} updateInstelling={updateInstelling} />}
           {pagina==="offertes"   && <OffertesPage  klanten={actieveKlanten} setKlanten={setKlanten} producten={actieveProducten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} instellingen={instellingen} updateInstelling={updateInstelling} offertePrefill={offertePrefill} setOffertePrefill={setOffertePrefill} />}
           {pagina==="pakbonnen"  && <PakbonnenPage klanten={actieveKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} T={T} isMobiel={isMobiel} />}
-          {pagina==="financieel" && <FinancieelPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} />}
+          {pagina==="kilometers" && <KilometersPage klanten={actieveKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} T={T} isMobiel={isMobiel} instellingen={instellingen} updateInstelling={updateInstelling} />}
+          {pagina==="financieel" && <FinancieelPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} instellingen={instellingen} updateInstelling={updateInstelling} />}
           {pagina==="kassa"      && <KassaPage producten={actieveProducten} klanten={actieveKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} instellingen={instellingen} updateInstelling={updateInstelling} isMobiel={isMobiel} />}
           {pagina==="werkbonnen" && <WerkbonnenPage klanten={actieveKlanten} setKlanten={setKlanten} kleur={kleur} fs={fs} isDemoMode={isDemoMode} herlaad={laadAlleData} T={T} isMobiel={isMobiel} setPagina={setPagina} setOffertePrefill={setOffertePrefill} />}
-          {pagina==="declaraties" && <DeclaratiesPage kleur={kleur} fs={fs} isDemoMode={isDemoMode} T={T} isMobiel={isMobiel} />}
+          {pagina==="declaraties" && <DeclaratiesPage kleur={kleur} fs={fs} isDemoMode={isDemoMode} T={T} isMobiel={isMobiel} instellingen={instellingen} updateInstelling={updateInstelling} />}
           {pagina==="contact"    && <ContactPage huidigUser={huidigUser} kleur={kleur} fs={fs} T={T} />}
           {pagina==="gebruikers" && !isDemoMode && huidigUser?.is_admin && <GebruikersBeheer users={[]} setUsers={()=>{}} kleur={kleur} fs={fs} T={T} huidigUserId={huidigUser?.id} />}
           {pagina==="support"    && !isDemoMode && huidigUser?.is_admin && <SupportInboxPage kleur={kleur} fs={fs} />}
         </main>
       </div>
+
+      {/* ── Handleiding ── */}
+      {handleidingOpen && (
+        <HandleidingModal kleur={kleur} fs={fs} onClose={()=>setHandleidingOpen(false)} huidigePagina={pagina} />
+      )}
 
       {/* ── Welkomstmelding bij eerste login ── */}
       {welkomModal && !isDemoMode && (
@@ -10871,6 +12034,122 @@ export default function App() {
 }
 
 // ── REVIEW MODAL ──────────────────────────────────────────────
+// ── HANDLEIDING ────────────────────────────────────────────────────────────
+function HandleidingModal({ kleur, fs, onClose, huidigePagina }) {
+  const GELDIGE_SECTIES = ["kassa","werkbonnen","klanten","producten","agenda","kilometers","offertes","pakbonnen","financieel","declaraties","contact"];
+  const [open, setOpen] = useState(GELDIGE_SECTIES.includes(huidigePagina) ? huidigePagina : "kassa");
+
+  const SECTIES = [
+    { id:"kassa", icon:"🧾", titel:"Kassa", inhoud: [
+      "Klik op een product om het aan de winkelwagen toe te voegen. Aantal en prijs zijn achteraf nog aan te passen.",
+      "Gebruik het zoekveld of de categorieknoppen bovenaan om snel het juiste product te vinden.",
+      "Via ⚙ Instellingen (rechtsboven) kunt u zelf kiezen of de dagomzet-balk, de kortingsmogelijkheid en de BTW-schakelaar zichtbaar zijn.",
+      "Na het afronden van een verkoop kunt u de kassabon direct afdrukken; deze toont automatisch uw bedrijfsnaam, adres en logo (indien ingesteld).",
+    ]},
+    { id:"werkbonnen", icon:"🔧", titel:"Werkbonnen & Reparaties", inhoud: [
+      "Maak een werkbon aan voor een klus of reparatie: koppel een klant, beschrijf de klacht/opdracht, en voeg onderdelen met aantal en prijs toe.",
+      "De status van een werkbon doorloopt: Nieuw → In behandeling → Wacht op onderdelen → Klaar → Afgeleverd.",
+      "Zodra een werkbon op 'Klaar' of 'Afgeleverd' staat, kunt u 'm met één klik omzetten naar een factuur — de klant en onderdelen worden automatisch overgenomen naar stap 3 van de facturenwizard, waar u nog producten kunt toevoegen vóórdat de factuur echt wordt aangemaakt.",
+      "Is een werkbon al omgezet naar een factuur, dan ziet u dat direct terug als een 🧾-badge bovenaan de werkbon.",
+    ]},
+    { id:"klanten", icon:"👥", titel:"Klanten", inhoud: [
+      "Beheer hier al uw klantgegevens: naam, e-mailadres, telefoonnummer en adres.",
+      "Aan een klant kunnen ook specifieke producten gekoppeld worden, handig als een klant altijd dezelfde artikelen afneemt.",
+      "Vanuit een klantprofiel ziet u in één overzicht de geschiedenis: offertes, facturen en werkbonnen van die klant.",
+    ]},
+    { id:"producten", icon:"📦", titel:"Producten", inhoud: [
+      "Beheer hier uw volledige productcatalogus met naam, verkoopprijs, beschrijving en categorie.",
+      "Via ⚙ Instellingen kunt u voorraadbeheer aan- of uitzetten, en kiezen of het inkoopprijsveld zichtbaar is.",
+      "Staan zowel voorraad als inkoopprijs aan, dan ziet u in datzelfde instellingenscherm automatisch de actuele 'magazijnwaarde' (voorraad × inkoopprijs, opgeteld over alle producten).",
+      "Producten met een ingevulde voorraad tonen dit ook als klein label in de kassa.",
+    ]},
+    { id:"agenda", icon:"📅", titel:"Agenda", inhoud: [
+      "Vier weergaven beschikbaar: Dag, Week, Werkweek en Lijst — te kiezen bovenaan de pagina.",
+      "Een afspraak inplannen kan met of zonder gekoppelde klant; klik in een leeg tijdvak om snel een nieuwe afspraak te maken.",
+      "Via ⚙ Agenda-instellingen (het tandwiel-icoon) regelt u: welke werknemers er zijn, de instellingen voor online boeken door klanten, de beschikbare afspraaktypes, uw werkweek (dagen/tijden), en het inplannen van een 'Vakantie' — een meerdaagse periode die automatisch alle online boekingen blokkeert.",
+      "Bij Online boeken kunt u een openbare boekingspagina activeren waar klanten zelf, buiten uw eigen agenda om, een afspraak kunnen inplannen binnen de tijden die u beschikbaar heeft gesteld.",
+    ]},
+    { id:"kilometers", icon:"🚗", titel:"Kilometerregistratie", inhoud: [
+      "Leg per rit vast: datum, vertrek- en bestemmingsadres, het aantal kilometers (enkele reis), en optioneel een 'retour'-vinkje dat het aantal automatisch verdubbelt.",
+      "Gebruik het 🏠 Thuisadres-knopje onder het 'Van'- of 'Naar'-veld om uw eigen (in te stellen) thuisadres met één klik in te vullen.",
+      "Via ⚙ Instellingen stelt u zowel uw thuisadres als de kilometervergoeding (€ per km) in — controleer regelmatig het actuele fiscale tarief op belastingdienst.nl.",
+      "Elke rit onthoudt het tarief van het moment van invoer, zodat uw overzicht historisch klopt, ook als het tarief later wijzigt.",
+      "De vergoeding van uw ritten telt automatisch mee als aftrekpost in het Belastingoverzicht (onder Financieel).",
+    ]},
+    { id:"offertes", icon:"📄", titel:"Offertes & Facturen", inhoud: [
+      "De wizard doorloopt 4 stappen: (1) type kiezen — offerte of factuur, (2) klant kiezen of nieuw aanmaken, (3) producten/regels toevoegen, (4) tekst controleren en versturen.",
+      "Bij stap 2 kunt u ook een geheel nieuwe klant aanmaken zonder de wizard te verlaten.",
+      "Bij stap 4 regelt u via de knop '⚙ Verstuur-instellingen' hoe de mail verstuurd wordt (via DenCRM of uw eigen mailpakket) en of u zelf in de CC wilt staan.",
+      "Sla eigen tekst-templates op om niet steeds opnieuw dezelfde offertetekst te hoeven typen.",
+      "Een bestaand offerte- of factuurdocument (bijvoorbeeld al gemaakt in een ander programma) kan ook als PDF geïmporteerd worden, inclusief het al bekende totaalbedrag.",
+      "Facturen die u als betaald markeert vragen om een betaaldatum; deze datum wordt gebruikt in het Belastingoverzicht.",
+    ]},
+    { id:"pakbonnen", icon:"🚚", titel:"Pakbonnen", inhoud: [
+      "Een pakbon is een leveringsdocument zonder prijzen — puur voor wat er wordt afgeleverd.",
+      "U kunt een pakbon volledig handmatig opstellen, of 'm laten vullen op basis van een bestaande offerte/factuur.",
+      "Het afleveradres bestaat uit losse velden (straat, postcode, plaats) zodat dit altijd nette, uitgesplitste gegevens blijven.",
+      "Status Onderweg/Afgeleverd, met eventueel de naam van de ontvanger bij aflevering.",
+    ]},
+    { id:"financieel", icon:"💶", titel:"Financieel overzicht", inhoud: [
+      "Overzichtskaarten tonen: totaal gefactureerd, betaald bedrag, nog openstaand, kassaomzet en kosten (declaraties + afschrijvingen).",
+      "Via ⚙ Instellingen regelt u onder andere: automatisch belastingoverzicht, automatisch rapporten mailen, of kassabonnen/declaraties meetellen, na hoeveel dagen een factuur automatisch vervalt, en een automatische betalingsherinnering (stuurt één keer een vriendelijke herinneringsmail als een offerte/factuur na de ingestelde periode nog niet betaald is).",
+      "Het Belastingoverzicht (los te openen) geeft een periodieke samenvatting inclusief BTW-saldo, afschrijvingen en kilometervergoeding — handig als basis voor uw belastingaangifte.",
+    ]},
+    { id:"declaraties", icon:"🧮", titel:"Declaraties & Boekhouding", inhoud: [
+      "Leg hier uw zakelijke kosten/declaraties vast, met categorie, bedrag (excl./incl. BTW) en eventueel een bijlage (bonnetje/factuur).",
+      "Terugkerende kosten (bijvoorbeeld een abonnement) kunnen als 'terugkerend' ingesteld worden — wekelijks, maandelijks of jaarlijks — zodat ze automatisch opnieuw worden aangemaakt.",
+      "Via ⚙ Instellingen en bank kunt u: uw bankrekening koppelen (zie hieronder), declaraties rechtstreeks uit een CSV van uw bank importeren, en de standaard zichtbare periode instellen (alles/afgelopen week/maand/kwartaal/jaar).",
+      "Bankkoppeling: koppel uw bankrekening via Ponto, zodat nieuwe transacties automatisch worden opgehaald. Let op: Ponto rekent hiervoor rechtstreeks bij u een kleine vergoeding per maand — dit staat los van uw DenCRM-abonnement.",
+      "Onder het tabblad 'Bedrijfsmiddelen & afschrijvingen' registreert u grotere aankopen die u over meerdere jaren afschrijft.",
+    ]},
+    { id:"contact", icon:"💬", titel:"Contact", inhoud: [
+      "Stuur hier rechtstreeks een bericht naar de DenCRM-support als u vragen heeft, tegen een probleem aanloopt, of een suggestie wilt delen.",
+    ]},
+  ];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:5000,
+      display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
+      onClick={e=>e.target===e.currentTarget && onClose()}>
+      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:680,
+        maxHeight:"85vh", overflowY:"auto", boxShadow:"0 16px 48px rgba(0,0,0,0.25)", padding:"1.75rem" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"0.5rem" }}>
+          <h2 style={{ margin:0, fontSize:20 }}>📖 Handleiding DenCRM</h2>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:22, color:"#666" }}>×</button>
+        </div>
+        <p style={{ margin:"0 0 1.25rem", fontSize:fs-1, color:"#666" }}>
+          Een kort overzicht van wat u op elke pagina kunt doen. Klik op een onderdeel om het uit te klappen.
+        </p>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {SECTIES.map(s => (
+            <div key={s.id} style={{ border:"1px solid #eee", borderRadius:10, overflow:"hidden" }}>
+              <button onClick={()=>setOpen(open===s.id ? null : s.id)}
+                style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+                  padding:"12px 14px", background: open===s.id ? kleur.licht : "#fafafa",
+                  border:"none", cursor:"pointer", textAlign:"left" }}>
+                <span style={{ fontSize:fs, fontWeight:600, color: open===s.id ? kleur.donker : "#333" }}>
+                  {s.icon} {s.titel}
+                </span>
+                <span style={{ color:"#999" }}>{open===s.id ? "▲" : "▼"}</span>
+              </button>
+              {open===s.id && (
+                <ul style={{ margin:0, padding:"12px 18px 14px 34px", fontSize:fs-1, color:"#444", lineHeight:1.7 }}>
+                  {s.inhoud.map((p,i) => <li key={i} style={{ marginBottom:4 }}>{p}</li>)}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
+          <Btn onClick={onClose} kleur={kleur} fs={fs}>Sluiten</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReviewModal({ huidigUser, kleur, fs, onClose, onGeplaatst, onGeweigerd }) {
   const [sterren, setSterren] = useState(0);
   const [hoverSter, setHoverSter] = useState(0);
