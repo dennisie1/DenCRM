@@ -1874,6 +1874,93 @@ function OverOnsPagina({ kleur }) {
   );
 }
 
+// ── Geanimeerde mini-demo op de landingspagina: simuleert iemand die live in de
+// kassa-module van DenCRM werkt (nagebootste cursor die klikt, bon die vult) ──
+function LevendeAppDemo({ kleur }) {
+  const PRODUCTEN = [
+    { naam:"☕ Koffie",      prijs:2.80, top:14,  left:14  },
+    { naam:"🥐 Broodje",     prijs:4.50, top:14,  left:132 },
+    { naam:"📰 Krant",       prijs:2.20, top:78,  left:14  },
+    { naam:"💧 Water",       prijs:1.75, top:78,  left:132 },
+  ];
+  const AANTAL_STAPPEN = PRODUCTEN.length + 2; // + korte pauze aan begin en eind
+  const [stap, setStap] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStap(s => (s + 1) % (AANTAL_STAPPEN + 1)); // extra stap = volledig reset-moment
+    }, 1100);
+    return () => clearInterval(interval);
+  }, []);
+
+  const geklikt = Math.max(0, Math.min(PRODUCTEN.length, stap - 1)); // hoeveel producten al "geklikt" zijn
+  const actief = stap >= 1 && stap <= PRODUCTEN.length ? PRODUCTEN[stap - 1] : null;
+  const totaal = PRODUCTEN.slice(0, geklikt).reduce((s,p) => s + p.prijs, 0);
+  const cursorDoel = actief || PRODUCTEN[0];
+
+  return (
+    <div style={{ background:"#1c2430", borderRadius:16, border:"1px solid rgba(255,255,255,0.12)",
+      boxShadow:"0 30px 80px rgba(0,0,0,0.45)", overflow:"hidden", width:"100%", maxWidth:440 }}>
+
+      {/* Venster-balk */}
+      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 14px", background:"#151b24" }}>
+        <span style={{ width:10, height:10, borderRadius:"50%", background:"#e0605a" }} />
+        <span style={{ width:10, height:10, borderRadius:"50%", background:"#e0b25a" }} />
+        <span style={{ width:10, height:10, borderRadius:"50%", background:"#5ac47a" }} />
+        <span style={{ marginLeft:8, fontSize:11, color:"rgba(255,255,255,0.4)" }}>dencrm.nl — Kassa</span>
+      </div>
+
+      <div style={{ display:"flex" }}>
+        {/* Nagebootste zijbalk */}
+        <div style={{ width:44, background:"#161d27", padding:"12px 0", display:"flex", flexDirection:"column",
+          alignItems:"center", gap:16 }}>
+          {["🧾","🔧","👥","📅","📄"].map((ic,i) => (
+            <span key={i} style={{ fontSize:15, opacity: i===0 ? 1 : 0.35 }}>{ic}</span>
+          ))}
+        </div>
+
+        {/* Hoofdgedeelte: productraster + cursor */}
+        <div style={{ position:"relative", flex:1, padding:14, minHeight:150 }}>
+          {PRODUCTEN.map((p, i) => (
+            <div key={p.naam} style={{ position:"absolute", top:p.top, left:p.left, width:104, height:52,
+              borderRadius:9, background: i < geklikt ? `${kleur.hoofd}33` : "rgba(255,255,255,0.06)",
+              border: `1px solid ${i < geklikt ? kleur.hoofd : "rgba(255,255,255,0.12)"}`,
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              transition:"background 0.3s, border-color 0.3s", fontSize:11, color:"#fff" }}>
+              <span>{p.naam}</span>
+              <span style={{ opacity:0.6, fontSize:10 }}>€{p.prijs.toFixed(2)}</span>
+            </div>
+          ))}
+          {/* Nagebootste cursor */}
+          <div style={{ position:"absolute", top: cursorDoel.top + 18, left: cursorDoel.left + 44,
+            fontSize:18, transition:"top 0.6s cubic-bezier(.4,0,.2,1), left 0.6s cubic-bezier(.4,0,.2,1)",
+            filter:"drop-shadow(0 2px 4px rgba(0,0,0,0.4))",
+            transform: actief ? "scale(0.85)" : "scale(1)" }}>
+            👆
+          </div>
+        </div>
+
+        {/* Nagebootste bon */}
+        <div style={{ width:120, background:"#161d27", padding:"12px 10px", display:"flex", flexDirection:"column", gap:6 }}>
+          <p style={{ margin:"0 0 4px", fontSize:10, color:"rgba(255,255,255,0.4)", fontWeight:600, letterSpacing:"0.05em" }}>BON</p>
+          {PRODUCTEN.slice(0, geklikt).map(p => (
+            <div key={p.naam} style={{ fontSize:10, color:"rgba(255,255,255,0.75)", display:"flex", justifyContent:"space-between",
+              animation:"lpFadeIn 0.3s ease" }}>
+              <span>{p.naam.split(" ")[0]}</span>
+              <span>€{p.prijs.toFixed(2)}</span>
+            </div>
+          ))}
+          <div style={{ marginTop:"auto", paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.12)",
+            display:"flex", justifyContent:"space-between" }}>
+            <span style={{ fontSize:10, color:"#fff", fontWeight:700 }}>Totaal</span>
+            <span style={{ fontSize:10, color:kleur.hoofd, fontWeight:700 }}>€{totaal.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
   const T = VERTALINGEN[taal] || VERTALINGEN.nl;
   const [toonLanding, setToonLanding] = useState(true);
@@ -2009,7 +2096,14 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
 
           {/* Header */}
           <div className="lp-fade" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"3rem" }}>
-            <h1 style={{ margin:0, fontSize:26, fontWeight:700, color:"#fff", letterSpacing:"-0.02em" }}>DenCRM</h1>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ background:"rgba(255,255,255,0.95)", borderRadius:10, padding:"4px 8px",
+                display:"flex", alignItems:"center" }}>
+                <img src="/afbeeldingen/dencrm.png" alt="DenCRM" style={{ height:28, objectFit:"contain", display:"block" }}
+                  onError={e=>{ e.target.parentElement.style.display="none"; }} />
+              </div>
+              <h1 style={{ margin:0, fontSize:22, fontWeight:700, color:"#fff", letterSpacing:"-0.02em" }}>DenCRM</h1>
+            </div>
             <div style={{ display:"flex", gap:8 }}>
               <button onClick={onDemo}
                 style={{ padding:"9px 16px", borderRadius:10, border:"1px solid rgba(255,255,255,0.3)",
@@ -2029,37 +2123,45 @@ function LoginPage({ onLogin, onDemo, kleur, taal, setTaal }) {
           </div>
 
           {/* Hero */}
-          <div className="lp-fade" style={{ textAlign:"center", marginBottom:"3.5rem", animationDelay:"0.1s" }}>
-            <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 16px", borderRadius:99,
-              background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", marginBottom:"1.25rem" }}>
-              <span style={{ width:7, height:7, borderRadius:"50%", background:"#3ba05f", flexShrink:0,
-                boxShadow:"0 0 0 3px rgba(59,160,95,0.25)" }} />
-              <span style={{ fontSize:12.5, color:"rgba(255,255,255,0.85)", fontWeight:500 }}>Gemaakt in Nederland, voor Nederlandse ondernemers</span>
+          <div className="lp-fade" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"3rem",
+            flexWrap:"wrap", marginBottom:"3.5rem", animationDelay:"0.1s" }}>
+
+            <div style={{ flex:"1 1 480px", maxWidth:560, textAlign:"center" }}>
+              <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 16px", borderRadius:99,
+                background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", marginBottom:"1.25rem" }}>
+                <span style={{ width:7, height:7, borderRadius:"50%", background:"#3ba05f", flexShrink:0,
+                  boxShadow:"0 0 0 3px rgba(59,160,95,0.25)" }} />
+                <span style={{ fontSize:12.5, color:"rgba(255,255,255,0.85)", fontWeight:500 }}>Gemaakt in Nederland, voor Nederlandse ondernemers</span>
+              </div>
+              <h2 style={{ margin:"0 0 1rem", fontSize:"clamp(28px, 5vw, 46px)", fontWeight:800, color:"#fff", lineHeight:1.15, letterSpacing:"-0.02em" }}>
+                DenCRM — de alles-in-één tool<br/>voor de kleine ondernemer!
+              </h2>
+              <p style={{ margin:"0 auto 1.75rem", maxWidth:520, fontSize:17, color:"rgba(255,255,255,0.75)", lineHeight:1.6 }}>
+                Gemaakt voor ZZP'ers en kleine winkels/bedrijven in Nederland. Alles op één plek,
+                zonder losse abonnementen voor kassa, agenda en boekhouding apart.
+              </p>
+              <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
+                <button className="lp-cta" onClick={()=>{ setToonLanding(false); setRegModal(true); }}
+                  style={{ padding:"14px 28px", borderRadius:12, border:"none",
+                    background:kleur.hoofd, color:"#fff", cursor:"pointer", fontSize:16, fontWeight:700 }}>
+                  🎁 Start gratis — eerste maand cadeau
+                </button>
+                <button onClick={onDemo}
+                  style={{ padding:"14px 24px", borderRadius:12, border:"1px solid rgba(255,255,255,0.3)",
+                    background:"transparent", color:"#fff", cursor:"pointer", fontSize:16, fontWeight:500, transition:"background 0.2s" }}
+                  onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  Bekijk eerst de demo
+                </button>
+              </div>
+              <p style={{ margin:"1rem 0 0", fontSize:12.5, color:"rgba(255,255,255,0.45)" }}>
+                ✓ Geen creditcard nodig &nbsp;·&nbsp; ✓ Binnen 2 minuten aan de slag &nbsp;·&nbsp; ✓ Nederlandse support
+              </p>
             </div>
-            <h2 style={{ margin:"0 0 1rem", fontSize:"clamp(28px, 5vw, 46px)", fontWeight:800, color:"#fff", lineHeight:1.15, letterSpacing:"-0.02em" }}>
-              Eén CRM voor kassa, agenda,<br/>facturatie en boekhouding
-            </h2>
-            <p style={{ margin:"0 auto 1.75rem", maxWidth:600, fontSize:17, color:"rgba(255,255,255,0.75)", lineHeight:1.6 }}>
-              Gemaakt voor ZZP'ers en kleine winkels/bedrijven in Nederland. Alles op één plek,
-              zonder losse abonnementen voor kassa, agenda en boekhouding apart.
-            </p>
-            <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
-              <button className="lp-cta" onClick={()=>{ setToonLanding(false); setRegModal(true); }}
-                style={{ padding:"14px 28px", borderRadius:12, border:"none",
-                  background:kleur.hoofd, color:"#fff", cursor:"pointer", fontSize:16, fontWeight:700 }}>
-                🎁 Start gratis — eerste maand cadeau
-              </button>
-              <button onClick={onDemo}
-                style={{ padding:"14px 24px", borderRadius:12, border:"1px solid rgba(255,255,255,0.3)",
-                  background:"transparent", color:"#fff", cursor:"pointer", fontSize:16, fontWeight:500, transition:"background 0.2s" }}
-                onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}
-                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                Bekijk eerst de demo
-              </button>
+
+            <div style={{ flex:"1 1 360px", display:"flex", justifyContent:"center" }}>
+              <LevendeAppDemo kleur={kleur} />
             </div>
-            <p style={{ margin:"1rem 0 0", fontSize:12.5, color:"rgba(255,255,255,0.45)" }}>
-              ✓ Geen creditcard nodig &nbsp;·&nbsp; ✓ Binnen 2 minuten aan de slag &nbsp;·&nbsp; ✓ Nederlandse support
-            </p>
           </div>
 
           {/* Functies */}
@@ -2734,6 +2836,25 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T, huidigUserId }) {
     } catch(e) { alert("Bijwerken mislukt: "+e.message); }
   }
 
+  const [geschiedenisModal, setGeschiedenisModal] = useState(null); // gebruiker object of null
+  const [geschiedenis, setGeschiedenis] = useState([]);
+  const [geschiedenisLaden, setGeschiedenisLaden] = useState(false);
+  async function toonGeschiedenis(u) {
+    setGeschiedenisModal(u);
+    setGeschiedenisLaden(true);
+    try { setGeschiedenis(await API.haalLidmaatschapGeschiedenisOp(u.id)); }
+    catch(e) { alert("Ophalen geschiedenis mislukt: "+e.message); }
+    finally { setGeschiedenisLaden(false); }
+  }
+
+  const BRON_LABELS = {
+    registratie: { label:"🎁 Gratis proefmaand bij registratie", kleur:"#185FA5" },
+    betaling: { label:"💳 Betaling via Mollie", kleur:"#27500a" },
+    account_koppelen: { label:"🔗 Overgenomen bij koppelen account", kleur:"#7a5fb5" },
+    admin: { label:"🔧 Handmatig door admin", kleur:"#a36b00" },
+    onbekend: { label:"Onbekend", kleur:"#888" },
+  };
+
   async function toggleBlokkeren(u) {
     const blokkeren = u.is_actief; // als hij nu actief is, gaan we blokkeren
     if (blokkeren && !confirm(`${u.naam} blokkeren? Deze gebruiker kan dan niet meer inloggen, maar alle data blijft bewaard.`)) return;
@@ -2820,6 +2941,11 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T, huidigUserId }) {
                     {opt.l}
                   </button>
                 ))}
+                <button onClick={()=>toonGeschiedenis(u)}
+                  style={{ padding:"4px 10px", borderRadius:6, border:"1px solid var(--color-border-secondary)",
+                    background:"var(--color-background-primary)", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:fs-3 }}>
+                  📜 Geschiedenis
+                </button>
 
                 {u.id !== huidigUserId && (
                   <>
@@ -2871,11 +2997,46 @@ function GebruikersBeheer({ users, setUsers, kleur, fs, T, huidigUserId }) {
           </div>
         </Modal>
       )}
+      {geschiedenisModal && (
+        <Modal title={`📜 Lidmaatschap-geschiedenis — ${geschiedenisModal.naam}`} onClose={()=>setGeschiedenisModal(null)} fs={fs}>
+          {geschiedenisLaden ? (
+            <p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>Laden…</p>
+          ) : geschiedenis.length === 0 ? (
+            <p style={{ color:"var(--color-text-secondary)", fontSize:fs }}>Nog geen wijzigingen geregistreerd.</p>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:"50vh", overflowY:"auto" }}>
+              {geschiedenis.map(h => {
+                const bron = BRON_LABELS[h.bron] || BRON_LABELS.onbekend;
+                return (
+                  <div key={h.id} style={{ padding:"10px 14px", borderRadius:10, background:"var(--color-background-secondary)" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                      <span style={{ fontSize:fs-2, fontWeight:600, color:bron.kleur }}>{bron.label}</span>
+                      <span style={{ fontSize:fs-3, color:"var(--color-text-secondary)" }}>
+                        {new Date(h.aangemaakt_op).toLocaleString("nl-NL")}
+                      </span>
+                    </div>
+                    <p style={{ margin:0, fontSize:fs-1 }}>
+                      {h.vorige_datum ? `${h.vorige_datum} → ` : ""}<strong>{h.nieuwe_datum}</strong>
+                    </p>
+                    {h.trigger_naam && <p style={{ margin:"2px 0 0", fontSize:fs-3, color:"var(--color-text-secondary)" }}>Door: {h.trigger_naam}</p>}
+                    {h.factuurnummer && (
+                      <p style={{ margin:"2px 0 0", fontSize:fs-3, color:"var(--color-text-secondary)" }}>
+                        {h.factuurnummer} · {h.periode_maanden} maand(en) · €{parseFloat(h.betaling_bedrag).toLocaleString("nl-NL",{minimumFractionDigits:2})}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"1.25rem" }}>
+            <Btn onClick={()=>setGeschiedenisModal(null)} fs={fs}>Sluiten</Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
-
-// ── KLANTEN ──────────────────────────────────────────────────────────────────
 function KlantenPage({ klanten, setKlanten, producten, agenda, werkbonnen, kassaBonnen, kleur, fs, isDemoMode, herlaad, T, isMobiel }) {
   const [zoek, setZoek] = useState("");
   const [modal, setModal] = useState(null);

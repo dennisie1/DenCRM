@@ -221,6 +221,9 @@ export async function updateGebruikerLidmaatschap(id, data) {
 export async function verwijderGebruiker(id) {
   return apiFetch(`/gebruikers/${id}`, { method: 'DELETE' });
 }
+export async function haalLidmaatschapGeschiedenisOp(gebruikerId) {
+  return apiFetch(`/gebruikers/${gebruikerId}/lidmaatschap-geschiedenis`);
+}
 export async function blokkeerGebruiker(id, blokkeren) {
   return apiFetch(`/gebruikers/${id}`, { method: 'PATCH', body: { is_actief: !blokkeren } });
 }
